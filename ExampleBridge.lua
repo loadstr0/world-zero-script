@@ -2,6 +2,9 @@
 --
 -- Replace both URLs after publishing the folder to a raw-file host.
 
+print("")
+print("[WorldZero] ========== INITIALIZATION START ==========")
+
 getgenv().WorldZeroBase = "https://raw.githubusercontent.com/loadstr0/world-zero-script/main/"
 
 getgenv().WorldZeroBridge = {
@@ -28,3 +31,6 @@ local loaderUrl = getgenv().WorldZeroBase
 	.. tostring(math.random(1000, 9999))
 
 loadstring(game:HttpGet(loaderUrl))()
+
+print("[WorldZero] =========== INITIALIZATION END ===========")
+print("")

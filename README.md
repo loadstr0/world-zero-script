@@ -104,6 +104,8 @@ loadstring(game:HttpGet(
 ))()
 ```
 
+Bootstrap prints labeled `INITIALIZATION START` and `INITIALIZATION END` boundaries around all loader output.
+
 The repository must be public for this unauthenticated raw URL. Local research files and decompiled references are excluded by `.gitignore`.
 
 ## Configuration and updates

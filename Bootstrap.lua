@@ -1,6 +1,9 @@
 -- Single-file public entry point.
 -- Public entry point for loadstr0/world-zero-script.
 
+print("")
+print("[WorldZero] ========== INITIALIZATION START ==========")
+
 local env = getgenv()
 local defaultBase = "https://raw.githubusercontent.com/loadstr0/world-zero-script/main/"
 local base = env.WorldZeroBase or defaultBase
@@ -40,3 +43,6 @@ if env.WorldZeroCacheBust ~= false then
 end
 
 loadstring(game:HttpGet(loaderUrl))()
+
+print("[WorldZero] =========== INITIALIZATION END ===========")
+print("")
