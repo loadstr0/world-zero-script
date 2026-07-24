@@ -62,6 +62,33 @@ return function(ctx)
 		}
 	end
 
+	function Health.GetBarrier(character)
+		local module, resolveError = resolve()
+
+		if not module then
+			return nil, resolveError
+		end
+
+		if type(module.GetBarrier) ~= "function" then
+			return nil, "shared_health_missing_get_barrier"
+		end
+
+		character = character or GameContext.GetCharacter()
+
+		if not character then
+			return nil, "character_unavailable"
+		end
+
+		local ok, barrier = pcall(module.GetBarrier, module, character)
+		barrier = tonumber(barrier)
+
+		if not ok or not barrier then
+			return nil, "barrier_value_unavailable"
+		end
+
+		return barrier
+	end
+
 	function Health.Describe()
 		local module, resolveError = resolve()
 
@@ -72,6 +99,7 @@ return function(ctx)
 				and type(module.GetHealth) == "function"
 				and type(module.GetMaxHealth) == "function"
 				or false,
+			HasBarrierAccessor = module and type(module.GetBarrier) == "function" or false,
 		}
 	end
 

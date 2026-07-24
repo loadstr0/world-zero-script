@@ -58,6 +58,7 @@ World Zero Script/
 |       |-- IcefireMage.lua
 |       |-- Leviathan.lua
 |       |-- Mage.lua
+|       |-- MageOfLight.lua
 |       `-- Swordmaster.lua
 |-- UI/
 |   |-- Navigation.lua
@@ -77,6 +78,7 @@ World Zero Script/
 |   |   |-- IcefireMage.lua
 |   |   |-- Leviathan.lua
 |   |   |-- Mage.lua
+|   |   |-- MageOfLight.lua
 |   |   `-- Swordmaster.lua
 |   |-- Combat.lua
 |   |-- Farming.lua
@@ -120,13 +122,14 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Icefire Mage range-guarded elemental rotation and 11-event Meteor Crash
 - Leviathan recursive bubble chains, Sea Bubble healing, and invincible burst
 - Mage group-aware Arcane Wave and full-energy Arcane Ascension
+- Mage of Light health-safe Infused Orbs, healing, Barrier, and Grace
 - Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate buttons
 - Configurable attack-check interval
 - Sprint toggle
 - Mount and sheath buttons
 - Quick-item name input and use button
 
-Skill names and slots are available from `Shared.Skills`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, Guardian, Hunter, Icefire Mage, Leviathan, and Mage execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
+Skill names and slots are available from `Shared.Skills`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, Guardian, Hunter, Icefire Mage, Leviathan, Mage, and Mage of Light execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
 
 The supplied Greatsword module is also source-verified, but it is an unfinished non-damaging prototype: its only hit callback prints `HIT`, and it defines no class skills or Ultimate. The class-aware panel reports that limitation and deliberately does not expose fake automation.
 
