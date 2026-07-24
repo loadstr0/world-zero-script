@@ -57,6 +57,7 @@ return function(ctx)
 			State = state,
 			Game = ctx:Require("GameContext"),
 			Actions = ctx:Require("Actions"),
+			CombatAPI = ctx:Require("CombatAPI"),
 			Skills = ctx:Require("Skills"),
 			Swordmaster = ctx:Require("Swordmaster"),
 			Navigation = ctx:Require("Navigation"),

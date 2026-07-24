@@ -38,9 +38,11 @@ return function()
 				local target = runtime.Actions.GetNearestTarget(range)
 
 				if target and runtime.Actions.IsBusy() ~= true then
-					local ready = true
+					local minimumTargets = runtime.State:Get("Combat.MinimumTargets", 1)
+					local targetCount = runtime.CombatAPI.CountTargetsInRadius(range)
+					local ready = targetCount == nil or targetCount >= minimumTargets
 
-					if runtime.State:Get("Combat.AutoUnsheath", true) then
+					if ready and runtime.State:Get("Combat.AutoUnsheath", true) then
 						ready = runtime.Swordmaster.EnsureUnsheathed()
 					end
 
@@ -64,6 +66,7 @@ return function()
 	function Combat.Register(runtime)
 		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Combat)
 		local actions = runtime.Actions.Describe()
+		local combatAPI = runtime.CombatAPI.Describe()
 		local skillCatalog = runtime.Skills.Describe()
 		local selectedSkillSlot = "Primary"
 		local skillLabels = {}
@@ -105,6 +108,7 @@ return function()
 		runtime.State:Set("Combat.AutoUnsheath", true)
 		runtime.State:Set("Combat.SwordmasterSkill1", false)
 		runtime.State:Set("Combat.SwordmasterSkill2", false)
+		runtime.State:Set("Combat.MinimumTargets", 1)
 
 		runtime.UI:CreateSection(tab, "Targeting")
 		runtime.UI:CreateSlider(tab, "CombatTargetRange", {
@@ -126,6 +130,37 @@ return function()
 			CurrentValue = 0.2,
 			Callback = function(value)
 				runtime.State:Set("Combat.AimDuration", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatMinimumTargets", {
+			Name = "Minimum nearby targets",
+			Range = { 1, 10 },
+			Increment = 1,
+			CurrentValue = 1,
+			Callback = function(value)
+				runtime.State:Set("Combat.MinimumTargets", value)
+			end,
+		})
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Scan valid targets now",
+			Callback = function()
+				local count, scanError = runtime.CombatAPI.CountTargetsInRadius(
+					runtime.State:Get("Combat.TargetRange", 15)
+				)
+
+				if count == nil then
+					runtime.UI:Notify("Combat scan", "Scan failed: " .. tostring(scanError), 5, 0)
+					return
+				end
+
+				runtime.UI:Notify(
+					"Combat scan",
+					tostring(count) .. " server-valid target(s) are inside the selected radius.",
+					5,
+					0
+				)
 			end,
 		})
 
@@ -167,7 +202,7 @@ return function()
 		})
 
 		runtime.UI:CreateToggle(tab, "CombatAutoPrimary", {
-			Name = "Auto Swordmaster rotation",
+			Name = "Server-safe Swordmaster aura",
 			CurrentValue = false,
 			Callback = function(value)
 				runtime.State:Set("Combat.AutoPrimary", value)
@@ -207,6 +242,14 @@ return function()
 			tab,
 			"Verified behavior",
 			"Primary chains six swings and resets after 0.75s. Primary range is 10 studs; Crescent Strike can acquire a mob up to 50 studs away."
+		)
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Server validation",
+			combatAPI.Available
+					and "Shared.Combat is available. The server reconstructs hitboxes and rate-limits skill identifiers, so this aura uses normal Client.Actions skill execution."
+				or ("Shared.Combat unavailable: " .. tostring(combatAPI.Error))
 		)
 
 		runtime.UI:CreateButton(tab, {

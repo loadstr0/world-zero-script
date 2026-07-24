@@ -8,6 +8,8 @@
 - Experimental nearest-target Auto Primary
 - Swordmaster auto-unsheath and cooldown-aware Skill1/Skill2 rotation
 - Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate controls
+- Server-validated radius scan and minimum-target gating
+- Server-safe Swordmaster combat aura through normal skill execution
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
@@ -27,10 +29,9 @@ Planned controls:
 
 Required source:
 
-1. `ReplicatedStorage.Shared.Combat`
-2. `ReplicatedStorage.Shared.Mobs`
+1. `ReplicatedStorage.Shared.Mobs`
 
-Swordmaster's normal attack behavior is now verified. The existing rotation is still not considered a finished kill aura because target validation and mob enumeration remain unverified.
+Swordmaster behavior and server hitbox validation are now verified. The direct `AttackTarget` remote is explicitly flagged as autofarming, and invalid damage identifiers are recorded as Kill Aura before a delayed kick. Those trap paths are deliberately not exposed. `Shared.Mobs` is still required for boss and mob-name filters.
 
 ### Skill Aura / Rotation
 

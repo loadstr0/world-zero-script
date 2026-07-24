@@ -17,6 +17,7 @@ local MODULES = {
 	{ Key = "State", Path = "Core/State" },
 	{ Key = "GameContext", Path = "Game/Context" },
 	{ Key = "Actions", Path = "Game/Actions" },
+	{ Key = "CombatAPI", Path = "Game/Combat" },
 	{ Key = "Skills", Path = "Game/Skills" },
 	{ Key = "Swordmaster", Path = "Game/Swordmaster" },
 	{ Key = "Navigation", Path = "UI/Navigation" },

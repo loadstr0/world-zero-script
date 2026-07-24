@@ -36,6 +36,7 @@ World Zero Script/
 |   `-- State.lua
 |-- Game/
 |   |-- Actions.lua
+|   |-- Combat.lua
 |   |-- Swordmaster.lua
 |   |-- Skills.lua
 |   `-- Context.lua
@@ -71,6 +72,8 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Optional aim before primary attacks
 - Manual and automatic primary attacks
 - Swordmaster auto-unsheath and cooldown-aware Skill1/Skill2 rotation
+- Server-validated target scanning and minimum-target gating
+- Server-safe Swordmaster aura through normal skill execution
 - Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate buttons
 - Configurable attack-check interval
 - Sprint toggle
