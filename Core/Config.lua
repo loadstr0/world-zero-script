@@ -12,7 +12,7 @@ return function(ctx)
 			LoadingSubtitle = "Modular Rayfield build",
 			ShowText = "World Zero",
 			Theme = "Default",
-			ToggleUIKeybind = "K",
+			ToggleUIKeybind = "Z",
 			DisableRayfieldPrompts = false,
 			DisableBuildWarnings = false,
 		},

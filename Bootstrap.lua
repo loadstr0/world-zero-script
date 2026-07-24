@@ -20,7 +20,7 @@ env.WorldZeroBridge = env.WorldZeroBridge or {
 		LoadingTitle = "World Zero",
 		LoadingSubtitle = "Modular Rayfield build",
 		Theme = "Default",
-		ToggleUIKeybind = "K",
+		ToggleUIKeybind = "Z",
 	},
 	ConfigurationSaving = {
 		Enabled = true,
