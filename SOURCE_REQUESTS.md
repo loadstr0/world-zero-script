@@ -15,17 +15,18 @@
 - `ReplicatedStorage.Shared.Combat.Skillsets.Greatsword`
 - `ReplicatedStorage.Shared.Combat.Skillsets.Guardian`
 - `ReplicatedStorage.Shared.Combat.Skillsets.Hunter`
+- `ReplicatedStorage.Shared.Combat.Skillsets.IcefireMage`
 - `ReplicatedStorage.Shared.Combat.Skillsets.General`
 - `ReplicatedStorage.Shared.Combat`
 - `ReplicatedStorage.Shared.Profile`
 
-The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, Guardian, and Hunter have verified automation panels. Greatsword has a verified source-status panel, but its supplied module is an unfinished non-damaging prototype. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
+The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, Guardian, Hunter, and Icefire Mage have verified automation panels. Greatsword has a verified source-status panel, but its supplied module is an unfinished non-damaging prototype. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
 
 ## Next priority
 
 For class-aware UI coverage, send the currently equipped class first, followed by the remaining skillsets:
 
-- `IcefireMage`, `Leviathan`, `Mage`, `MageOfLight`, `MageOfShadows`
+- `Leviathan`, `Mage`, `MageOfLight`, `MageOfShadows`
 - `Necromancer`, `Paladin`, `Starbreaker`, `Stormcaller`, `Summoner`, `Warlord`
 
 Each path is `ReplicatedStorage.Shared.Combat.Skillsets.<ClassName>`.

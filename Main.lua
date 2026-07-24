@@ -73,6 +73,7 @@ return function(ctx)
 			Greatsword = ctx:Require("Greatsword"),
 			Guardian = ctx:Require("Guardian"),
 			Hunter = ctx:Require("Hunter"),
+			IcefireMage = ctx:Require("IcefireMage"),
 			Swordmaster = ctx:Require("Swordmaster"),
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),
