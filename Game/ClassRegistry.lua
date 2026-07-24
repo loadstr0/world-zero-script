@@ -20,6 +20,10 @@ return function(ctx)
 			AdapterKey = "Defender",
 			FeatureKey = "DefenderFeature",
 		},
+		Demon = {
+			AdapterKey = "Demon",
+			FeatureKey = "DemonFeature",
+		},
 		Swordmaster = {
 			AdapterKey = "Swordmaster",
 			FeatureKey = "SwordmasterFeature",

@@ -16,6 +16,7 @@
 - Assassin Shadow Cloak, Shadow Leap, Shadow Strike, and full-energy Ultimate rotation
 - Berserker Rage burst mode with Aggro Slam, eight-hit Giga Spin, and Fissure
 - Defender conditional party-heal automation with eight-hit Cyclone and Groundbreaker
+- Demon Prince burst mode with chained Scythe Throw and health-guarded Dark Binding
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload

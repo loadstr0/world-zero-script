@@ -40,6 +40,7 @@ World Zero Script/
 |   |-- Combat.lua
 |   |-- Context.lua
 |   |-- Energy.lua
+|   |-- Health.lua
 |   |-- Profile.lua
 |   |-- Skills.lua
 |   `-- Classes/
@@ -47,6 +48,7 @@ World Zero Script/
 |       |-- Archer.lua
 |       |-- Berserker.lua
 |       |-- Defender.lua
+|       |-- Demon.lua
 |       `-- Swordmaster.lua
 |-- UI/
 |   |-- Navigation.lua
@@ -57,6 +59,7 @@ World Zero Script/
 |   |   |-- Archer.lua
 |   |   |-- Berserker.lua
 |   |   |-- Defender.lua
+|   |   |-- Demon.lua
 |   |   `-- Swordmaster.lua
 |   |-- Combat.lua
 |   |-- Farming.lua
@@ -92,13 +95,14 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Assassin shadow-critical aura with gap closing and automatic full-energy Ultimate
 - Berserker Rage burst aura with upgraded fire skills and full-energy activation
 - Defender eight-hit rotation with conditional party-healing Shield automation
+- Demon Prince burst aura with health-guarded Dark Binding and Life Steal recovery
 - Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate buttons
 - Configurable attack-check interval
 - Sprint toggle
 - Mount and sheath buttons
 - Quick-item name input and use button
 
-Skill names and slots are available from `Shared.Skills`. Swordmaster, Archer, Assassin, Berserker, and Defender execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
+Skill names and slots are available from `Shared.Skills`. Swordmaster, Archer, Assassin, Berserker, Defender, and Demon execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
 
 The Combat tab reads the live `Shared.Skills` catalog and identifies the equipped class through the replicated `LocalPlayer.Class` attribute verified in `Shared.Profile`. `Game/ClassRegistry.lua` selects only the matching verified class panel. A class change automatically rebuilds the interface, while skill execution remains routed through `Client.Actions`.
 
