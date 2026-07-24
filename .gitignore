@@ -1,0 +1,17 @@
+# Local research and extracted game source
+/References/
+/script-inventory.txt
+/CONTEXT.md
+
+# Runtime bridge/config files
+/world_zero_bridge.json
+/world_zero_bridge.json.lock
+/*heartbeat*.json
+/*result*.json
+
+# Editor and OS files
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db
+

@@ -1,0 +1,16 @@
+{
+  "Window": {
+    "Name": "World Zero",
+    "LoadingTitle": "World Zero",
+    "LoadingSubtitle": "Modular Rayfield build",
+    "Theme": "Default",
+    "ToggleUIKeybind": "K"
+  },
+  "ConfigurationSaving": {
+    "Enabled": true,
+    "FolderName": "WorldZero",
+    "FileName": "WorldZeroConfig"
+  },
+  "Debug": true
+}
+

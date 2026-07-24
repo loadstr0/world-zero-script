@@ -1,0 +1,242 @@
+-- World Zero Script/Loader.lua
+--
+-- Thin bootstrapper. Every implementation file is loaded as a module factory:
+--     return function(ctx) ... return module end
+--
+-- The order below is the dependency order. Feature code stays out of this file.
+
+local HttpService = game:GetService("HttpService")
+local env = getgenv()
+
+local MODULES = {
+	{ Key = "Logger", Path = "Core/Logger" },
+	{ Key = "Executor", Path = "Core/Executor" },
+	{ Key = "Config", Path = "Core/Config" },
+	{ Key = "Janitor", Path = "Core/Janitor" },
+	{ Key = "State", Path = "Core/State" },
+	{ Key = "GameContext", Path = "Game/Context" },
+	{ Key = "Actions", Path = "Game/Actions" },
+	{ Key = "RayfieldUI", Path = "UI/Rayfield" },
+	{ Key = "Farming", Path = "Features/Farming" },
+	{ Key = "Combat", Path = "Features/Combat" },
+	{ Key = "Missions", Path = "Features/Missions" },
+	{ Key = "Loot", Path = "Features/Loot" },
+	{ Key = "Teleports", Path = "Features/Teleports" },
+	{ Key = "Player", Path = "Features/Player" },
+	{ Key = "Settings", Path = "Features/Settings" },
+	{ Key = "Main", Path = "Main" },
+}
+
+local BASE = env.WorldZeroBase
+local BRIDGE_FILE = env.WorldZeroBridgeFile or "world_zero_bridge.json"
+
+if type(BASE) ~= "string" or BASE == "" then
+	error("[WorldZeroLoader] Set getgenv().WorldZeroBase to the raw URL containing this project.", 0)
+end
+
+if string.sub(BASE, -1) ~= "/" then
+	BASE = BASE .. "/"
+end
+
+local function stopPreviousRuntime()
+	local previous = env.WorldZeroRuntime
+
+	if type(previous) ~= "table" then
+		return
+	end
+
+	if previous.Modules and previous.Modules.Main and type(previous.Modules.Main.Stop) == "function" then
+		pcall(previous.Modules.Main.Stop)
+	end
+
+	env.WorldZeroRuntime = nil
+end
+
+local function getRequest()
+	if typeof(request) == "function" then
+		return request
+	end
+
+	if typeof(http_request) == "function" then
+		return http_request
+	end
+
+	if syn and typeof(syn.request) == "function" then
+		return syn.request
+	end
+
+	if http and typeof(http.request) == "function" then
+		return http.request
+	end
+
+	return nil
+end
+
+local function addCacheBust(url)
+	if env.WorldZeroCacheBust == false then
+		return url
+	end
+
+	local separator = string.find(url, "?", 1, true) and "&" or "?"
+	return url .. separator .. "cache=" .. tostring(os.time()) .. tostring(math.random(1000, 9999))
+end
+
+local function httpGet(url)
+	local finalUrl = addCacheBust(url)
+	local req = getRequest()
+
+	if req then
+		local ok, response = pcall(function()
+			return req({
+				Url = finalUrl,
+				Method = "GET",
+				Headers = {
+					["Cache-Control"] = "no-cache",
+					["Pragma"] = "no-cache",
+				},
+			})
+		end)
+
+		if not ok then
+			error("[WorldZeroLoader] request() failed: " .. tostring(response), 2)
+		end
+
+		if type(response) == "table" then
+			local status = tonumber(response.StatusCode or response.Status or 200)
+			local body = response.Body or response.body
+
+			if status and (status < 200 or status >= 300) then
+				error("[WorldZeroLoader] HTTP " .. tostring(status) .. " for " .. url, 2)
+			end
+
+			if type(body) == "string" and body ~= "" then
+				return body
+			end
+		elseif type(response) == "string" and response ~= "" then
+			return response
+		end
+
+		error("[WorldZeroLoader] Empty response for " .. url, 2)
+	end
+
+	local ok, body = pcall(function()
+		return game:HttpGet(finalUrl)
+	end)
+
+	if not ok then
+		error("[WorldZeroLoader] game:HttpGet failed: " .. tostring(body), 2)
+	end
+
+	if type(body) ~= "string" or body == "" then
+		error("[WorldZeroLoader] Empty response for " .. url, 2)
+	end
+
+	return body
+end
+
+local function loadBridge()
+	if type(env.WorldZeroBridge) == "table" then
+		return env.WorldZeroBridge
+	end
+
+	if typeof(readfile) ~= "function" then
+		return {}
+	end
+
+	if typeof(isfile) == "function" and not isfile(BRIDGE_FILE) then
+		return {}
+	end
+
+	local okRead, encoded = pcall(readfile, BRIDGE_FILE)
+
+	if not okRead or type(encoded) ~= "string" or encoded == "" then
+		warn("[WorldZeroLoader] Could not read bridge file:", encoded)
+		return {}
+	end
+
+	local okDecode, bridge = pcall(function()
+		return HttpService:JSONDecode(encoded)
+	end)
+
+	if not okDecode or type(bridge) ~= "table" then
+		warn("[WorldZeroLoader] Could not decode bridge file:", bridge)
+		return {}
+	end
+
+	env.WorldZeroBridge = bridge
+	return bridge
+end
+
+stopPreviousRuntime()
+
+local ctx = {
+	Base = BASE,
+	Bridge = loadBridge(),
+	Modules = {},
+	Services = {
+		Players = game:GetService("Players"),
+		ReplicatedStorage = game:GetService("ReplicatedStorage"),
+		RunService = game:GetService("RunService"),
+		UserInputService = game:GetService("UserInputService"),
+		HttpService = HttpService,
+		TeleportService = game:GetService("TeleportService"),
+	},
+}
+
+function ctx:Require(key)
+	local module = self.Modules[key]
+
+	if module == nil then
+		error("[WorldZeroLoader] Module is not loaded: " .. tostring(key), 2)
+	end
+
+	return module
+end
+
+local function loadRemote(spec)
+	local url = BASE .. spec.Path .. ".lua"
+	local source = httpGet(url)
+	local chunk, compileError = loadstring(source)
+
+	if not chunk then
+		error("[WorldZeroLoader] Failed to compile " .. spec.Key .. ": " .. tostring(compileError), 0)
+	end
+
+	local okRun, result = pcall(chunk)
+
+	if not okRun then
+		error("[WorldZeroLoader] Failed to run " .. spec.Key .. ": " .. tostring(result), 0)
+	end
+
+	if type(result) == "function" then
+		local okFactory, module = pcall(result, ctx)
+
+		if not okFactory then
+			error("[WorldZeroLoader] Failed to initialize " .. spec.Key .. ": " .. tostring(module), 0)
+		end
+
+		result = module
+	end
+
+	if result == nil then
+		error("[WorldZeroLoader] Module returned nil: " .. spec.Key, 0)
+	end
+
+	return result
+end
+
+for _, spec in ipairs(MODULES) do
+	ctx.Modules[spec.Key] = loadRemote(spec)
+end
+
+env.WorldZeroRuntime = ctx
+
+local okStart, startError = pcall(function()
+	ctx.Modules.Main.Start(ctx)
+end)
+
+if not okStart then
+	pcall(ctx.Modules.Main.Stop)
+	env.WorldZeroRuntime = nil
+	error("[WorldZeroLoader] Startup failed: " .. tostring(startError), 0)
+end
