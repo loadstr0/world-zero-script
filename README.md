@@ -36,14 +36,19 @@ World Zero Script/
 |   `-- State.lua
 |-- Game/
 |   |-- Actions.lua
+|   |-- ClassRegistry.lua
 |   |-- Combat.lua
-|   |-- Swordmaster.lua
+|   |-- Context.lua
+|   |-- Profile.lua
 |   |-- Skills.lua
-|   `-- Context.lua
+|   `-- Classes/
+|       `-- Swordmaster.lua
 |-- UI/
 |   |-- Navigation.lua
 |   `-- Rayfield.lua
 |-- Features/
+|   |-- Classes/
+|   |   `-- Swordmaster.lua
 |   |-- Combat.lua
 |   |-- Farming.lua
 |   |-- Home.lua
@@ -70,7 +75,7 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Target-range and aim-duration sliders
 - One-shot nearest-target aim
 - Optional aim before primary attacks
-- Manual and automatic primary attacks
+- Manual primary attacks for every detected class
 - Swordmaster auto-unsheath and cooldown-aware Skill1/Skill2 rotation
 - Server-validated target scanning and minimum-target gating
 - Server-safe Swordmaster aura through normal skill execution
@@ -82,7 +87,7 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 
 Skill names and slots are available from `Shared.Skills`. Swordmaster execution details are verified through `Shared.Combat.Skillsets.Swordmaster`; other classes still require their relevant skillset source.
 
-The Combat tab now reads the live `Shared.Skills` catalog, identifies the current class through `Shared.Profile`, and builds a class-specific skill dropdown. Skill execution remains routed through `Client.Actions`.
+The Combat tab reads the live `Shared.Skills` catalog and identifies the equipped class through the replicated `LocalPlayer.Class` attribute verified in `Shared.Profile`. `Game/ClassRegistry.lua` selects only the matching verified class panel. A class change automatically rebuilds the interface, while skill execution remains routed through `Client.Actions`.
 
 ## Rayfield navigation
 

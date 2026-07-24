@@ -56,10 +56,12 @@ return function(ctx)
 			Janitor = janitor,
 			State = state,
 			Game = ctx:Require("GameContext"),
+			Profile = ctx:Require("Profile"),
 			Actions = ctx:Require("Actions"),
 			CombatAPI = ctx:Require("CombatAPI"),
 			Skills = ctx:Require("Skills"),
 			Swordmaster = ctx:Require("Swordmaster"),
+			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),
 			UI = ui,
 			Stopped = false,
@@ -95,6 +97,30 @@ return function(ctx)
 			if not ok then
 				Logger.error("Feature registration failed:", moduleName, registerError)
 			end
+		end
+
+		runtime.ActiveClass = runtime.ClassRegistry.GetCurrentClass()
+		local classConnection, classObserveError = runtime.ClassRegistry.Observe(function(className)
+			if runtime.Stopped or className == runtime.ActiveClass or runtime.ClassReloadQueued then
+				return
+			end
+
+			runtime.ClassReloadQueued = true
+			Logger.info("Equipped class changed:", runtime.ActiveClass, "->", className)
+
+			task.defer(function()
+				task.wait(0.1)
+
+				if not runtime.Stopped and activeRuntime == runtime then
+					Main.Start()
+				end
+			end)
+		end)
+
+		if classConnection then
+			janitor:Add(classConnection)
+		elseif classObserveError then
+			Logger.warn("Class change listener unavailable:", classObserveError)
 		end
 
 		ui:LoadConfiguration()

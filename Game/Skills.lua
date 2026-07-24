@@ -2,9 +2,8 @@ return function(ctx)
 	local Skills = {}
 
 	local GameContext = ctx:Require("GameContext")
-	local Players = ctx.Services.Players
+	local Profile = ctx:Require("Profile")
 	local cachedSkills = nil
-	local cachedProfileModule = nil
 
 	local SLOT_ORDER = {
 		"Primary",
@@ -49,53 +48,8 @@ return function(ctx)
 		return cachedSkills
 	end
 
-	local function resolveProfileModule()
-		if cachedProfileModule then
-			return cachedProfileModule
-		end
-
-		local result, resolveError = requireReplicated("Shared.Profile", "shared_profile")
-
-		if not result then
-			return nil, resolveError
-		end
-
-		cachedProfileModule = result
-		return cachedProfileModule
-	end
-
 	function Skills.GetCurrentClass()
-		local profileModule, profileError = resolveProfileModule()
-
-		if not profileModule then
-			return nil, profileError
-		end
-
-		if type(profileModule.GetProfile) ~= "function" then
-			return nil, "shared_profile_missing_get_profile"
-		end
-
-		local ok, profile = pcall(profileModule.GetProfile, profileModule, Players.LocalPlayer)
-
-		if not ok or type(profile) ~= "table" then
-			return nil, "player_profile_unavailable"
-		end
-
-		local classValue = profile.Class
-
-		if classValue == nil then
-			return nil, "player_class_unavailable"
-		end
-
-		if typeof(classValue) == "Instance" then
-			return tostring(classValue.Value)
-		end
-
-		if type(classValue) == "table" and classValue.Value ~= nil then
-			return tostring(classValue.Value)
-		end
-
-		return tostring(classValue)
+		return Profile.GetCurrentClass()
 	end
 
 	function Skills.GetClassSkills(className)
@@ -201,4 +155,3 @@ return function(ctx)
 
 	return Skills
 end
-

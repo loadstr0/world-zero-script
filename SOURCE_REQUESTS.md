@@ -5,13 +5,24 @@
 - `ReplicatedStorage.Client.Actions`
 - `ReplicatedStorage.Shared.Skills`
 - `ReplicatedStorage.Shared.Combat.Skillsets.Swordmaster`
+- `ReplicatedStorage.Shared.Combat.Skillsets.General`
 - `ReplicatedStorage.Shared.Combat`
+- `ReplicatedStorage.Shared.Profile`
 
-The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster has a six-step primary combo, Crescent Strike, Leap Slash, Dodge, Sheath, and a charged 20-hit Ultimate. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server.
+The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster has a six-step primary combo, Crescent Strike, Leap Slash, Dodge, Sheath, and a charged 20-hit Ultimate. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
 
 ## Next priority
 
-Please extract the full source for these modules next, in this order:
+For class-aware UI coverage, send the currently equipped class first, followed by the remaining skillsets:
+
+- `Archer`, `Assassin`, `Berserker`, `Defender`, `Demon`
+- `Dragoon`, `DualWielder`, `Greatsword`, `Guardian`, `Hunter`
+- `IcefireMage`, `Leviathan`, `Mage`, `MageOfLight`, `MageOfShadows`
+- `Necromancer`, `Paladin`, `Starbreaker`, `Stormcaller`, `Summoner`, `Warlord`
+
+Each path is `ReplicatedStorage.Shared.Combat.Skillsets.<ClassName>`.
+
+For mob filtering and automation, the next non-class sources are:
 
 1. `ReplicatedStorage.Shared.Mobs`
 2. `ReplicatedStorage.Shared.Gamebeast.Infra.Shared.Modules.GetRemote`

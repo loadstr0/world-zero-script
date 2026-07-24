@@ -3,6 +3,8 @@
 ## Available now
 
 - Class-aware skill selector
+- Live equipped-class detection and automatic UI rebuilding
+- Registry-driven class panels; unsupported classes show only verified generic controls
 - Manual primary and selected-skill activation
 - Nearest-target aim
 - Experimental nearest-target Auto Primary

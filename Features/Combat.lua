@@ -3,71 +3,13 @@ return function()
 		Id = "Combat",
 	}
 
-	local autoPrimaryLoopRunning = false
-
-	local function chooseRotationSlot(runtime)
-		if runtime.State:Get("Combat.SwordmasterSkill1", false) then
-			local canUse = runtime.Swordmaster.CanUse("Skill1")
-
-			if canUse then
-				return "Skill1"
-			end
-		end
-
-		if runtime.State:Get("Combat.SwordmasterSkill2", false) then
-			local canUse = runtime.Swordmaster.CanUse("Skill2")
-
-			if canUse then
-				return "Skill2"
-			end
-		end
-
-		return "Primary"
-	end
-
-	local function startAutoPrimaryLoop(runtime)
-		if autoPrimaryLoopRunning then
-			return
-		end
-
-		autoPrimaryLoopRunning = true
-
-		task.spawn(function()
-			while not runtime.Stopped and runtime.State:Get("Combat.AutoPrimary", false) do
-				local range = runtime.State:Get("Combat.TargetRange", 15)
-				local target = runtime.Actions.GetNearestTarget(range)
-
-				if target and runtime.Actions.IsBusy() ~= true then
-					local minimumTargets = runtime.State:Get("Combat.MinimumTargets", 1)
-					local targetCount = runtime.CombatAPI.CountTargetsInRadius(range)
-					local ready = targetCount == nil or targetCount >= minimumTargets
-
-					if ready and runtime.State:Get("Combat.AutoUnsheath", true) then
-						ready = runtime.Swordmaster.EnsureUnsheathed()
-					end
-
-					if ready then
-						if runtime.State:Get("Combat.AutoAim", true) then
-							local duration = runtime.State:Get("Combat.AimDuration", 0.2)
-							runtime.Actions.AimAtNearestTarget(duration, range)
-						end
-
-						runtime.Swordmaster.Use(chooseRotationSlot(runtime))
-					end
-				end
-
-				task.wait(runtime.State:Get("Combat.AttackInterval", 0.15))
-			end
-
-			autoPrimaryLoopRunning = false
-		end)
-	end
-
 	function Combat.Register(runtime)
 		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Combat)
 		local actions = runtime.Actions.Describe()
 		local combatAPI = runtime.CombatAPI.Describe()
 		local skillCatalog = runtime.Skills.Describe()
+		local classStatus = runtime.ClassRegistry.Describe()
+		local currentClass = classStatus.ClassName or skillCatalog.ClassName or "Unknown"
 		local selectedSkillSlot = "Primary"
 		local skillLabels = {}
 		local labelToSlot = {}
@@ -86,6 +28,11 @@ return function()
 			labelToSlot.Primary = "Primary"
 		end
 
+		runtime.State:Set("Combat.TargetRange", 15)
+		runtime.State:Set("Combat.AimDuration", 0.2)
+		runtime.State:Set("Combat.AutoAim", true)
+		runtime.State:Set("Combat.MinimumTargets", 1)
+
 		runtime.UI:CreateSection(tab, "Integration status")
 		runtime.UI:CreateParagraph(
 			tab,
@@ -95,20 +42,13 @@ return function()
 		)
 		runtime.UI:CreateParagraph(
 			tab,
-			"Current class",
-			skillCatalog.ClassName
-					and (tostring(skillCatalog.ClassName) .. "\nLoaded skill slots: " .. tostring(#(skillCatalog.Options or {})))
-				or ("Unavailable: " .. tostring(skillCatalog.Error))
+			"Equipped class",
+			tostring(currentClass)
+				.. "\nAutomation profile: "
+				.. (classStatus.Verified and "verified" or "awaiting class skillset source")
+				.. "\nLoaded skill slots: "
+				.. tostring(#(skillCatalog.Options or {}))
 		)
-		runtime.State:Set("Combat.TargetRange", 15)
-		runtime.State:Set("Combat.AimDuration", 0.2)
-		runtime.State:Set("Combat.AttackInterval", 0.15)
-		runtime.State:Set("Combat.AutoAim", true)
-		runtime.State:Set("Combat.AutoPrimary", false)
-		runtime.State:Set("Combat.AutoUnsheath", true)
-		runtime.State:Set("Combat.SwordmasterSkill1", false)
-		runtime.State:Set("Combat.SwordmasterSkill2", false)
-		runtime.State:Set("Combat.MinimumTargets", 1)
 
 		runtime.UI:CreateSection(tab, "Targeting")
 		runtime.UI:CreateSlider(tab, "CombatTargetRange", {
@@ -175,7 +115,7 @@ return function()
 		})
 
 		runtime.UI:CreateToggle(tab, "CombatAutoAim", {
-			Name = "Auto aim before primary",
+			Name = "Auto aim before class attacks",
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Combat.AutoAim", value)
@@ -190,95 +130,27 @@ return function()
 			end,
 		})
 
-		runtime.UI:CreateSlider(tab, "CombatAttackInterval", {
-			Name = "Attack check interval",
-			Range = { 0.05, 1 },
-			Increment = 0.05,
-			Suffix = "s",
-			CurrentValue = 0.15,
-			Callback = function(value)
-				runtime.State:Set("Combat.AttackInterval", value)
-			end,
-		})
-
-		runtime.UI:CreateToggle(tab, "CombatAutoPrimary", {
-			Name = "Server-safe Swordmaster aura",
-			CurrentValue = false,
-			Callback = function(value)
-				runtime.State:Set("Combat.AutoPrimary", value)
-
-				if value then
-					startAutoPrimaryLoop(runtime)
-				end
-			end,
-		})
-
-		runtime.UI:CreateSection(tab, "Swordmaster rotation")
-		runtime.UI:CreateToggle(tab, "CombatAutoUnsheath", {
-			Name = "Auto unsheath before attacking",
-			CurrentValue = true,
-			Callback = function(value)
-				runtime.State:Set("Combat.AutoUnsheath", value)
-			end,
-		})
-
-		runtime.UI:CreateToggle(tab, "CombatSwordmasterSkill1", {
-			Name = "Use Crescent Strike in rotation",
-			CurrentValue = false,
-			Callback = function(value)
-				runtime.State:Set("Combat.SwordmasterSkill1", value)
-			end,
-		})
-
-		runtime.UI:CreateToggle(tab, "CombatSwordmasterSkill2", {
-			Name = "Use Leap Slash in rotation",
-			CurrentValue = false,
-			Callback = function(value)
-				runtime.State:Set("Combat.SwordmasterSkill2", value)
-			end,
-		})
-
-		runtime.UI:CreateParagraph(
-			tab,
-			"Verified behavior",
-			"Primary chains six swings and resets after 0.75s. Primary range is 10 studs; Crescent Strike can acquire a mob up to 50 studs away."
-		)
-
 		runtime.UI:CreateParagraph(
 			tab,
 			"Server validation",
 			combatAPI.Available
-					and "Shared.Combat is available. The server reconstructs hitboxes and rate-limits skill identifiers, so this aura uses normal Client.Actions skill execution."
+					and "Shared.Combat is available. The server reconstructs hitboxes and rate-limits skill identifiers; verified automation uses normal Client.Actions skill execution."
 				or ("Shared.Combat unavailable: " .. tostring(combatAPI.Error))
 		)
 
-		runtime.UI:CreateButton(tab, {
-			Name = "Use Crescent Strike",
-			Callback = function()
-				runtime.Swordmaster.UseCrescentStrike()
-			end,
-		})
+		local classFeature, classFeatureError = runtime.ClassRegistry.GetCurrentFeature()
 
-		runtime.UI:CreateButton(tab, {
-			Name = "Use Leap Slash",
-			Callback = function()
-				runtime.Swordmaster.UseLeapSlash()
-			end,
-		})
-
-		runtime.UI:CreateButton(tab, {
-			Name = "Dodge",
-			Callback = function()
-				runtime.Swordmaster.UseDodge()
-			end,
-		})
-
-		runtime.UI:CreateButton(tab, {
-			Name = "Use Ultimate when charged",
-			Callback = function()
-				runtime.Swordmaster.UseUltimate()
-			end,
-		})
+		if classFeature and type(classFeature.Register) == "function" then
+			classFeature.Register(runtime, tab)
+		else
+			runtime.UI:CreateSection(tab, tostring(currentClass) .. " automation")
+			runtime.UI:CreateParagraph(
+				tab,
+				"Class source required",
+				"Manual skills are available below. Automatic rotation will appear after this class skillset is supplied.\n"
+					.. tostring(classFeatureError)
+			)
+		end
 
 		runtime.UI:CreateSection(tab, "Class skills")
 		runtime.UI:CreateDropdown(tab, "CombatSelectedSkill", {
@@ -302,7 +174,7 @@ return function()
 		runtime.UI:CreateParagraph(
 			tab,
 			"Skill mapping",
-			"Names and slots come from Shared.Skills. Execution still passes through the current class skillset module."
+			"Names and slots come from Shared.Skills. The class-specific panel above is selected from the equipped class registry."
 		)
 	end
 
