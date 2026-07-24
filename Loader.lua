@@ -47,6 +47,8 @@ local MODULES = {
 	{ Key = "IcefireMageFeature", Path = "Features/Classes/IcefireMage" },
 	{ Key = "Leviathan", Path = "Game/Classes/Leviathan" },
 	{ Key = "LeviathanFeature", Path = "Features/Classes/Leviathan" },
+	{ Key = "Mage", Path = "Game/Classes/Mage" },
+	{ Key = "MageFeature", Path = "Features/Classes/Mage" },
 	{ Key = "Swordmaster", Path = "Game/Classes/Swordmaster" },
 	{ Key = "SwordmasterFeature", Path = "Features/Classes/Swordmaster" },
 	{ Key = "ClassRegistry", Path = "Game/ClassRegistry" },

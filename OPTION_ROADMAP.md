@@ -24,6 +24,7 @@
 - Hunter auto-summon/Frenzy, close-range Venom Trap, and emergency Divine Arrow
 - Icefire Mage Super Frost priority with field-aware range guards and Meteor Crash
 - Leviathan preflighted bubble chain, recursive serpent bursts, and Sea Bubble healing
+- Mage group-gated Arcane Wave and range-guarded Arcane Ascension
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
