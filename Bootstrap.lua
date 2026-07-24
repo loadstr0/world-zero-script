@@ -30,4 +30,13 @@ env.WorldZeroBridge = env.WorldZeroBridge or {
 	Debug = true,
 }
 
-loadstring(game:HttpGet(base .. "Loader.lua"))()
+local loaderUrl = base .. "Loader.lua"
+
+if env.WorldZeroCacheBust ~= false then
+	loaderUrl = loaderUrl
+		.. "?cache="
+		.. tostring(os.time())
+		.. tostring(math.random(1000, 9999))
+end
+
+loadstring(game:HttpGet(loaderUrl))()

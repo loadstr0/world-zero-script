@@ -22,4 +22,9 @@ getgenv().WorldZeroBridge = {
 	Debug = true,
 }
 
-loadstring(game:HttpGet(getgenv().WorldZeroBase .. "Loader.lua"))()
+local loaderUrl = getgenv().WorldZeroBase
+	.. "Loader.lua?cache="
+	.. tostring(os.time())
+	.. tostring(math.random(1000, 9999))
+
+loadstring(game:HttpGet(loaderUrl))()

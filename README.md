@@ -98,7 +98,10 @@ This folder is configured for the public repository `loadstr0/world-zero-script`
 Execute it with:
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/loadstr0/world-zero-script/main/Bootstrap.lua"))()
+loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/loadstr0/world-zero-script/main/Bootstrap.lua?cache="
+		.. tostring(os.time())
+))()
 ```
 
 The repository must be public for this unauthenticated raw URL. Local research files and decompiled references are excluded by `.gitignore`.
