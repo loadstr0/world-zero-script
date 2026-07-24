@@ -37,6 +37,10 @@ return function(ctx)
 			FeatureKey = "GreatswordFeature",
 			AutomationReady = false,
 		},
+		Guardian = {
+			AdapterKey = "Guardian",
+			FeatureKey = "GuardianFeature",
+		},
 		Swordmaster = {
 			AdapterKey = "Swordmaster",
 			FeatureKey = "SwordmasterFeature",

@@ -53,6 +53,7 @@ World Zero Script/
 |       |-- Dragoon.lua
 |       |-- DualWielder.lua
 |       |-- Greatsword.lua
+|       |-- Guardian.lua
 |       `-- Swordmaster.lua
 |-- UI/
 |   |-- Navigation.lua
@@ -67,6 +68,7 @@ World Zero Script/
 |   |   |-- Dragoon.lua
 |   |   |-- DualWielder.lua
 |   |   |-- Greatsword.lua
+|   |   |-- Guardian.lua
 |   |   `-- Swordmaster.lua
 |   |-- Combat.lua
 |   |-- Farming.lua
@@ -105,13 +107,14 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Demon Prince burst aura with health-guarded Dark Binding and Life Steal recovery
 - Dragoon live Dragon Chain completion and 18-dragon full-energy burst
 - Dual Wielder maximum-speed Tempo, kill-healing, and 29-event Ultimate rotation
+- Guardian Aggro Defense, enemy draw, and four-pulse Sword Prison control
 - Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate buttons
 - Configurable attack-check interval
 - Sprint toggle
 - Mount and sheath buttons
 - Quick-item name input and use button
 
-Skill names and slots are available from `Shared.Skills`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, and Dual Wielder execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
+Skill names and slots are available from `Shared.Skills`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, and Guardian execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
 
 The supplied Greatsword module is also source-verified, but it is an unfinished non-damaging prototype: its only hit callback prints `HIT`, and it defines no class skills or Ultimate. The class-aware panel reports that limitation and deliberately does not expose fake automation.
 

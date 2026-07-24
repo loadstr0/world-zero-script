@@ -20,6 +20,7 @@
 - Dragoon live Dragon Chain completion with marked-target bonus and Dragon Dance
 - Dual Wielder maximum-speed Tempo, 5% kill-healing, and multi-stage Ultimate
 - Greatsword source-aware disabled panel for its current non-damaging prototype
+- Guardian Aggro Defense maintenance and four-pulse Sword Prison crowd control
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
