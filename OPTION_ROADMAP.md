@@ -26,6 +26,7 @@
 - Leviathan preflighted bubble chain, recursive serpent bursts, and Sea Bubble healing
 - Mage group-gated Arcane Wave and range-guarded Arcane Ascension
 - Mage of Light projected-health Infuse guard with automated healing, Barrier, and Grace
+- Mage of Shadows nine-orb merging, autonomous hunters, Shadow Chains, and form burst modes
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
@@ -56,6 +57,7 @@ Available now:
 - Automatic Skill1/Skill2 rotation
 - Cooldown-aware priority
 - Automatic Assassin Ultimate usage with a verified full-energy check
+- Configurable Mage of Shadows skill saving and empowered-Primary Shadow Form modes
 
 Still requires more source:
 
