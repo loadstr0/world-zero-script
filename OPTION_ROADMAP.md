@@ -31,6 +31,7 @@
 - Paladin emergency support, maintained enhanced Primary, and 15-pulse Ring of Justice
 - Starbreaker charge-aware Supernova, double Flare, Starforge, and Fusion sequencing
 - Stormcaller health-safe Supercharge, eight-target lightning, Surge, and Thunder God
+- Summoner five-charge Soul banking, anti-waste Harvest, and Greater summon automation
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
@@ -66,6 +67,7 @@ Available now:
 - Party-health-aware Paladin healing with aggressive or emergency-only Ring modes
 - Starbreaker full-meter preservation through Fusion for back-to-back Starforge uptime
 - Stormcaller Thunder God sword priority with 25% long-range discharge opportunities
+- Summoner five-Lesser army detonation while preserving the Greater Soul Being
 
 Still requires more source:
 

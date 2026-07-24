@@ -64,6 +64,7 @@ World Zero Script/
 |       |-- Paladin.lua
 |       |-- Starbreaker.lua
 |       |-- Stormcaller.lua
+|       |-- Summoner.lua
 |       `-- Swordmaster.lua
 |-- UI/
 |   |-- Navigation.lua
@@ -89,6 +90,7 @@ World Zero Script/
 |   |   |-- Paladin.lua
 |   |   |-- Starbreaker.lua
 |   |   |-- Stormcaller.lua
+|   |   |-- Summoner.lua
 |   |   `-- Swordmaster.lua
 |   |-- Combat.lua
 |   |-- Farming.lua
@@ -138,13 +140,14 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Paladin health-aware blocking, party Retribution, maintained Light, and healing Ring
 - Starbreaker automatic Supernova chains, double Flare, Starforge fields, and Fusion
 - Stormcaller protected Supercharge, Chain Lightning, Storm Surge, and Thunder God
+- Summoner Soul banking, Lesser-army detonation, Soul Harvest, and Super Summon
 - Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate buttons
 - Configurable attack-check interval
 - Sprint toggle
 - Mount and sheath buttons
 - Quick-item name input and use button
 
-Skill names and slots are available from `Shared.Skills`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, Guardian, Hunter, Icefire Mage, Leviathan, Mage, Mage of Light, Mage of Shadows, Necromancer, Paladin, Starbreaker, and Stormcaller execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
+Skill names and slots are available from `Shared.Skills`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, Guardian, Hunter, Icefire Mage, Leviathan, Mage, Mage of Light, Mage of Shadows, Necromancer, Paladin, Starbreaker, Stormcaller, and Summoner execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
 
 The supplied Greatsword module is also source-verified, but it is an unfinished non-damaging prototype: its only hit callback prints `HIT`, and it defines no class skills or Ultimate. The class-aware panel reports that limitation and deliberately does not expose fake automation.
 

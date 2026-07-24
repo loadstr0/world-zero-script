@@ -82,6 +82,7 @@ return function(ctx)
 			Paladin = ctx:Require("Paladin"),
 			Starbreaker = ctx:Require("Starbreaker"),
 			Stormcaller = ctx:Require("Stormcaller"),
+			Summoner = ctx:Require("Summoner"),
 			Swordmaster = ctx:Require("Swordmaster"),
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),
