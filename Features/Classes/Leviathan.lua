@@ -2,6 +2,19 @@ return function()
 	local LeviathanFeature = {}
 	local activeLoops = {}
 
+	local function canBuildBubbleChain(runtime)
+		return runtime.State:Get("Class.Leviathan.FollowBubbleChain", true)
+			and runtime.State:Get("Class.Leviathan.UseRiptide", true)
+			and runtime.State:Get("Class.Leviathan.UseHydrosurge", true)
+			and runtime.State:Get("Class.Leviathan.UseMaelstrom", true)
+	end
+
+	local function fullChainReady(runtime)
+		return runtime.Leviathan.CanUse("Skill1")
+			and runtime.Leviathan.CanUse("Skill2")
+			and runtime.Leviathan.CanUse("Skill3")
+	end
+
 	local function activeChainSlot(runtime)
 		if not runtime.State:Get("Class.Leviathan.FollowBubbleChain", true) then
 			return nil
@@ -34,6 +47,10 @@ return function()
 
 	local function chooseRotationSlot(runtime, targetCount)
 		local chainSlot = activeChainSlot(runtime)
+		local wantsUltimate = runtime.State:Get("Class.Leviathan.AutoUltimate", true)
+			and targetCount
+				>= runtime.State:Get("Class.Leviathan.UltimateMinimumTargets", 2)
+			and runtime.Leviathan.CanUse("Ultimate")
 
 		if
 			chainSlot
@@ -43,11 +60,19 @@ return function()
 		end
 
 		if
-			runtime.State:Get("Class.Leviathan.AutoUltimate", true)
-			and targetCount
-				>= runtime.State:Get("Class.Leviathan.UltimateMinimumTargets", 2)
-			and runtime.Leviathan.CanUse("Ultimate")
+			wantsUltimate
+			and runtime.State:Get("Class.Leviathan.BuildSeaBubbleBeforeUltimate", true)
+			and not runtime.Leviathan.IsSeaBubbleActive()
+			and canBuildBubbleChain(runtime)
 		then
+			if fullChainReady(runtime) then
+				return "Skill1"
+			end
+
+			return "Primary"
+		end
+
+		if wantsUltimate then
 			return "Ultimate"
 		end
 
@@ -59,6 +84,14 @@ return function()
 			runtime.State:Get("Class.Leviathan.UseRiptide", true)
 			and runtime.Leviathan.CanUse("Skill1")
 		then
+			if
+				runtime.State:Get("Class.Leviathan.RequireFullChainReady", true)
+				and canBuildBubbleChain(runtime)
+				and not fullChainReady(runtime)
+			then
+				return "Primary"
+			end
+
 			return "Skill1"
 		end
 
@@ -129,6 +162,8 @@ return function()
 		runtime.State:Set("Class.Leviathan.FollowBubbleChain", true)
 		runtime.State:Set("Class.Leviathan.ProtectBubbleChain", true)
 		runtime.State:Set("Class.Leviathan.CompleteChainBeforeUltimate", true)
+		runtime.State:Set("Class.Leviathan.RequireFullChainReady", true)
+		runtime.State:Set("Class.Leviathan.BuildSeaBubbleBeforeUltimate", true)
 		runtime.State:Set("Class.Leviathan.UseRiptide", true)
 		runtime.State:Set("Class.Leviathan.UseHydrosurge", true)
 		runtime.State:Set("Class.Leviathan.UseMaelstrom", true)
@@ -191,6 +226,22 @@ return function()
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Class.Leviathan.CompleteChainBeforeUltimate", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "LeviathanRequireFullChainReady", {
+			Name = "Start chain only when all three skills are ready",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Class.Leviathan.RequireFullChainReady", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "LeviathanBuildSeaBubbleBeforeUltimate", {
+			Name = "Build Sea Bubble before full-energy Ultimate",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Class.Leviathan.BuildSeaBubbleBeforeUltimate", value)
 			end,
 		})
 
