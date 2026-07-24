@@ -13,6 +13,20 @@ return function(ctx)
 		"Settings",
 	}
 
+	local function formatRegistrationError(registerError)
+		local message = tostring(registerError)
+
+		if type(debug) == "table" and type(debug.traceback) == "function" then
+			local ok, traceback = pcall(debug.traceback, message, 2)
+
+			if ok and type(traceback) == "string" then
+				return traceback
+			end
+		end
+
+		return message
+	end
+
 	function Main.Start()
 		if activeRuntime then
 			Main.Stop()
@@ -53,9 +67,25 @@ return function(ctx)
 		activeRuntime = runtime
 		ctx.ActiveRuntime = runtime
 
+		local identityConfig = config.Runtime or {}
+		local identityWarningShown = false
+
 		for _, moduleName in ipairs(FEATURE_ORDER) do
 			local feature = ctx:Require(moduleName)
-			local ok, registerError = pcall(feature.Register, runtime)
+
+			if runtime.Executor.Has("SetThreadIdentity") then
+				local identityOk, identityError =
+					runtime.Executor.EnsureThreadIdentity(identityConfig.ThreadIdentity)
+
+				if not identityOk and not identityWarningShown then
+					identityWarningShown = true
+					Logger.warn("Could not restore executor thread identity:", identityError)
+				end
+			end
+
+			local ok, registerError = xpcall(function()
+				feature.Register(runtime)
+			end, formatRegistrationError)
 
 			if not ok then
 				Logger.error("Feature registration failed:", moduleName, registerError)

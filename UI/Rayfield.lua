@@ -2,6 +2,8 @@ return function(ctx)
 	local RayfieldUI = {}
 	RayfieldUI.__index = RayfieldUI
 
+	local Logger = ctx:Require("Logger")
+
 	local function normalizeIcon(icon)
 		-- Rayfield treats string icons as Lucide names. Unsupported names can
 		-- throw inside Rayfield and prevent every later tab from registering.
@@ -55,7 +57,26 @@ return function(ctx)
 			return self.Tabs[key]
 		end
 
-		local tab = self.Window:CreateTab(title, normalizeIcon(icon))
+		local ok, tab = pcall(function()
+			return self.Window:CreateTab(title, normalizeIcon(icon))
+		end)
+
+		if not ok then
+			local fallback = self.Tabs.Automation or self.Tabs.Home
+
+			if not fallback then
+				error("Rayfield could not create tab " .. tostring(title) .. ": " .. tostring(tab), 2)
+			end
+
+			Logger.warn(
+				"Rayfield compatibility fallback:",
+				title,
+				"was placed in an existing tab because:",
+				tab
+			)
+			tab = fallback
+		end
+
 		self.Tabs[key] = tab
 		return tab
 	end

@@ -26,6 +26,9 @@ return function(ctx)
 			AutoReload = false,
 			PollInterval = 120,
 		},
+		Runtime = {
+			ThreadIdentity = 8,
+		},
 	}
 
 	local function copy(value)

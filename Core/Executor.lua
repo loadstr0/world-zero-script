@@ -16,6 +16,22 @@ return function()
 	local synLibrary = type(syn) == "table" and syn or {}
 	local httpLibrary = type(http) == "table" and http or {}
 
+	Executor.GetThreadIdentity = firstFunction(
+		getthreadidentity,
+		get_thread_identity,
+		getidentity,
+		getthreadcontext,
+		synLibrary.get_thread_identity
+	)
+
+	Executor.SetThreadIdentity = firstFunction(
+		setthreadidentity,
+		set_thread_identity,
+		setidentity,
+		setthreadcontext,
+		synLibrary.set_thread_identity
+	)
+
 	Executor.Request = firstFunction(
 		request,
 		http_request,
@@ -40,8 +56,39 @@ return function()
 	Executor.GetScriptEnvironment = firstFunction(getsenv)
 	Executor.GetGarbageCollection = firstFunction(getgc)
 
+	local initialThreadIdentity = nil
+
+	if Executor.GetThreadIdentity then
+		local ok, identity = pcall(Executor.GetThreadIdentity)
+
+		if ok then
+			initialThreadIdentity = tonumber(identity)
+		end
+	end
+
 	function Executor.Has(name)
 		return type(Executor[name]) == "function"
+	end
+
+	function Executor.GetInitialThreadIdentity()
+		return initialThreadIdentity
+	end
+
+	function Executor.EnsureThreadIdentity(identity)
+		if not Executor.SetThreadIdentity then
+			return false, "thread_identity_control_unavailable"
+		end
+
+		local target = tonumber(identity) or initialThreadIdentity or 8
+		local ok, setError = pcall(Executor.SetThreadIdentity, target)
+
+		if not ok then
+			return false, "thread_identity_set_failed:" .. tostring(setError)
+		end
+
+		-- Synapse-compatible setters apply after the next scheduler cycle.
+		task.wait()
+		return true
 	end
 
 	function Executor.Report()
@@ -55,9 +102,9 @@ return function()
 			GetLoadedModules = Executor.Has("GetLoadedModules"),
 			GetScriptEnvironment = Executor.Has("GetScriptEnvironment"),
 			GetGarbageCollection = Executor.Has("GetGarbageCollection"),
+			ThreadIdentityControl = Executor.Has("SetThreadIdentity"),
 		}
 	end
 
 	return Executor
 end
-
