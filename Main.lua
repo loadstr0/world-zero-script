@@ -72,6 +72,7 @@ return function(ctx)
 			DualWielder = ctx:Require("DualWielder"),
 			Greatsword = ctx:Require("Greatsword"),
 			Guardian = ctx:Require("Guardian"),
+			Hunter = ctx:Require("Hunter"),
 			Swordmaster = ctx:Require("Swordmaster"),
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),

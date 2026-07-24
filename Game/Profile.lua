@@ -92,6 +92,38 @@ return function(ctx)
 		end)
 	end
 
+	function Profile.GetValue(valueName)
+		local module, resolveError = resolveModule()
+
+		if not module then
+			return nil, resolveError
+		end
+
+		if type(module.GetProfile) ~= "function" then
+			return nil, "shared_profile_missing_get_profile"
+		end
+
+		local player = Players.LocalPlayer
+
+		if not player then
+			return nil, "local_player_unavailable"
+		end
+
+		local ok, profile = pcall(module.GetProfile, module, player)
+
+		if not ok or not profile then
+			return nil, "player_profile_unavailable"
+		end
+
+		local valueObject = profile:FindFirstChild(valueName)
+
+		if not valueObject then
+			return nil, "profile_value_unavailable:" .. tostring(valueName)
+		end
+
+		return valueObject.Value
+	end
+
 	function Profile.Describe()
 		local className, classError = Profile.GetCurrentClass()
 
