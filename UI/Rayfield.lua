@@ -49,6 +49,10 @@ return function(ctx)
 		return tab
 	end
 
+	function RayfieldUI:CreateNavigationTab(item)
+		return self:CreateTab(item.Key, item.Title, item.Icon)
+	end
+
 	function RayfieldUI:CreateSection(tab, title)
 		return tab:CreateSection(title)
 	end
@@ -139,4 +143,3 @@ return function(ctx)
 
 	return RayfieldUI
 end
-

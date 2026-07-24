@@ -1,12 +1,10 @@
 return function()
 	local Player = {
 		Id = "Player",
-		Title = "Player",
-		Icon = "user",
 	}
 
 	function Player.Register(runtime)
-		local tab = runtime.UI:CreateTab(Player.Id, Player.Title, Player.Icon)
+		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Player)
 		local quickItemName = ""
 
 		runtime.UI:CreateSection(tab, "Movement")

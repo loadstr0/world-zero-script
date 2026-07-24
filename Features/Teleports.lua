@@ -1,20 +1,17 @@
 return function()
 	local Teleports = {
 		Id = "Teleports",
-		Title = "Teleports",
-		Icon = "map",
 	}
 
 	function Teleports.Register(runtime)
-		local tab = runtime.UI:CreateTab(Teleports.Id, Teleports.Title, Teleports.Icon)
-		runtime.UI:CreateSection(tab, "Destinations")
+		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Travel)
+		runtime.UI:CreateSection(tab, "World travel")
 		runtime.UI:CreateParagraph(
 			tab,
-			"Source required",
-			"World, hub, and mission destinations will be populated from verified teleport data."
+			"Destinations",
+			"World, hub, and mission destinations will be listed here from verified teleport data."
 		)
 	end
 
 	return Teleports
 end
-

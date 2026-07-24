@@ -1,20 +1,17 @@
 return function()
 	local Loot = {
 		Id = "Loot",
-		Title = "Loot",
-		Icon = "package-open",
 	}
 
 	function Loot.Register(runtime)
-		local tab = runtime.UI:CreateTab(Loot.Id, Loot.Title, Loot.Icon)
-		runtime.UI:CreateSection(tab, "Drops")
+		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Automation)
+		runtime.UI:CreateSection(tab, "Loot")
 		runtime.UI:CreateParagraph(
 			tab,
-			"Source required",
-			"Drop discovery and collection controls will use verified workspace objects and module exports."
+			"Drop collection",
+			"Drop filters, collection range, and chest behavior will be grouped in this section."
 		)
 	end
 
 	return Loot
 end
-

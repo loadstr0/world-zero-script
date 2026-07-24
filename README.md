@@ -38,10 +38,12 @@ World Zero Script/
 |   |-- Actions.lua
 |   `-- Context.lua
 |-- UI/
+|   |-- Navigation.lua
 |   `-- Rayfield.lua
 |-- Features/
 |   |-- Combat.lua
 |   |-- Farming.lua
+|   |-- Home.lua
 |   |-- Loot.lua
 |   |-- Missions.lua
 |   |-- Player.lua
@@ -70,6 +72,19 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Quick-item name input and use button
 
 Additional skill controls require `Shared.Skills` and the current class skillset source.
+
+## Rayfield navigation
+
+The visible interface is intentionally smaller than the module tree:
+
+- Home
+- Automation — Farming, Missions, and Loot sections
+- Combat
+- Travel
+- Player
+- Settings
+
+`UI/Navigation.lua` owns tab names, icons, and keys. Feature implementation remains split across separate modules even when multiple features share one visible tab.
 
 ## Publish and execute
 

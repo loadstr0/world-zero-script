@@ -1,8 +1,6 @@
 return function()
 	local Combat = {
 		Id = "Combat",
-		Title = "Combat",
-		Icon = "swords",
 	}
 
 	local autoPrimaryLoopRunning = false
@@ -36,25 +34,19 @@ return function()
 	end
 
 	function Combat.Register(runtime)
-		local tab = runtime.UI:CreateTab(Combat.Id, Combat.Title, Combat.Icon)
+		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Combat)
 		local actions = runtime.Actions.Describe()
 		local status = actions.Available
 				and ("Available; initialized: " .. tostring(actions.Initialized))
 			or ("Unavailable: " .. tostring(actions.Error))
 
-		runtime.UI:CreateSection(tab, "Skills")
+		runtime.UI:CreateSection(tab, "Integration status")
 		runtime.UI:CreateParagraph(
 			tab,
 			"Client.Actions",
 			status
 				.. "\nVerified exports include skill use, cooldown queries, target selection, aiming, sprinting, mounting, and quick items."
 		)
-		runtime.UI:CreateParagraph(
-			tab,
-			"Next dependency",
-			"Shared.Skills and the current class skillset are needed to identify valid skill slot names safely."
-		)
-
 		runtime.State:Set("Combat.TargetRange", 15)
 		runtime.State:Set("Combat.AimDuration", 0.2)
 		runtime.State:Set("Combat.AttackInterval", 0.15)
@@ -132,6 +124,13 @@ return function()
 				end
 			end,
 		})
+
+		runtime.UI:CreateSection(tab, "Additional skills")
+		runtime.UI:CreateParagraph(
+			tab,
+			"Source required",
+			"Shared.Skills and the current class skillset are needed before secondary skill controls can be named and wired safely."
+		)
 	end
 
 	return Combat

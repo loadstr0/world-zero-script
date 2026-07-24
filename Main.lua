@@ -3,10 +3,11 @@ return function(ctx)
 	local activeRuntime = nil
 
 	local FEATURE_ORDER = {
+		"Home",
 		"Farming",
-		"Combat",
 		"Missions",
 		"Loot",
+		"Combat",
 		"Teleports",
 		"Player",
 		"Settings",
@@ -38,6 +39,7 @@ return function(ctx)
 			State = state,
 			Game = ctx:Require("GameContext"),
 			Actions = ctx:Require("Actions"),
+			Navigation = ctx:Require("Navigation"),
 			UI = ui,
 			Stopped = false,
 		}
