@@ -21,6 +21,11 @@ return function(ctx)
 			FolderName = "WorldZero",
 			FileName = "WorldZeroConfig",
 		},
+		Updates = {
+			CheckOnStart = true,
+			AutoReload = false,
+			PollInterval = 120,
+		},
 	}
 
 	local function copy(value)
@@ -71,4 +76,3 @@ return function(ctx)
 
 	return Config
 end
-

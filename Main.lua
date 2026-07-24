@@ -35,6 +35,7 @@ return function(ctx)
 			Config = config,
 			Logger = Logger,
 			Executor = ctx:Require("Executor"),
+			Updater = ctx:Require("Updater"),
 			Janitor = janitor,
 			State = state,
 			Game = ctx:Require("GameContext"),

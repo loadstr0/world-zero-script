@@ -11,6 +11,7 @@ local env = getgenv()
 local MODULES = {
 	{ Key = "Logger", Path = "Core/Logger" },
 	{ Key = "Executor", Path = "Core/Executor" },
+	{ Key = "Updater", Path = "Core/Updater" },
 	{ Key = "Config", Path = "Core/Config" },
 	{ Key = "Janitor", Path = "Core/Janitor" },
 	{ Key = "State", Path = "Core/State" },

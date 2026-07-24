@@ -59,6 +59,8 @@ Feature modules currently register their Rayfield tabs but deliberately contain 
 
 Executor-specific globals are centralized in `Core/Executor.lua`. Other modules should use its normalized capability fields rather than directly assuming `syn.*` or one executor's aliases exist.
 
+`Core/Updater.lua` checks the public GitHub `main` commit and can reload the modular runtime when a new commit is detected.
+
 ## Current controls
 
 The verified `Client.Actions` source supports these initial Rayfield controls:
@@ -100,3 +102,9 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/loadstr0/world-zero-s
 ```
 
 The repository must be public for this unauthenticated raw URL. Local research files and decompiled references are excluded by `.gitignore`.
+
+## Configuration and updates
+
+Rayfield automatically saves all flagged controls. The Settings tab reports the active configuration folder/file and can reload saved values.
+
+Every fresh execution downloads the latest GitHub modules. The Settings tab also supports manual update checks, configurable polling, and optional automatic runtime reload when `main` changes.
