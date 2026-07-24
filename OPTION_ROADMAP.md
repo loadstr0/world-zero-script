@@ -23,6 +23,7 @@
 - Guardian Aggro Defense maintenance and four-pulse Sword Prison crowd control
 - Hunter auto-summon/Frenzy, close-range Venom Trap, and emergency Divine Arrow
 - Icefire Mage Super Frost priority with field-aware range guards and Meteor Crash
+- Leviathan protected bubble chain, recursive serpent bursts, and Sea Bubble healing
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
