@@ -77,6 +77,10 @@ return function(ctx)
 			AdapterKey = "Starbreaker",
 			FeatureKey = "StarbreakerFeature",
 		},
+		Stormcaller = {
+			AdapterKey = "Stormcaller",
+			FeatureKey = "StormcallerFeature",
+		},
 		Swordmaster = {
 			AdapterKey = "Swordmaster",
 			FeatureKey = "SwordmasterFeature",

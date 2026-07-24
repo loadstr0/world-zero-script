@@ -30,6 +30,7 @@
 - Necromancer maximum-charge Spirit Burst, Hexed Cavern, and ten-summon Undead Army
 - Paladin emergency support, maintained enhanced Primary, and 15-pulse Ring of Justice
 - Starbreaker charge-aware Supernova, double Flare, Starforge, and Fusion sequencing
+- Stormcaller health-safe Supercharge, eight-target lightning, Surge, and Thunder God
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
@@ -64,6 +65,7 @@ Available now:
 - Soul-aware Necromancer rotation with maximum-charge Burst and automatic Undead Army
 - Party-health-aware Paladin healing with aggressive or emergency-only Ring modes
 - Starbreaker full-meter preservation through Fusion for back-to-back Starforge uptime
+- Stormcaller Thunder God sword priority with 25% long-range discharge opportunities
 
 Still requires more source:
 

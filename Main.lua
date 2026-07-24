@@ -81,6 +81,7 @@ return function(ctx)
 			Necromancer = ctx:Require("Necromancer"),
 			Paladin = ctx:Require("Paladin"),
 			Starbreaker = ctx:Require("Starbreaker"),
+			Stormcaller = ctx:Require("Stormcaller"),
 			Swordmaster = ctx:Require("Swordmaster"),
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),

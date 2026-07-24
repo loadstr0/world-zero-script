@@ -59,6 +59,8 @@ local MODULES = {
 	{ Key = "PaladinFeature", Path = "Features/Classes/Paladin" },
 	{ Key = "Starbreaker", Path = "Game/Classes/Starbreaker" },
 	{ Key = "StarbreakerFeature", Path = "Features/Classes/Starbreaker" },
+	{ Key = "Stormcaller", Path = "Game/Classes/Stormcaller" },
+	{ Key = "StormcallerFeature", Path = "Features/Classes/Stormcaller" },
 	{ Key = "Swordmaster", Path = "Game/Classes/Swordmaster" },
 	{ Key = "SwordmasterFeature", Path = "Features/Classes/Swordmaster" },
 	{ Key = "ClassRegistry", Path = "Game/ClassRegistry" },
