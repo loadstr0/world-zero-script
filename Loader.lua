@@ -55,6 +55,8 @@ local MODULES = {
 	{ Key = "MageOfShadowsFeature", Path = "Features/Classes/MageOfShadows" },
 	{ Key = "Necromancer", Path = "Game/Classes/Necromancer" },
 	{ Key = "NecromancerFeature", Path = "Features/Classes/Necromancer" },
+	{ Key = "Paladin", Path = "Game/Classes/Paladin" },
+	{ Key = "PaladinFeature", Path = "Features/Classes/Paladin" },
 	{ Key = "Swordmaster", Path = "Game/Classes/Swordmaster" },
 	{ Key = "SwordmasterFeature", Path = "Features/Classes/Swordmaster" },
 	{ Key = "ClassRegistry", Path = "Game/ClassRegistry" },

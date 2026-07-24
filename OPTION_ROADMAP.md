@@ -28,6 +28,7 @@
 - Mage of Light projected-health Infuse guard with automated healing, Barrier, and Grace
 - Mage of Shadows nine-orb merging, autonomous hunters, Shadow Chains, and form burst modes
 - Necromancer maximum-charge Spirit Burst, Hexed Cavern, and ten-summon Undead Army
+- Paladin emergency support, maintained enhanced Primary, and 15-pulse Ring of Justice
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
@@ -60,6 +61,7 @@ Available now:
 - Automatic Assassin Ultimate usage with a verified full-energy check
 - Configurable Mage of Shadows skill saving and empowered-Primary Shadow Form modes
 - Soul-aware Necromancer rotation with maximum-charge Burst and automatic Undead Army
+- Party-health-aware Paladin healing with aggressive or emergency-only Ring modes
 
 Still requires more source:
 
