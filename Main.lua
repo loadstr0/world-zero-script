@@ -84,6 +84,7 @@ return function(ctx)
 			Stormcaller = ctx:Require("Stormcaller"),
 			Summoner = ctx:Require("Summoner"),
 			Swordmaster = ctx:Require("Swordmaster"),
+			Warlord = ctx:Require("Warlord"),
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),
 			UI = ui,

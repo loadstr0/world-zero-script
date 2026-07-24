@@ -65,6 +65,8 @@ local MODULES = {
 	{ Key = "SummonerFeature", Path = "Features/Classes/Summoner" },
 	{ Key = "Swordmaster", Path = "Game/Classes/Swordmaster" },
 	{ Key = "SwordmasterFeature", Path = "Features/Classes/Swordmaster" },
+	{ Key = "Warlord", Path = "Game/Classes/Warlord" },
+	{ Key = "WarlordFeature", Path = "Features/Classes/Warlord" },
 	{ Key = "ClassRegistry", Path = "Game/ClassRegistry" },
 	{ Key = "Navigation", Path = "UI/Navigation" },
 	{ Key = "RayfieldUI", Path = "UI/Rayfield" },

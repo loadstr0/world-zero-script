@@ -89,6 +89,10 @@ return function(ctx)
 			AdapterKey = "Swordmaster",
 			FeatureKey = "SwordmasterFeature",
 		},
+		Warlord = {
+			AdapterKey = "Warlord",
+			FeatureKey = "WarlordFeature",
+		},
 	}
 
 	function ClassRegistry.GetCurrentClass()
