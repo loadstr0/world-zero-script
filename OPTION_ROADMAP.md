@@ -13,6 +13,7 @@
 - Server-validated radius scan and minimum-target gating
 - Server-safe Swordmaster combat aura through normal skill execution
 - Archer ranged aura with Skill1/Skill2/Skill3 rotation and charged Ultimate
+- Assassin Shadow Cloak, Shadow Leap, Shadow Strike, and full-energy Ultimate rotation
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
@@ -42,10 +43,10 @@ Available now:
 
 - Automatic Skill1/Skill2 rotation
 - Cooldown-aware priority
+- Automatic Assassin Ultimate usage with a verified full-energy check
 
 Still requires more source:
 
-- Automatic Ultimate usage with a verified full-energy check
 - Minimum target count per skill
 - Boss burst mode
 

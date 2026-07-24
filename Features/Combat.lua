@@ -15,7 +15,8 @@ return function()
 				and type(classAdapter.Describe) == "function"
 				and classAdapter.Describe()
 			or {}
-		local defaultTargetRange = classMetadata.Primary
+		local defaultTargetRange = tonumber(classMetadata.AutomationRange)
+			or classMetadata.Primary
 				and tonumber(classMetadata.Primary.Range)
 			or 15
 		local selectedSkillSlot = "Primary"
