@@ -3,12 +3,11 @@ return function()
 	local activeLoops = {}
 	local summonedBatches = {}
 
-	local function getDetonationReady(runtime, targetCount)
+	local function getDetonationReady(runtime, target, targetCount)
 		local summonedAt = summonedBatches[runtime]
 
 		if
 			not runtime.State:Get("Class.Summoner.AutoRiftExplosion", false)
-			or not summonedAt
 			or targetCount
 				< runtime.State:Get(
 					"Class.Summoner.ExplosionMinimumTargets",
@@ -18,10 +17,31 @@ return function()
 			return false
 		end
 
+		local nearbyLesser, nearbyError = runtime.MobsAPI.CountOwnedNear(
+			runtime.Game.GetLocalPlayer(),
+			target,
+			runtime.State:Get("Class.Summoner.ExplosionLesserRadius", 25),
+			"Weak"
+		)
+
+		if
+			nearbyLesser == nil
+			or nearbyError
+			or nearbyLesser
+				< runtime.State:Get(
+					"Class.Summoner.ExplosionMinimumLesser",
+					3
+				)
+		then
+			return false
+		end
+
 		local delaySeconds =
 			runtime.State:Get("Class.Summoner.ExplosionDelay", 3)
+		local delayReady = not summonedAt
+			or os.clock() - summonedAt >= delaySeconds
 
-		return os.clock() - summonedAt >= delaySeconds
+		return delayReady
 			and runtime.Summoner.CanUse("Skill2")
 	end
 
@@ -41,7 +61,7 @@ return function()
 			return "Ultimate"
 		end
 
-		if getDetonationReady(runtime, targetCount) then
+		if getDetonationReady(runtime, target, targetCount) then
 			return "Skill2"
 		end
 
@@ -172,6 +192,8 @@ return function()
 		runtime.State:Set("Class.Summoner.AutoRiftExplosion", false)
 		runtime.State:Set("Class.Summoner.ExplosionDelay", 3)
 		runtime.State:Set("Class.Summoner.ExplosionMinimumTargets", 1)
+		runtime.State:Set("Class.Summoner.ExplosionMinimumLesser", 3)
+		runtime.State:Set("Class.Summoner.ExplosionLesserRadius", 25)
 		runtime.State:Set("Class.Summoner.UseSoulHarvest", true)
 		runtime.State:Set("Class.Summoner.HarvestMinimumTargets", 2)
 		runtime.State:Set("Class.Summoner.AutoUltimate", true)
@@ -290,10 +312,37 @@ return function()
 			end,
 		})
 
+		runtime.UI:CreateSlider(tab, "SummonerExplosionMinimumLesser", {
+			Name = "Minimum nearby Lesser summons",
+			Range = { 1, 5 },
+			Increment = 1,
+			CurrentValue = 3,
+			Callback = function(value)
+				runtime.State:Set(
+					"Class.Summoner.ExplosionMinimumLesser",
+					value
+				)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "SummonerExplosionLesserRadius", {
+			Name = "Lesser proximity to selected target",
+			Range = { 5, 60 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 25,
+			Callback = function(value)
+				runtime.State:Set(
+					"Class.Summoner.ExplosionLesserRadius",
+					value
+				)
+			end,
+		})
+
 		runtime.UI:CreateParagraph(
 			tab,
 			"Verified detonation behavior",
-			"Rift Explosion forces every owned Lesser Soul Being to use its explosion attack. It deliberately ignores the Greater Soul Being from Super Summon. Automatic detonation only tracks Lesser armies created by this running interface; use the manual button for summons that existed before the interface loaded."
+			"Rift Explosion forces every owned Lesser Soul Being to use its explosion attack and deliberately ignores the Greater Soul Being. Shared.Mobs now verifies the exact live owner and type of each summon, so automatic detonation waits until the selected number of Lesser summons are actually near the current target—even when they existed before the interface loaded."
 		)
 
 		runtime.UI:CreateSection(tab, "Super Summon")
@@ -326,9 +375,19 @@ return function()
 			Callback = function()
 				local souls = runtime.Summoner.GetSoulState()
 				local energy, energyError = runtime.Summoner.GetEnergyState()
+				local summons, summonsError =
+					runtime.Summoner.GetSummonState()
 				local energyText = energy
 						and tostring(math.floor(energy.Ratio * 100)) .. "%"
 					or tostring(energyError)
+				local summonText = summons
+						and (
+							tostring(summons.Weak)
+							.. " Lesser, "
+							.. tostring(summons.Strong)
+							.. " Greater"
+						)
+					or tostring(summonsError)
 
 				runtime.UI:Notify(
 					"Summoner status",
@@ -344,7 +403,8 @@ return function()
 						.. tostring(souls.TotalBankedSouls)
 						.. "\nEnergy: "
 						.. energyText
-						.. "\nLive summon count: requires Shared.Mobs",
+						.. "\nLive summons: "
+						.. summonText,
 					7,
 					0
 				)

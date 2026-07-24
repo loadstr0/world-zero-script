@@ -1,0 +1,411 @@
+return function(ctx)
+	local Mobs = {}
+
+	local GameContext = ctx:Require("GameContext")
+	local Health = ctx:Require("Health")
+	local cachedModule = nil
+
+	local function resolve()
+		if type(cachedModule) == "table" then
+			return cachedModule
+		end
+
+		local moduleScript = GameContext.FindReplicated("Shared.Mobs")
+
+		if not moduleScript or not moduleScript:IsA("ModuleScript") then
+			return nil, "shared_mobs_not_found"
+		end
+
+		local ok, result = pcall(require, moduleScript)
+
+		if not ok or type(result) ~= "table" then
+			return nil, "shared_mobs_require_failed"
+		end
+
+		cachedModule = result
+		return cachedModule
+	end
+
+	local function call(methodName, ...)
+		local module, resolveError = resolve()
+
+		if not module then
+			return nil, resolveError
+		end
+
+		local method = module[methodName]
+
+		if type(method) ~= "function" then
+			return nil, "shared_mobs_missing_" .. string.lower(methodName)
+		end
+
+		local results = table.pack(pcall(method, module, ...))
+
+		if not results[1] then
+			return nil, "shared_mobs_call_failed_" .. string.lower(methodName)
+		end
+
+		return table.unpack(results, 2, results.n)
+	end
+
+	local function getTargetPart(mob)
+		if not mob then
+			return nil
+		end
+
+		return mob.PrimaryPart
+			or mob:FindFirstChild("Collider")
+			or mob:FindFirstChild("HumanoidRootPart")
+	end
+
+	local function getPropertyValue(properties, name)
+		local value = properties and properties:FindFirstChild(name)
+		return value and value.Value or nil
+	end
+
+	local function getNameTokens(filter)
+		local tokens = {}
+
+		for token in string.gmatch(string.lower(tostring(filter or "")), "[^,]+") do
+			local cleaned = string.match(token, "^%s*(.-)%s*$")
+
+			if cleaned and cleaned ~= "" then
+				table.insert(tokens, cleaned)
+			end
+		end
+
+		return tokens
+	end
+
+	local function nameMatches(descriptor, filter)
+		local tokens = getNameTokens(filter)
+
+		if #tokens == 0 then
+			return true
+		end
+
+		local searchable = string.lower(
+			table.concat({
+				tostring(descriptor.ModelName or ""),
+				tostring(descriptor.Type or ""),
+				tostring(descriptor.NameTag or ""),
+			}, " ")
+		)
+
+		for _, token in ipairs(tokens) do
+			if string.find(searchable, token, 1, true) then
+				return true
+			end
+		end
+
+		return false
+	end
+
+	function Mobs.GetAll()
+		local all, allError = call("GetAllMobs")
+
+		if type(all) ~= "table" then
+			return nil, allError or "shared_mobs_invalid_list"
+		end
+
+		return all
+	end
+
+	function Mobs.GetTargetPart(mob)
+		return getTargetPart(mob)
+	end
+
+	function Mobs.GetDescriptor(mob, origin)
+		if typeof(mob) ~= "Instance" or not mob.Parent then
+			return nil, "mob_unavailable"
+		end
+
+		local data, dataError = call("GetMobData", mob)
+
+		if type(data) ~= "table" then
+			return nil, dataError or "mob_data_unavailable"
+		end
+
+		local part = getTargetPart(mob)
+
+		if not part then
+			return nil, "mob_target_part_unavailable"
+		end
+
+		local health, healthError = Health.GetState(mob)
+
+		if not health then
+			return nil, healthError
+		end
+
+		local owner = call("GetOwner", mob)
+		local bossTag = call("GetBossTag", mob)
+		local elite = call("IsElite", mob)
+		local hidden = call("IsHidden", mob)
+		local properties = data.Properties or mob:FindFirstChild("MobProperties")
+		local position = part.Position
+		local distance = origin and (position - origin).Magnitude or nil
+
+		if elite == nil then
+			elite = getPropertyValue(properties, "Elite") == true
+		end
+
+		return {
+			Model = mob,
+			ModelName = mob.Name,
+			Type = data.Type or getPropertyValue(properties, "MobType") or mob.Name,
+			NameTag = data.NameTag or data.Name or mob.Name,
+			Level = tonumber(data.Level or getPropertyValue(properties, "Level")) or 0,
+			BossTag = bossTag,
+			IsBoss = bossTag ~= nil and bossTag ~= false and bossTag ~= "",
+			IsElite = elite == true,
+			IsHidden = hidden == true,
+			Invincible = data.Invincible == true,
+			DoNotMove = data.DoNotMove == true,
+			CannotTeleport = data.CannotTeleport == true
+				or mob:FindFirstChild("CannotTeleport") ~= nil,
+			Owner = owner,
+			IsOwned = owner ~= nil,
+			Position = position,
+			Distance = distance,
+			Health = health,
+			Properties = properties,
+			Data = data,
+		}
+	end
+
+	function Mobs.IsValidTarget(descriptor, options)
+		options = options or {}
+
+		if
+			not descriptor
+			or not descriptor.Health
+			or not descriptor.Health.Alive
+			or descriptor.Invincible
+			or descriptor.IsHidden
+			or descriptor.Model:FindFirstChild("IgnorePlayerHits")
+		then
+			return false
+		end
+
+		if not options.IncludeOwned and descriptor.IsOwned then
+			return false
+		end
+
+		if options.BossOnly and not descriptor.IsBoss then
+			return false
+		end
+
+		if options.EliteOnly and not descriptor.IsElite then
+			return false
+		end
+
+		if
+			tonumber(options.Range)
+			and descriptor.Distance
+			and descriptor.Distance > tonumber(options.Range)
+		then
+			return false
+		end
+
+		return nameMatches(descriptor, options.NameFilter)
+	end
+
+	local function getDescriptorSafely(mob, origin)
+		local ok, descriptor, descriptorError =
+			pcall(Mobs.GetDescriptor, mob, origin)
+
+		if not ok then
+			return nil, "mob_descriptor_failed"
+		end
+
+		return descriptor, descriptorError
+	end
+
+	local function isBetter(candidate, current, mode)
+		if not current then
+			return true
+		end
+
+		if mode == "Lowest Health" then
+			if candidate.Health.Ratio ~= current.Health.Ratio then
+				return candidate.Health.Ratio < current.Health.Ratio
+			end
+		elseif mode == "Highest Level" then
+			if candidate.Level ~= current.Level then
+				return candidate.Level > current.Level
+			end
+		elseif mode == "Boss Priority" then
+			if candidate.IsBoss ~= current.IsBoss then
+				return candidate.IsBoss
+			end
+		end
+
+		return (candidate.Distance or math.huge)
+			< (current.Distance or math.huge)
+	end
+
+	function Mobs.SelectTarget(options)
+		options = options or {}
+		local root = GameContext.GetRootPart()
+
+		if not root then
+			return nil, "character_root_unavailable"
+		end
+
+		local all, allError = Mobs.GetAll()
+
+		if not all then
+			return nil, allError
+		end
+
+		local selected = nil
+		local mode = options.Mode or "Nearest"
+
+		for _, mob in pairs(all) do
+			local descriptor = getDescriptorSafely(mob, root.Position)
+
+			if
+				Mobs.IsValidTarget(descriptor, options)
+				and isBetter(descriptor, selected, mode)
+			then
+				selected = descriptor
+			end
+		end
+
+		if not selected then
+			return nil, "no_matching_mob"
+		end
+
+		return selected.Model, selected
+	end
+
+	function Mobs.GetMatching(options)
+		options = options or {}
+		local root = GameContext.GetRootPart()
+
+		if not root then
+			return nil, "character_root_unavailable"
+		end
+
+		local all, allError = Mobs.GetAll()
+
+		if not all then
+			return nil, allError
+		end
+
+		local matching = {}
+
+		for _, mob in pairs(all) do
+			local descriptor = getDescriptorSafely(mob, root.Position)
+
+			if Mobs.IsValidTarget(descriptor, options) then
+				table.insert(matching, descriptor)
+			end
+		end
+
+		return matching
+	end
+
+	function Mobs.GetOwnedSummary(owner)
+		owner = owner or GameContext.GetLocalPlayer()
+		local ownerCharacter = typeof(owner) == "Instance"
+				and owner:IsA("Player")
+				and owner.Character
+			or nil
+		local all, allError = Mobs.GetAll()
+
+		if not all then
+			return nil, allError
+		end
+
+		local summary = {
+			Total = 0,
+			Weak = 0,
+			Strong = 0,
+			Other = 0,
+			Mobs = {},
+		}
+
+		for _, mob in pairs(all) do
+			local descriptor = getDescriptorSafely(mob)
+
+			if
+				descriptor
+				and descriptor.Health.Alive
+				and descriptor.IsOwned
+				and (
+					descriptor.Owner == owner
+					or descriptor.Owner == ownerCharacter
+				)
+			then
+				local mobType = string.lower(tostring(descriptor.Type))
+				summary.Total = summary.Total + 1
+				table.insert(summary.Mobs, descriptor)
+
+				if string.find(mobType, "summonersummonweak", 1, true) then
+					summary.Weak = summary.Weak + 1
+				elseif string.find(mobType, "summonersummonstrong", 1, true) then
+					summary.Strong = summary.Strong + 1
+				else
+					summary.Other = summary.Other + 1
+				end
+			end
+		end
+
+		return summary
+	end
+
+	function Mobs.CountOwnedNear(owner, target, radius, summonKind)
+		local summary, summaryError = Mobs.GetOwnedSummary(owner)
+
+		if not summary then
+			return nil, summaryError
+		end
+
+		local targetPart = getTargetPart(target)
+
+		if not targetPart then
+			return nil, "target_part_unavailable"
+		end
+
+		local kind = string.lower(tostring(summonKind or ""))
+		local count = 0
+
+		for _, descriptor in ipairs(summary.Mobs) do
+			local typeName = string.lower(tostring(descriptor.Type))
+			local kindMatches = kind == ""
+				or (kind == "weak" and string.find(typeName, "weak", 1, true))
+				or (kind == "strong" and string.find(typeName, "strong", 1, true))
+
+			if
+				kindMatches
+				and (
+					descriptor.Position - targetPart.Position
+				).Magnitude <= (tonumber(radius) or 25)
+			then
+				count = count + 1
+			end
+		end
+
+		return count
+	end
+
+	function Mobs.Describe()
+		local module, resolveError = resolve()
+
+		return {
+			Available = module ~= nil,
+			Error = resolveError,
+			HasLocalMobList = module and type(module.GetAllMobs) == "function" or false,
+			HasMobData = module and type(module.GetMobData) == "function" or false,
+			HasBossTags = module and type(module.GetBossTag) == "function" or false,
+			HasEliteState = module and type(module.IsElite) == "function" or false,
+			HasOwnership = module
+				and type(module.GetOwner) == "function"
+				or false,
+		}
+	end
+
+	return Mobs
+end

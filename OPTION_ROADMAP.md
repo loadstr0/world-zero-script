@@ -33,28 +33,28 @@
 - Stormcaller health-safe Supercharge, eight-target lightning, Surge, and Thunder God
 - Summoner five-charge Soul banking, anti-waste Harvest, and Greater summon automation
 - Warlord emergency Block, triple Piledriver, defense break, and Yggdrasil automation
+- Filtered Auto Farm with nearest, boss, health, level, elite, and name targeting
+- Humanoid walking approach with configurable stopping and attack distances
+- Shared target provider for filtered class auras and exact Summoner proximity checks
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
 
 ## High-power combat options
 
-### Kill Aura
+### Kill Aura / Auto Farm
 
-Planned controls:
+Available controls:
 
 - Enable toggle
 - Aura range
-- Target mode: nearest or all
-- Attack mode: primary, selected skill, or rotation
+- Target modes: nearest, boss priority, lowest health, or highest level
+- Primary or selected-skill attacks
 - Attack interval
-- Boss-only and mob-name filters
+- Boss-only, elite-only, and comma-separated mob-name filters
+- Walk approach and stopping distance
 
-Required source:
-
-1. `ReplicatedStorage.Shared.Mobs`
-
-Swordmaster behavior and server hitbox validation are now verified. The direct `AttackTarget` remote is explicitly flagged as autofarming, and invalid damage identifiers are recorded as Kill Aura before a delayed kick. Those trap paths are deliberately not exposed. `Shared.Mobs` is still required for boss and mob-name filters.
+Swordmaster behavior, server hitbox validation, and `Shared.Mobs` client targeting are verified. The direct `AttackTarget` remote is explicitly flagged as autofarming, and invalid damage identifiers are recorded as Kill Aura before a delayed kick. Those trap paths remain deliberately unexposed; farming uses normal class skill execution.
 
 ### Skill Aura / Rotation
 
@@ -71,14 +71,11 @@ Available now:
 - Summoner five-Lesser army detonation while preserving the Greater Soul Being
 - Warlord full three-hit Piledriver priority and near-continuous counter Block
 
-Still requires more source:
-
-- Minimum target count per skill
-- Boss burst mode
+Filtered targets now feed the existing class auras, enabling boss-only class rotations without duplicating combat logic.
 
 ### Other possible high-power options
 
-- Auto farm with target and world filters
+- Auto farm world filters
 - Auto mission selection/repeat
 - Auto loot and chest collection
 - Boss targeting and phase-aware attacks

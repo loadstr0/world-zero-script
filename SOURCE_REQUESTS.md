@@ -29,6 +29,7 @@
 - `ReplicatedStorage.Shared.Combat.Skillsets.General`
 - `ReplicatedStorage.Shared.Combat`
 - `ReplicatedStorage.Shared.Profile`
+- `ReplicatedStorage.Shared.Mobs`
 
 The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, Guardian, Hunter, Icefire Mage, Leviathan, Mage, Mage of Light, Mage of Shadows, Necromancer, Paladin, Starbreaker, Stormcaller, Summoner, and Warlord have verified automation panels. Greatsword has a verified source-status panel, but its supplied module is an unfinished non-damaging prototype. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
 
@@ -36,15 +37,14 @@ The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Sh
 
 All supplied production class skillsets now have class-aware UI coverage. Greatsword remains intentionally limited to source status because its supplied implementation is a non-damaging prototype.
 
-For mob filtering and automation, the next non-class sources are:
+Mob filtering, boss/elite/name targeting, ownership checks, and exact summon tracking are now implemented from `Shared.Mobs`. The next non-class sources are:
 
-1. `ReplicatedStorage.Shared.Mobs`
-2. `ReplicatedStorage.Shared.Gamebeast.Infra.Shared.Modules.GetRemote`
-3. `ReplicatedStorage.Shared.Drops`
-4. `ReplicatedStorage.Shared.Missions`
-5. `ReplicatedStorage.Shared.Missions.MissionData`
-6. `ReplicatedStorage.Shared.Teleport`
-7. `ReplicatedStorage.Shared.Teleport.WorldData`
+1. `ReplicatedStorage.Shared.Gamebeast.Infra.Shared.Modules.GetRemote`
+2. `ReplicatedStorage.Shared.Drops`
+3. `ReplicatedStorage.Shared.Missions`
+4. `ReplicatedStorage.Shared.Missions.MissionData`
+5. `ReplicatedStorage.Shared.Teleport`
+6. `ReplicatedStorage.Shared.Teleport.WorldData`
 
 After those, the next useful client modules are:
 

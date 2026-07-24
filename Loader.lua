@@ -22,6 +22,7 @@ local MODULES = {
 	{ Key = "Energy", Path = "Game/Energy" },
 	{ Key = "Health", Path = "Game/Health" },
 	{ Key = "Status", Path = "Game/Status" },
+	{ Key = "MobsAPI", Path = "Game/Mobs" },
 	{ Key = "Skills", Path = "Game/Skills" },
 	{ Key = "Assassin", Path = "Game/Classes/Assassin" },
 	{ Key = "AssassinFeature", Path = "Features/Classes/Assassin" },

@@ -4,6 +4,7 @@ return function(ctx)
 	local Logger = ctx:Require("Logger")
 	local GameContext = ctx:Require("GameContext")
 	local cachedModule = nil
+	local targetProvider = nil
 
 	local function resolve()
 		if type(cachedModule) == "table" then
@@ -66,11 +67,58 @@ return function(ctx)
 	end
 
 	function Actions.GetNearestTarget(radius, character)
+		if type(targetProvider) == "function" then
+			local ok, target = pcall(targetProvider, radius, character)
+
+			if not ok then
+				Logger.warn("Custom target provider failed:", target)
+				return nil, "target_provider_failed"
+			end
+
+			return target
+		end
+
 		return call("GetNearestTarget", radius, character)
 	end
 
 	function Actions.AimAtNearestTarget(duration, radius)
+		if type(targetProvider) == "function" then
+			local target, targetError = Actions.GetNearestTarget(radius)
+
+			if not target then
+				return nil, targetError or "target_unavailable"
+			end
+
+			return call("AimAtMob", target, duration)
+		end
+
 		return call("AimAtNearestMob", duration, radius)
+	end
+
+	function Actions.AimAtTarget(target, duration)
+		if not target then
+			return nil, "target_unavailable"
+		end
+
+		return call("AimAtMob", target, duration)
+	end
+
+	function Actions.SetTargetProvider(provider)
+		if provider ~= nil and type(provider) ~= "function" then
+			return false, "target_provider_must_be_function"
+		end
+
+		targetProvider = provider
+		return true
+	end
+
+	function Actions.ClearTargetProvider(provider)
+		if provider == nil or provider == targetProvider then
+			targetProvider = nil
+			return true
+		end
+
+		return false, "target_provider_changed"
 	end
 
 	function Actions.GetRemainingCooldown(skillSlot)
@@ -135,4 +183,3 @@ return function(ctx)
 
 	return Actions
 end
-

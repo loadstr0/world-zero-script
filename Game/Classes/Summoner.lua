@@ -4,6 +4,7 @@ return function(ctx)
 	local Actions = ctx:Require("Actions")
 	local Energy = ctx:Require("Energy")
 	local GameContext = ctx:Require("GameContext")
+	local MobsAPI = ctx:Require("MobsAPI")
 
 	local METADATA = {
 		ClassName = "Summoner",
@@ -91,6 +92,10 @@ return function(ctx)
 
 	function Summoner.GetEnergyState()
 		return Energy.GetState()
+	end
+
+	function Summoner.GetSummonState()
+		return MobsAPI.GetOwnedSummary(GameContext.GetLocalPlayer())
 	end
 
 	function Summoner.IsUltimateReady()

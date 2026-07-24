@@ -62,6 +62,7 @@ return function(ctx)
 			Energy = ctx:Require("Energy"),
 			Health = ctx:Require("Health"),
 			Status = ctx:Require("Status"),
+			MobsAPI = ctx:Require("MobsAPI"),
 			Skills = ctx:Require("Skills"),
 			Assassin = ctx:Require("Assassin"),
 			Archer = ctx:Require("Archer"),

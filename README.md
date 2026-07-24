@@ -41,6 +41,7 @@ World Zero Script/
 |   |-- Context.lua
 |   |-- Energy.lua
 |   |-- Health.lua
+|   |-- Mobs.lua
 |   |-- Profile.lua
 |   |-- Status.lua
 |   |-- Skills.lua
@@ -117,6 +118,10 @@ Executor-specific globals are centralized in `Core/Executor.lua`. Other modules 
 
 The verified `Client.Actions` source supports these initial Rayfield controls:
 
+- Filtered Auto Farm with boss, elite, name, health, level, and distance targeting
+- Optional walking approach, stopping distance, attack range, and selected skill
+- Shared filtered targets for every class aura
+- Exact live Summoner counts and proximity-based Lesser-army detonation
 - Target-range and aim-duration sliders
 - One-shot nearest-target aim
 - Optional aim before primary attacks
