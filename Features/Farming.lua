@@ -8,6 +8,9 @@ return function(ctx)
 	function Farming.Register(runtime)
 		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Automation)
 		local mobStatus = runtime.MobsAPI.Describe()
+		local healthStatus = runtime.Health.Describe()
+		local statusStatus = runtime.Status.Describe()
+		local walkspeedStatus = runtime.Walkspeed.Describe()
 		local targetProvider = function(range)
 			return Engine.GetTarget(runtime, range)
 		end
@@ -20,7 +23,11 @@ return function(ctx)
 		runtime.State:Set("Farming.NameFilter", "")
 		runtime.State:Set("Farming.AutoApproach", true)
 		runtime.State:Set("Farming.StopDistance", 10)
+		runtime.State:Set("Farming.AdaptiveKiting", true)
+		runtime.State:Set("Farming.KiteDistance", 28)
 		runtime.State:Set("Farming.AutoSprint", true)
+		runtime.State:Set("Farming.SpeedBoostEnabled", false)
+		runtime.State:Set("Farming.SpeedBoostMultiplier", 1.5)
 		runtime.State:Set("Farming.AutoJump", true)
 		runtime.State:Set("Farming.RepathInterval", 1.25)
 		runtime.State:Set("Farming.StuckTimeout", 0.9)
@@ -31,6 +38,8 @@ return function(ctx)
 		runtime.State:Set("Farming.SkillRetryInterval", 0.6)
 		runtime.State:Set("Farming.AttackRange", 45)
 		runtime.State:Set("Farming.AutoDodge", true)
+		runtime.State:Set("Farming.DodgeAfterDamage", true)
+		runtime.State:Set("Farming.DamageReactionWindow", 1.25)
 		runtime.State:Set("Farming.ThreatRadius", 25)
 		runtime.State:Set("Farming.DodgeHealthThreshold", 70)
 		runtime.State:Set("Farming.EmergencyRetreat", true)
@@ -79,7 +88,18 @@ return function(ctx)
 		runtime.UI:CreateParagraph(
 			tab,
 			"Damage avoidance",
-			"Auto Dodge reacts when a targeting mob begins an attack, while Emergency Retreat pathfinds away at low health. Flight is intentionally not forced because it can desync mission triggers and leave the character stuck."
+			"Auto Dodge reacts when a targeting mob begins an attack. Barrier health now delays unnecessary retreat, and automation pauses while Knockdown or another action-blocking status is active."
+		)
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Survival sources",
+			"Health: "
+				.. tostring(healthStatus.Available)
+				.. " | Status: "
+				.. tostring(statusStatus.Available)
+				.. " | Walkspeed: "
+				.. tostring(walkspeedStatus.Available)
 		)
 
 		runtime.UI:CreateSection(tab, "Target selection")
@@ -182,6 +202,25 @@ return function(ctx)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "FarmingAdaptiveKiting", {
+			Name = "Adaptive ranged kiting",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.AdaptiveKiting", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingKiteDistance", {
+			Name = "Preferred ranged distance",
+			Range = { 10, 45 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 28,
+			Callback = function(value)
+				runtime.State:Set("Farming.KiteDistance", value)
+			end,
+		})
+
 		runtime.UI:CreateSlider(tab, "FarmingRepathInterval", {
 			Name = "Moving-target path refresh",
 			Range = { 0.5, 3 },
@@ -203,6 +242,38 @@ return function(ctx)
 				runtime.State:Set("Farming.StuckTimeout", value)
 			end,
 		})
+
+		runtime.UI:CreateToggle(tab, "FarmingSpeedBoostEnabled", {
+			Name = "Enable automation speed boost",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Farming.SpeedBoostEnabled", value)
+
+				if not value then
+					Engine.ClearSpeedBoost(runtime)
+				end
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingSpeedBoostMultiplier", {
+			Name = "Automation movement multiplier",
+			Range = { 1, 3 },
+			Increment = 0.1,
+			Suffix = "x",
+			CurrentValue = 1.5,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.SpeedBoostMultiplier",
+					value
+				)
+			end,
+		})
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Movement multiplier",
+			"This uses the same client WalkspeedManager multiplier API as status effects and only applies while Auto Farm runs. The server can still correct movement, so it is optional."
+		)
 
 		runtime.UI:CreateToggle(tab, "FarmingAutoAttack", {
 			Name = "Attack selected target",
@@ -285,6 +356,28 @@ return function(ctx)
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Farming.AutoDodge", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingDodgeAfterDamage", {
+			Name = "Dodge follow-up attacks after damage",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.DodgeAfterDamage", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingDamageReactionWindow", {
+			Name = "Post-damage Dodge window",
+			Range = { 0.25, 3 },
+			Increment = 0.25,
+			Suffix = "s",
+			CurrentValue = 1.25,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.DamageReactionWindow",
+					value
+				)
 			end,
 		})
 
@@ -414,6 +507,16 @@ return function(ctx)
 				local navigation = runtime.Navigator.GetState()
 				local className =
 					runtime.ClassRegistry.GetCurrentClass() or "Unknown"
+				local survival =
+					Engine.GetSurvivalState(runtime)
+				local statuses, statusesError =
+					runtime.Status.GetSummary()
+				local walkspeed, walkspeedError =
+					runtime.Walkspeed.Get()
+				local outOfCombat =
+					runtime.Health.IsOutOfCombat()
+				local lastDamage =
+					runtime.Health.GetLastDamage()
 
 				runtime.UI:Notify(
 					"Automation status",
@@ -428,11 +531,40 @@ return function(ctx)
 						)
 						.. "\nHealth: "
 						.. tostring(
+							math.floor(survival.HealthRatio * 100)
+						)
+						.. "%"
+						.. "\nBarrier: "
+						.. tostring(math.floor(survival.Barrier))
+						.. " | protected: "
+						.. tostring(
 							math.floor(
-								Engine.GetHealthRatio(runtime) * 100
+								survival.ProtectionRatio * 100
 							)
 						)
 						.. "%"
+						.. "\nWalkspeed: "
+						.. tostring(
+							walkspeed
+								and math.floor(walkspeed * 10) / 10
+							or walkspeedError
+						)
+						.. "\nStatuses: "
+						.. tostring(
+							statuses and statuses.Text or statusesError
+						)
+						.. "\nOut of combat: "
+						.. tostring(outOfCombat)
+						.. "\nLast damage: "
+						.. tostring(
+							lastDamage and lastDamage.Amount or 0
+						)
+						.. " from "
+						.. tostring(
+							lastDamage
+								and lastDamage.Attacker
+								or "none"
+						)
 						.. "\nThreats: "
 						.. tostring(threat and threat.Count or 0)
 						.. " (attacking: "

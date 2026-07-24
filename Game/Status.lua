@@ -51,6 +51,108 @@ return function(ctx)
 		return result ~= nil and result ~= false
 	end
 
+	function Status.GetActive(character)
+		local module, resolveError = resolve()
+
+		if not module then
+			return nil, resolveError
+		end
+
+		character = character or GameContext.GetCharacter()
+
+		if not character then
+			return nil, "character_unavailable"
+		end
+
+		local folder = character:FindFirstChild("Status")
+
+		if not folder then
+			return {}
+		end
+
+		local result = {}
+
+		for _, statusObject in ipairs(folder:GetChildren()) do
+			local info = nil
+			local remaining = nil
+
+			if type(module.GetStatusInfo) == "function" then
+				local infoOk, infoValue =
+					pcall(module.GetStatusInfo, module, statusObject.Name)
+
+				if infoOk and type(infoValue) == "table" then
+					info = infoValue
+				end
+			end
+
+			if type(module.GetRemainingTime) == "function" then
+				local timeOk, timeValue =
+					pcall(module.GetRemainingTime, module, statusObject)
+
+				if timeOk then
+					remaining = tonumber(timeValue)
+				end
+			end
+
+			table.insert(result, {
+				Name = statusObject.Name,
+				Info = info,
+				Remaining = remaining,
+				Object = statusObject,
+			})
+		end
+
+		table.sort(result, function(a, b)
+			return a.Name < b.Name
+		end)
+
+		return result
+	end
+
+	function Status.IsIncapacitated(character)
+		local active, activeError = Status.GetActive(character)
+
+		if not active then
+			return false, activeError
+		end
+
+		for _, status in ipairs(active) do
+			local info = status.Info or {}
+
+			if
+				status.Name == "Knockdown"
+				or info.ActionsDisabled == true
+				or info.SkillsDisabled == true
+				or info.CanAct == false
+				or tonumber(info.WalkspeedMultiplier) == 0
+			then
+				return true, status.Name
+			end
+		end
+
+		return false
+	end
+
+	function Status.GetSummary(character)
+		local active, activeError = Status.GetActive(character)
+
+		if not active then
+			return nil, activeError
+		end
+
+		local names = {}
+
+		for _, status in ipairs(active) do
+			table.insert(names, status.Name)
+		end
+
+		return {
+			Count = #active,
+			Names = names,
+			Text = #names > 0 and table.concat(names, ", ") or "none",
+		}
+	end
+
 	function Status.Describe()
 		local module, resolveError = resolve()
 
@@ -58,6 +160,13 @@ return function(ctx)
 			Available = module ~= nil,
 			Error = resolveError,
 			HasStatusQuery = module and type(module.HasStatus) == "function" or false,
+			HasStatusListing = true,
+			HasStatusInfo = module
+				and type(module.GetStatusInfo) == "function"
+				or false,
+			HasRemainingTime = module
+				and type(module.GetRemainingTime) == "function"
+				or false,
 		}
 	end
 

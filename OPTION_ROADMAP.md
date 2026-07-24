@@ -36,7 +36,9 @@
 - Filtered Auto Farm with nearest, boss, health, level, elite, and name targeting
 - Automatic equipped-class rotation through every available special, Primary, and Ultimate
 - Pathfinding approach with sprinting, fence jumps, moving-target refresh, and stuck recovery
-- Attack-aware Auto Dodge, low-health emergency retreat, and optional quick-item healing
+- Speed-aware ranged kiting and optional automation movement multiplier
+- Barrier-aware Auto Dodge, post-hit follow-up Dodge, low-health retreat, and quick-item healing
+- Automatic pause during Knockdown or status metadata that blocks actions
 - Shared target provider for filtered class auras and exact Summoner proximity checks
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
@@ -56,7 +58,8 @@ Available controls:
 - Attack interval
 - Boss-only, elite-only, and comma-separated mob-name filters
 - Pathfinding approach, sprinting, obstacle jumps, stopping distance, and stuck recovery
-- Incoming-attack Dodge, emergency retreat thresholds, and quick-item healing
+- Primary-range and live-Walkspeed-aware kiting
+- Incoming/post-damage Dodge, barrier-aware retreat thresholds, and quick-item healing
 
 Swordmaster behavior, server hitbox validation, and `Shared.Mobs` client targeting are verified. The direct `AttackTarget` remote is explicitly flagged as autofarming, and invalid damage identifiers are recorded as Kill Aura before a delayed kick. Those trap paths remain deliberately unexposed; farming uses normal class skill execution.
 

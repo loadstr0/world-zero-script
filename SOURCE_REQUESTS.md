@@ -30,6 +30,9 @@
 - `ReplicatedStorage.Shared.Combat`
 - `ReplicatedStorage.Shared.Profile`
 - `ReplicatedStorage.Shared.Mobs`
+- `ReplicatedStorage.Shared.Health`
+- `ReplicatedStorage.Shared.Status`
+- `ReplicatedStorage.Shared.WalkspeedManager`
 
 The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, Guardian, Hunter, Icefire Mage, Leviathan, Mage, Mage of Light, Mage of Shadows, Necromancer, Paladin, Starbreaker, Stormcaller, Summoner, and Warlord have verified automation panels. Greatsword has a verified source-status panel, but its supplied module is an unfinished non-damaging prototype. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
 
@@ -37,11 +40,11 @@ The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Sh
 
 All supplied production class skillsets now have class-aware UI coverage. Greatsword remains intentionally limited to source status because its supplied implementation is a non-damaging prototype.
 
-Mob filtering, boss/elite/name targeting, ownership checks, and exact summon tracking are now implemented from `Shared.Mobs`. The next non-class sources are:
+Mob filtering, boss/elite/name targeting, ownership checks, exact summon tracking, barrier-aware survival, status-aware pausing, and speed-aware kiting are now implemented. The next non-class sources are:
 
-1. `ReplicatedStorage.Shared.WalkspeedManager`
-2. `ReplicatedStorage.Shared.Health`
-3. `ReplicatedStorage.Shared.Status`
+1. `ReplicatedStorage.Shared.Status.Statuses`
+2. `ReplicatedStorage.Shared.Settings`
+3. `ReplicatedStorage.Shared.Gear`
 4. `ReplicatedStorage.Shared.Gamebeast.Infra.Shared.Modules.GetRemote`
 5. `ReplicatedStorage.Shared.Drops`
 6. `ReplicatedStorage.Shared.Missions`
@@ -49,7 +52,7 @@ Mob filtering, boss/elite/name targeting, ownership checks, and exact summon tra
 8. `ReplicatedStorage.Shared.Teleport`
 9. `ReplicatedStorage.Shared.Teleport.WorldData`
 
-The first three will let automation improve class-aware kiting, verify every health/barrier fallback, and avoid wasting attacks or movement during incapacitating status effects. The current pathfinder, Dodge reaction, emergency retreat, and optional quick-item healing already work through the verified public client APIs.
+`Shared.Status.Statuses` is the most useful next source because it defines every debuff's exact action, movement, defense, and override metadata. `Shared.Settings` and `Shared.Gear` will verify base-speed and perk calculations behind the optional movement multiplier.
 
 After those, the next useful client modules are:
 

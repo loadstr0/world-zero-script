@@ -46,6 +46,7 @@ World Zero Script/
 |   |-- Profile.lua
 |   |-- Status.lua
 |   |-- Skills.lua
+|   |-- Walkspeed.lua
 |   `-- Classes/
 |       |-- Assassin.lua
 |       |-- Archer.lua
@@ -124,7 +125,10 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Filtered Auto Farm with boss, elite, name, health, level, and distance targeting
 - Full equipped-class rotation across every available special attack, Primary, and charged Ultimate
 - Obstacle-aware pathfinding with sprinting, fence jumps, moving-target repathing, and stuck recovery
-- Incoming-attack Auto Dodge, configurable low-health retreat, and optional quick-item healing
+- Adaptive ranged kiting using live player/mob speed and equipped-class Primary range
+- Barrier-aware Auto Dodge/retreat with post-damage follow-up Dodge
+- Knockdown/action-block detection and optional quick-item healing
+- Optional automation-only WalkspeedManager multiplier
 - Optional approach, stopping distance, attack range, and selected-slot mode
 - Shared filtered targets for every class aura
 - Exact live Summoner counts and proximity-based Lesser-army detonation
