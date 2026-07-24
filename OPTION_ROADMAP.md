@@ -34,7 +34,9 @@
 - Summoner five-charge Soul banking, anti-waste Harvest, and Greater summon automation
 - Warlord emergency Block, triple Piledriver, defense break, and Yggdrasil automation
 - Filtered Auto Farm with nearest, boss, health, level, elite, and name targeting
-- Humanoid walking approach with configurable stopping and attack distances
+- Automatic equipped-class rotation through every available special, Primary, and Ultimate
+- Pathfinding approach with sprinting, fence jumps, moving-target refresh, and stuck recovery
+- Attack-aware Auto Dodge, low-health emergency retreat, and optional quick-item healing
 - Shared target provider for filtered class auras and exact Summoner proximity checks
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
@@ -49,10 +51,12 @@ Available controls:
 - Enable toggle
 - Aura range
 - Target modes: nearest, boss priority, lowest health, or highest level
-- Primary or selected-skill attacks
+- Full class rotation, Primary-only, or selected-slot attack modes
+- Automatic full-energy Ultimate usage
 - Attack interval
 - Boss-only, elite-only, and comma-separated mob-name filters
-- Walk approach and stopping distance
+- Pathfinding approach, sprinting, obstacle jumps, stopping distance, and stuck recovery
+- Incoming-attack Dodge, emergency retreat thresholds, and quick-item healing
 
 Swordmaster behavior, server hitbox validation, and `Shared.Mobs` client targeting are verified. The direct `AttackTarget` remote is explicitly flagged as autofarming, and invalid damage identifiers are recorded as Kill Aura before a delayed kick. Those trap paths remain deliberately unexposed; farming uses normal class skill execution.
 
@@ -60,8 +64,9 @@ Swordmaster behavior, server hitbox validation, and `Shared.Mobs` client targeti
 
 Available now:
 
-- Automatic Skill1/Skill2 rotation
-- Cooldown-aware priority
+- Automatic rotation through every special slot exposed by the equipped class
+- Cooldown-aware round-robin scheduling so unavailable skills do not block later skills
+- Automatic charged Ultimate usage with a verified full-energy check
 - Automatic Assassin Ultimate usage with a verified full-energy check
 - Configurable Mage of Shadows skill saving and empowered-Primary Shadow Form modes
 - Soul-aware Necromancer rotation with maximum-charge Burst and automatic Undead Army

@@ -39,12 +39,17 @@ All supplied production class skillsets now have class-aware UI coverage. Greats
 
 Mob filtering, boss/elite/name targeting, ownership checks, and exact summon tracking are now implemented from `Shared.Mobs`. The next non-class sources are:
 
-1. `ReplicatedStorage.Shared.Gamebeast.Infra.Shared.Modules.GetRemote`
-2. `ReplicatedStorage.Shared.Drops`
-3. `ReplicatedStorage.Shared.Missions`
-4. `ReplicatedStorage.Shared.Missions.MissionData`
-5. `ReplicatedStorage.Shared.Teleport`
-6. `ReplicatedStorage.Shared.Teleport.WorldData`
+1. `ReplicatedStorage.Shared.WalkspeedManager`
+2. `ReplicatedStorage.Shared.Health`
+3. `ReplicatedStorage.Shared.Status`
+4. `ReplicatedStorage.Shared.Gamebeast.Infra.Shared.Modules.GetRemote`
+5. `ReplicatedStorage.Shared.Drops`
+6. `ReplicatedStorage.Shared.Missions`
+7. `ReplicatedStorage.Shared.Missions.MissionData`
+8. `ReplicatedStorage.Shared.Teleport`
+9. `ReplicatedStorage.Shared.Teleport.WorldData`
+
+The first three will let automation improve class-aware kiting, verify every health/barrier fallback, and avoid wasting attacks or movement during incapacitating status effects. The current pathfinder, Dodge reaction, emergency retreat, and optional quick-item healing already work through the verified public client APIs.
 
 After those, the next useful client modules are:
 

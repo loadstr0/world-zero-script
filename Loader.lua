@@ -23,6 +23,7 @@ local MODULES = {
 	{ Key = "Health", Path = "Game/Health" },
 	{ Key = "Status", Path = "Game/Status" },
 	{ Key = "MobsAPI", Path = "Game/Mobs" },
+	{ Key = "Navigator", Path = "Game/Navigator" },
 	{ Key = "Skills", Path = "Game/Skills" },
 	{ Key = "Assassin", Path = "Game/Classes/Assassin" },
 	{ Key = "AssassinFeature", Path = "Features/Classes/Assassin" },
@@ -72,6 +73,7 @@ local MODULES = {
 	{ Key = "Navigation", Path = "UI/Navigation" },
 	{ Key = "RayfieldUI", Path = "UI/Rayfield" },
 	{ Key = "Home", Path = "Features/Home" },
+	{ Key = "FarmingEngine", Path = "Features/Automation/FarmingEngine" },
 	{ Key = "Farming", Path = "Features/Farming" },
 	{ Key = "Combat", Path = "Features/Combat" },
 	{ Key = "Missions", Path = "Features/Missions" },
@@ -235,6 +237,7 @@ local ctx = {
 		UserInputService = game:GetService("UserInputService"),
 		HttpService = HttpService,
 		TeleportService = game:GetService("TeleportService"),
+		PathfindingService = game:GetService("PathfindingService"),
 	},
 }
 

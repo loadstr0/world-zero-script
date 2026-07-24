@@ -1,173 +1,15 @@
-return function()
+return function(ctx)
 	local Farming = {
 		Id = "Farming",
 	}
 
-	local activeLoops = {}
-	local activeTargets = {}
-	local movementWarnings = {}
-
-	local function getOptions(runtime, rangeOverride)
-		local configuredRange =
-			runtime.State:Get("Farming.TargetRange", 120)
-
-		return {
-			Mode = runtime.State:Get("Farming.TargetMode", "Nearest"),
-			Range = math.min(
-				tonumber(rangeOverride) or configuredRange,
-				configuredRange
-			),
-			BossOnly = runtime.State:Get("Farming.BossOnly", false),
-			EliteOnly = runtime.State:Get("Farming.EliteOnly", false),
-			NameFilter = runtime.State:Get("Farming.NameFilter", ""),
-			IncludeOwned = false,
-		}
-	end
-
-	local function getTarget(runtime, rangeOverride)
-		local target, descriptor =
-			runtime.MobsAPI.SelectTarget(getOptions(runtime, rangeOverride))
-
-		if target then
-			activeTargets[runtime] = target
-		end
-
-		return target, descriptor
-	end
-
-	local function stopWalking(runtime)
-		local humanoid = runtime.Game.GetHumanoid()
-		local root = runtime.Game.GetRootPart()
-
-		if humanoid and root then
-			humanoid:MoveTo(root.Position)
-		end
-	end
-
-	local function approachTarget(runtime, descriptor)
-		if not runtime.State:Get("Farming.AutoApproach", true) then
-			return false
-		end
-
-		local humanoid = runtime.Game.GetHumanoid()
-		local root = runtime.Game.GetRootPart()
-
-		if not humanoid or not root then
-			if not movementWarnings[runtime] then
-				movementWarnings[runtime] = true
-				runtime.UI:Notify(
-					"Auto approach",
-					"This character has no client Humanoid movement controller. Targeting and attacks remain active.",
-					5,
-					0
-				)
-			end
-
-			return false
-		end
-
-		local stopDistance =
-			runtime.State:Get("Farming.StopDistance", 10)
-
-		if descriptor.Distance <= stopDistance then
-			humanoid:MoveTo(root.Position)
-			return false
-		end
-
-		local offset = root.Position - descriptor.Position
-		local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-		local direction = flatOffset.Magnitude > 0
-				and flatOffset.Unit
-			or Vector3.new(0, 0, 1)
-		local destination =
-			descriptor.Position + direction * stopDistance
-
-		humanoid:MoveTo(destination)
-		return true
-	end
-
-	local function useFarmAttack(runtime, target, descriptor)
-		if
-			not runtime.State:Get("Farming.AutoAttack", true)
-			or descriptor.Distance
-				> runtime.State:Get("Farming.AttackRange", 20)
-			or runtime.Actions.IsBusy() == true
-		then
-			return
-		end
-
-		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
-
-		if adapter and type(adapter.EnsureUnsheathed) == "function" then
-			local ready = adapter.EnsureUnsheathed()
-
-			if not ready then
-				return
-			end
-		end
-
-		if runtime.State:Get("Combat.AutoAim", true) then
-			runtime.Actions.AimAtTarget(
-				target,
-				runtime.State:Get("Combat.AimDuration", 0.2)
-			)
-		end
-
-		local slot = runtime.State:Get("Farming.AttackSlot", "Primary")
-
-		if adapter and type(adapter.Use) == "function" then
-			adapter.Use(slot)
-		elseif
-			slot == "Primary"
-			and adapter
-			and type(adapter.UsePrimary) == "function"
-		then
-			adapter.UsePrimary()
-		else
-			runtime.Actions.UseSkill(slot)
-		end
-	end
-
-	local function startLoop(runtime)
-		if activeLoops[runtime] then
-			return
-		end
-
-		activeLoops[runtime] = true
-
-		task.spawn(function()
-			while
-				not runtime.Stopped
-				and runtime.State:Get("Farming.Enabled", false)
-			do
-				local target, descriptor = getTarget(runtime)
-
-				if target and descriptor then
-					approachTarget(runtime, descriptor)
-					useFarmAttack(runtime, target, descriptor)
-				else
-					activeTargets[runtime] = nil
-					stopWalking(runtime)
-				end
-
-				task.wait(
-					runtime.State:Get("Farming.UpdateInterval", 0.2)
-				)
-			end
-
-			stopWalking(runtime)
-			runtime.Actions.ClearTargetProvider()
-			activeTargets[runtime] = nil
-			activeLoops[runtime] = nil
-			movementWarnings[runtime] = nil
-		end)
-	end
+	local Engine = ctx:Require("FarmingEngine")
 
 	function Farming.Register(runtime)
 		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Automation)
 		local mobStatus = runtime.MobsAPI.Describe()
 		local targetProvider = function(range)
-			return getTarget(runtime, range)
+			return Engine.GetTarget(runtime, range)
 		end
 
 		runtime.State:Set("Farming.Enabled", false)
@@ -178,9 +20,26 @@ return function()
 		runtime.State:Set("Farming.NameFilter", "")
 		runtime.State:Set("Farming.AutoApproach", true)
 		runtime.State:Set("Farming.StopDistance", 10)
+		runtime.State:Set("Farming.AutoSprint", true)
+		runtime.State:Set("Farming.AutoJump", true)
+		runtime.State:Set("Farming.RepathInterval", 1.25)
+		runtime.State:Set("Farming.StuckTimeout", 0.9)
 		runtime.State:Set("Farming.AutoAttack", true)
+		runtime.State:Set("Farming.RotationMode", "Full Rotation")
 		runtime.State:Set("Farming.AttackSlot", "Primary")
-		runtime.State:Set("Farming.AttackRange", 20)
+		runtime.State:Set("Farming.UseUltimate", true)
+		runtime.State:Set("Farming.SkillRetryInterval", 0.6)
+		runtime.State:Set("Farming.AttackRange", 45)
+		runtime.State:Set("Farming.AutoDodge", true)
+		runtime.State:Set("Farming.ThreatRadius", 25)
+		runtime.State:Set("Farming.DodgeHealthThreshold", 70)
+		runtime.State:Set("Farming.EmergencyRetreat", true)
+		runtime.State:Set("Farming.RetreatHealthThreshold", 30)
+		runtime.State:Set("Farming.RetreatDistance", 35)
+		runtime.State:Set("Farming.AutoHealItem", false)
+		runtime.State:Set("Farming.HealItemName", "")
+		runtime.State:Set("Farming.HealItemHealthThreshold", 40)
+		runtime.State:Set("Farming.HealItemRetryInterval", 5)
 		runtime.State:Set("Farming.UpdateInterval", 0.2)
 
 		runtime.Janitor:Add(function()
@@ -196,7 +55,7 @@ return function()
 
 				if value then
 					runtime.Actions.SetTargetProvider(targetProvider)
-					startLoop(runtime)
+					Engine.Start(runtime, targetProvider)
 				else
 					runtime.Actions.ClearTargetProvider(targetProvider)
 				end
@@ -214,7 +73,13 @@ return function()
 		runtime.UI:CreateParagraph(
 			tab,
 			"Class rotations",
-			"Auto Farm can attack with one selected slot itself. When a class combat aura is also enabled in the Combat tab, that full class rotation inherits these same filtered targets."
+			"Full Rotation is the default. Auto Farm reads the currently equipped class, cycles every available special attack, uses Ultimate when energy is full, and keeps Primary attacks in the rotation. The separate class aura is optional."
+		)
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Damage avoidance",
+			"Auto Dodge reacts when a targeting mob begins an attack, while Emergency Retreat pathfinds away at low health. Flight is intentionally not forced because it can desync mission triggers and leave the character stuck."
 		)
 
 		runtime.UI:CreateSection(tab, "Target selection")
@@ -275,13 +140,33 @@ return function()
 
 		runtime.UI:CreateSection(tab, "Movement and attacks")
 		runtime.UI:CreateToggle(tab, "FarmingAutoApproach", {
-			Name = "Walk toward selected target",
+			Name = "Pathfind toward selected target",
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Farming.AutoApproach", value)
 
 				if not value then
-					stopWalking(runtime)
+					Engine.Stop(runtime)
+				end
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingAutoJump", {
+			Name = "Jump over path obstacles",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.AutoJump", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingAutoSprint", {
+			Name = "Sprint on long approaches",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.AutoSprint", value)
+
+				if not value then
+					Engine.StopSprint(runtime)
 				end
 			end,
 		})
@@ -297,6 +182,28 @@ return function()
 			end,
 		})
 
+		runtime.UI:CreateSlider(tab, "FarmingRepathInterval", {
+			Name = "Moving-target path refresh",
+			Range = { 0.5, 3 },
+			Increment = 0.25,
+			Suffix = "s",
+			CurrentValue = 1.25,
+			Callback = function(value)
+				runtime.State:Set("Farming.RepathInterval", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingStuckTimeout", {
+			Name = "Stuck jump recovery delay",
+			Range = { 0.4, 2 },
+			Increment = 0.1,
+			Suffix = "s",
+			CurrentValue = 0.9,
+			Callback = function(value)
+				runtime.State:Set("Farming.StuckTimeout", value)
+			end,
+		})
+
 		runtime.UI:CreateToggle(tab, "FarmingAutoAttack", {
 			Name = "Attack selected target",
 			CurrentValue = true,
@@ -305,13 +212,31 @@ return function()
 			end,
 		})
 
+		runtime.UI:CreateDropdown(tab, "FarmingRotationMode", {
+			Name = "Attack rotation",
+			Options = {
+				"Full Rotation",
+				"Primary Only",
+				"Selected Slot",
+			},
+			CurrentOption = { "Full Rotation" },
+			MultipleOptions = false,
+			Callback = function(options)
+				runtime.State:Set(
+					"Farming.RotationMode",
+					options and options[1] or "Full Rotation"
+				)
+			end,
+		})
+
 		runtime.UI:CreateDropdown(tab, "FarmingAttackSlot", {
-			Name = "Farm attack slot",
+			Name = "Selected-slot attack",
 			Options = {
 				"Primary",
 				"Skill1",
 				"Skill2",
 				"Skill3",
+				"Skill4",
 				"Ultimate",
 			},
 			CurrentOption = { "Primary" },
@@ -324,17 +249,150 @@ return function()
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "FarmingUseUltimate", {
+			Name = "Use Ultimate at full energy",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.UseUltimate", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingSkillRetryInterval", {
+			Name = "Per-skill retry spacing",
+			Range = { 0.2, 2 },
+			Increment = 0.1,
+			Suffix = "s",
+			CurrentValue = 0.6,
+			Callback = function(value)
+				runtime.State:Set("Farming.SkillRetryInterval", value)
+			end,
+		})
+
 		runtime.UI:CreateSlider(tab, "FarmingAttackRange", {
 			Name = "Maximum distance to attack",
 			Range = { 5, 80 },
 			Increment = 1,
 			Suffix = " studs",
-			CurrentValue = 20,
+			CurrentValue = 45,
 			Callback = function(value)
 				runtime.State:Set("Farming.AttackRange", value)
 			end,
 		})
 
+		runtime.UI:CreateSection(tab, "Damage avoidance")
+		runtime.UI:CreateToggle(tab, "FarmingAutoDodge", {
+			Name = "Auto Dodge incoming attacks",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.AutoDodge", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingThreatRadius", {
+			Name = "Threat detection radius",
+			Range = { 5, 60 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 25,
+			Callback = function(value)
+				runtime.State:Set("Farming.ThreatRadius", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingDodgeHealthThreshold", {
+			Name = "Extra Dodge below health",
+			Range = { 10, 100 },
+			Increment = 5,
+			Suffix = "%",
+			CurrentValue = 70,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.DodgeHealthThreshold",
+					value
+				)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingEmergencyRetreat", {
+			Name = "Emergency low-health retreat",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.EmergencyRetreat", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingRetreatHealthThreshold", {
+			Name = "Retreat below health",
+			Range = { 5, 80 },
+			Increment = 5,
+			Suffix = "%",
+			CurrentValue = 30,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.RetreatHealthThreshold",
+					value
+				)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingRetreatDistance", {
+			Name = "Emergency retreat distance",
+			Range = { 10, 80 },
+			Increment = 5,
+			Suffix = " studs",
+			CurrentValue = 35,
+			Callback = function(value)
+				runtime.State:Set("Farming.RetreatDistance", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingAutoHealItem", {
+			Name = "Use a quick heal item",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Farming.AutoHealItem", value)
+			end,
+		})
+
+		runtime.UI:CreateInput(tab, "FarmingHealItemName", {
+			Name = "Quick heal item name",
+			CurrentValue = "",
+			PlaceholderText = "Exact quick-item name",
+			RemoveTextAfterFocusLost = false,
+			Callback = function(value)
+				runtime.State:Set("Farming.HealItemName", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingHealItemHealthThreshold", {
+			Name = "Use heal item below health",
+			Range = { 5, 90 },
+			Increment = 5,
+			Suffix = "%",
+			CurrentValue = 40,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.HealItemHealthThreshold",
+					value
+				)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingHealItemRetryInterval", {
+			Name = "Heal-item retry spacing",
+			Range = { 1, 20 },
+			Increment = 1,
+			Suffix = "s",
+			CurrentValue = 5,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.HealItemRetryInterval",
+					value
+				)
+			end,
+		})
+
+		runtime.UI:CreateSection(tab, "Diagnostics and timing")
 		runtime.UI:CreateSlider(tab, "FarmingUpdateInterval", {
 			Name = "Farm update interval",
 			Range = { 0.1, 1 },
@@ -347,9 +405,56 @@ return function()
 		})
 
 		runtime.UI:CreateButton(tab, {
+			Name = "Show automation status",
+			Callback = function()
+				local threat, threatError =
+					runtime.MobsAPI.GetThreatState(
+						runtime.State:Get("Farming.ThreatRadius", 25)
+					)
+				local navigation = runtime.Navigator.GetState()
+				local className =
+					runtime.ClassRegistry.GetCurrentClass() or "Unknown"
+
+				runtime.UI:Notify(
+					"Automation status",
+					"Class: "
+						.. tostring(className)
+						.. "\nRotation: "
+						.. tostring(
+							runtime.State:Get(
+								"Farming.RotationMode",
+								"Full Rotation"
+							)
+						)
+						.. "\nHealth: "
+						.. tostring(
+							math.floor(
+								Engine.GetHealthRatio(runtime) * 100
+							)
+						)
+						.. "%"
+						.. "\nThreats: "
+						.. tostring(threat and threat.Count or 0)
+						.. " (attacking: "
+						.. tostring(threat and threat.AttackingCount or 0)
+						.. ")"
+						.. "\nNavigation: "
+						.. tostring(navigation.Status)
+						.. (
+							threat
+								and ""
+							or ("\nThreat scan: " .. tostring(threatError))
+						),
+					8,
+					0
+				)
+			end,
+		})
+
+		runtime.UI:CreateButton(tab, {
 			Name = "Show current farm target",
 			Callback = function()
-				local target, descriptor = getTarget(runtime)
+				local target, descriptor = Engine.GetTarget(runtime)
 
 				if not target or not descriptor then
 					runtime.UI:Notify(
@@ -388,7 +493,9 @@ return function()
 			Name = "Scan matching mobs",
 			Callback = function()
 				local matching, matchingError =
-					runtime.MobsAPI.GetMatching(getOptions(runtime))
+					runtime.MobsAPI.GetMatching(
+						Engine.GetOptions(runtime)
+					)
 
 				runtime.UI:Notify(
 					"Mob scan",

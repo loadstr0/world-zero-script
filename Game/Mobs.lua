@@ -170,6 +170,8 @@ return function(ctx)
 			Distance = distance,
 			Health = health,
 			Properties = properties,
+			CurrentTarget = getPropertyValue(properties, "Target"),
+			CurrentAttack = getPropertyValue(properties, "CurrentAttack"),
 			Data = data,
 		}
 	end
@@ -389,6 +391,56 @@ return function(ctx)
 		end
 
 		return count
+	end
+
+	function Mobs.GetThreatState(radius)
+		local root = GameContext.GetRootPart()
+		local character = GameContext.GetCharacter()
+
+		if not root or not character then
+			return nil, "character_unavailable"
+		end
+
+		local all, allError = Mobs.GetAll()
+
+		if not all then
+			return nil, allError
+		end
+
+		local state = {
+			Count = 0,
+			AttackingCount = 0,
+			Nearest = nil,
+			NearestDistance = math.huge,
+		}
+
+		for _, mob in pairs(all) do
+			local descriptor = getDescriptorSafely(mob, root.Position)
+
+			if
+				Mobs.IsValidTarget(descriptor, {
+					Range = tonumber(radius) or 30,
+					IncludeOwned = false,
+				})
+				and descriptor.CurrentTarget == character
+			then
+				state.Count = state.Count + 1
+
+				if
+					type(descriptor.CurrentAttack) == "string"
+					and descriptor.CurrentAttack ~= ""
+				then
+					state.AttackingCount = state.AttackingCount + 1
+				end
+
+				if descriptor.Distance < state.NearestDistance then
+					state.Nearest = descriptor
+					state.NearestDistance = descriptor.Distance
+				end
+			end
+		end
+
+		return state
 	end
 
 	function Mobs.Describe()
