@@ -17,6 +17,7 @@
 - Berserker Rage burst mode with Aggro Slam, eight-hit Giga Spin, and Fissure
 - Defender conditional party-heal automation with eight-hit Cyclone and Groundbreaker
 - Demon Prince burst mode with chained Scythe Throw and health-guarded Dark Binding
+- Dragoon live Dragon Chain completion with marked-target bonus and Dragon Dance
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
