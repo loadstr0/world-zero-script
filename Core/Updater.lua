@@ -8,9 +8,16 @@ return function(ctx)
 	local API_URL = "https://api.github.com/repos/loadstr0/world-zero-script/commits/main"
 
 	local function requestBody(url)
+		local separator = string.find(url, "?", 1, true) and "&" or "?"
+		local requestUrl = url
+			.. separator
+			.. "cache="
+			.. tostring(os.time())
+			.. tostring(math.random(1000, 9999))
+
 		if Executor.Request then
 			local ok, response = pcall(Executor.Request, {
-				Url = url,
+				Url = requestUrl,
 				Method = "GET",
 				Headers = {
 					["Accept"] = "application/vnd.github+json",
@@ -41,9 +48,8 @@ return function(ctx)
 			return nil, "empty_github_response"
 		end
 
-		local separator = string.find(url, "?", 1, true) and "&" or "?"
 		local ok, body = pcall(function()
-			return game:HttpGet(url .. separator .. "cache=" .. tostring(os.time()))
+			return game:HttpGet(requestUrl)
 		end)
 
 		if not ok then
@@ -164,4 +170,3 @@ return function(ctx)
 
 	return Updater
 end
-
