@@ -2,6 +2,17 @@ return function(ctx)
 	local RayfieldUI = {}
 	RayfieldUI.__index = RayfieldUI
 
+	local function normalizeIcon(icon)
+		-- Rayfield treats string icons as Lucide names. Unsupported names can
+		-- throw inside Rayfield and prevent every later tab from registering.
+		-- Numeric Roblox image IDs remain safe across Rayfield versions.
+		if type(icon) == "number" then
+			return icon
+		end
+
+		return 0
+	end
+
 	function RayfieldUI.new(config)
 		local source = game:HttpGet(config.RayfieldUrl)
 		local chunk, compileError = loadstring(source)
@@ -14,7 +25,7 @@ return function(ctx)
 		local windowConfig = config.Window
 		local Window = Rayfield:CreateWindow({
 			Name = windowConfig.Name,
-			Icon = windowConfig.Icon,
+			Icon = normalizeIcon(windowConfig.Icon),
 			LoadingTitle = windowConfig.LoadingTitle,
 			LoadingSubtitle = windowConfig.LoadingSubtitle,
 			ShowText = windowConfig.ShowText,
@@ -44,7 +55,7 @@ return function(ctx)
 			return self.Tabs[key]
 		end
 
-		local tab = self.Window:CreateTab(title, icon or 0)
+		local tab = self.Window:CreateTab(title, normalizeIcon(icon))
 		self.Tabs[key] = tab
 		return tab
 	end
@@ -129,7 +140,7 @@ return function(ctx)
 			Title = title,
 			Content = content,
 			Duration = duration or 5,
-			Image = icon or 0,
+			Image = normalizeIcon(icon),
 		})
 	end
 

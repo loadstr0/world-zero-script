@@ -3,33 +3,32 @@ return function()
 		Home = {
 			Key = "Home",
 			Title = "Home",
-			Icon = "house",
+			Icon = 0,
 		},
 		Automation = {
 			Key = "Automation",
 			Title = "Automation",
-			Icon = "bot",
+			Icon = 0,
 		},
 		Combat = {
 			Key = "Combat",
 			Title = "Combat",
-			Icon = "swords",
+			Icon = 0,
 		},
 		Travel = {
 			Key = "Travel",
 			Title = "Travel",
-			Icon = "map",
+			Icon = 0,
 		},
 		Player = {
 			Key = "Player",
 			Title = "Player",
-			Icon = "user",
+			Icon = 0,
 		},
 		Settings = {
 			Key = "Settings",
 			Title = "Settings",
-			Icon = "settings",
+			Icon = 0,
 		},
 	}
 end
-
