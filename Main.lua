@@ -39,6 +39,7 @@ return function(ctx)
 			State = state,
 			Game = ctx:Require("GameContext"),
 			Actions = ctx:Require("Actions"),
+			Skills = ctx:Require("Skills"),
 			Navigation = ctx:Require("Navigation"),
 			UI = ui,
 			Stopped = false,

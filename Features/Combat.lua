@@ -36,9 +36,24 @@ return function()
 	function Combat.Register(runtime)
 		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Combat)
 		local actions = runtime.Actions.Describe()
+		local skillCatalog = runtime.Skills.Describe()
+		local selectedSkillSlot = "Primary"
+		local skillLabels = {}
+		local labelToSlot = {}
 		local status = actions.Available
 				and ("Available; initialized: " .. tostring(actions.Initialized))
 			or ("Unavailable: " .. tostring(actions.Error))
+
+		for _, skill in ipairs(skillCatalog.Options or {}) do
+			local label = tostring(skill.Name) .. " (" .. tostring(skill.Slot) .. ")"
+			table.insert(skillLabels, label)
+			labelToSlot[label] = skill.Slot
+		end
+
+		if #skillLabels == 0 then
+			skillLabels = { "Primary" }
+			labelToSlot.Primary = "Primary"
+		end
 
 		runtime.UI:CreateSection(tab, "Integration status")
 		runtime.UI:CreateParagraph(
@@ -46,6 +61,13 @@ return function()
 			"Client.Actions",
 			status
 				.. "\nVerified exports include skill use, cooldown queries, target selection, aiming, sprinting, mounting, and quick items."
+		)
+		runtime.UI:CreateParagraph(
+			tab,
+			"Current class",
+			skillCatalog.ClassName
+					and (tostring(skillCatalog.ClassName) .. "\nLoaded skill slots: " .. tostring(#(skillCatalog.Options or {})))
+				or ("Unavailable: " .. tostring(skillCatalog.Error))
 		)
 		runtime.State:Set("Combat.TargetRange", 15)
 		runtime.State:Set("Combat.AimDuration", 0.2)
@@ -125,11 +147,29 @@ return function()
 			end,
 		})
 
-		runtime.UI:CreateSection(tab, "Additional skills")
+		runtime.UI:CreateSection(tab, "Class skills")
+		runtime.UI:CreateDropdown(tab, "CombatSelectedSkill", {
+			Name = "Selected skill",
+			Options = skillLabels,
+			CurrentOption = { skillLabels[1] },
+			MultipleOptions = false,
+			Callback = function(options)
+				local label = options and options[1]
+				selectedSkillSlot = labelToSlot[label] or "Primary"
+			end,
+		})
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Use selected skill",
+			Callback = function()
+				runtime.Actions.UseSkill(selectedSkillSlot)
+			end,
+		})
+
 		runtime.UI:CreateParagraph(
 			tab,
-			"Source required",
-			"Shared.Skills and the current class skillset are needed before secondary skill controls can be named and wired safely."
+			"Skill mapping",
+			"Names and slots come from Shared.Skills. Execution still passes through the current class skillset module."
 		)
 	end
 

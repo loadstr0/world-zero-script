@@ -36,6 +36,7 @@ World Zero Script/
 |   `-- State.lua
 |-- Game/
 |   |-- Actions.lua
+|   |-- Skills.lua
 |   `-- Context.lua
 |-- UI/
 |   |-- Navigation.lua
@@ -71,7 +72,9 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Mount and sheath buttons
 - Quick-item name input and use button
 
-Additional skill controls require `Shared.Skills` and the current class skillset source.
+Skill names and slots are now available from `Shared.Skills`; class-specific execution details still require the relevant class skillset source.
+
+The Combat tab now reads the live `Shared.Skills` catalog, identifies the current class through `Shared.Profile`, and builds a class-specific skill dropdown. Skill execution remains routed through `Client.Actions`.
 
 ## Rayfield navigation
 
