@@ -65,6 +65,10 @@ return function(ctx)
 			AdapterKey = "MageOfShadows",
 			FeatureKey = "MageOfShadowsFeature",
 		},
+		Necromancer = {
+			AdapterKey = "Necromancer",
+			FeatureKey = "NecromancerFeature",
+		},
 		Swordmaster = {
 			AdapterKey = "Swordmaster",
 			FeatureKey = "SwordmasterFeature",

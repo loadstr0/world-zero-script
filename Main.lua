@@ -78,6 +78,7 @@ return function(ctx)
 			Mage = ctx:Require("Mage"),
 			MageOfLight = ctx:Require("MageOfLight"),
 			MageOfShadows = ctx:Require("MageOfShadows"),
+			Necromancer = ctx:Require("Necromancer"),
 			Swordmaster = ctx:Require("Swordmaster"),
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),
