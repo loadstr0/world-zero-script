@@ -73,6 +73,10 @@ return function(ctx)
 			AdapterKey = "Paladin",
 			FeatureKey = "PaladinFeature",
 		},
+		Starbreaker = {
+			AdapterKey = "Starbreaker",
+			FeatureKey = "StarbreakerFeature",
+		},
 		Swordmaster = {
 			AdapterKey = "Swordmaster",
 			FeatureKey = "SwordmasterFeature",

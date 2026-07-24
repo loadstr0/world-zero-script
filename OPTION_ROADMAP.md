@@ -29,6 +29,7 @@
 - Mage of Shadows nine-orb merging, autonomous hunters, Shadow Chains, and form burst modes
 - Necromancer maximum-charge Spirit Burst, Hexed Cavern, and ten-summon Undead Army
 - Paladin emergency support, maintained enhanced Primary, and 15-pulse Ring of Justice
+- Starbreaker charge-aware Supernova, double Flare, Starforge, and Fusion sequencing
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
@@ -62,6 +63,7 @@ Available now:
 - Configurable Mage of Shadows skill saving and empowered-Primary Shadow Form modes
 - Soul-aware Necromancer rotation with maximum-charge Burst and automatic Undead Army
 - Party-health-aware Paladin healing with aggressive or emergency-only Ring modes
+- Starbreaker full-meter preservation through Fusion for back-to-back Starforge uptime
 
 Still requires more source:
 
