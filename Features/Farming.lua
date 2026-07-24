@@ -28,6 +28,7 @@ return function(ctx)
 		runtime.State:Set("Farming.AutoSprint", true)
 		runtime.State:Set("Farming.SpeedBoostEnabled", false)
 		runtime.State:Set("Farming.SpeedBoostMultiplier", 1.5)
+		runtime.State:Set("Farming.SpeedBoostCounterSlows", true)
 		runtime.State:Set("Farming.AutoJump", true)
 		runtime.State:Set("Farming.RepathInterval", 1.25)
 		runtime.State:Set("Farming.StuckTimeout", 0.9)
@@ -38,6 +39,8 @@ return function(ctx)
 		runtime.State:Set("Farming.SkillRetryInterval", 0.6)
 		runtime.State:Set("Farming.AttackRange", 45)
 		runtime.State:Set("Farming.AutoDodge", true)
+		runtime.State:Set("Farming.DebuffSurvival", true)
+		runtime.State:Set("Farming.DebuffSafetyThreshold", 60)
 		runtime.State:Set("Farming.DodgeAfterDamage", true)
 		runtime.State:Set("Farming.DamageReactionWindow", 1.25)
 		runtime.State:Set("Farming.ThreatRadius", 25)
@@ -88,7 +91,7 @@ return function(ctx)
 		runtime.UI:CreateParagraph(
 			tab,
 			"Damage avoidance",
-			"Auto Dodge reacts when a targeting mob begins an attack. Barrier health now delays unnecessary retreat, and automation pauses while Knockdown or another action-blocking status is active."
+			"Status handling now follows the supplied catalog: Darkness pauses skills but keeps moving; Frozen, Shock, Knockdown, and Stunned stop movement and skills; damage-over-time and defense debuffs raise the safety threshold; Poison suppresses wasted heal-item attempts."
 		)
 
 		runtime.UI:CreateParagraph(
@@ -269,10 +272,21 @@ return function(ctx)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "FarmingSpeedBoostCounterSlows", {
+			Name = "Compensate status slows",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.SpeedBoostCounterSlows",
+					value
+				)
+			end,
+		})
+
 		runtime.UI:CreateParagraph(
 			tab,
 			"Movement multiplier",
-			"This uses the same client WalkspeedManager multiplier API as status effects and only applies while Auto Farm runs. The server can still correct movement, so it is optional."
+			"This uses the same client WalkspeedManager API as status effects and can counter non-zero slows up to the 3x cap. Frozen, Shock, and other zero-speed roots remain blocked. The server can still correct movement, so it is optional."
 		)
 
 		runtime.UI:CreateToggle(tab, "FarmingAutoAttack", {
@@ -356,6 +370,28 @@ return function(ctx)
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Farming.AutoDodge", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingDebuffSurvival", {
+			Name = "Debuff-aware survival mode",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.DebuffSurvival", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingDebuffSafetyThreshold", {
+			Name = "DoT/vulnerability safety threshold",
+			Range = { 20, 90 },
+			Increment = 5,
+			Suffix = "%",
+			CurrentValue = 60,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.DebuffSafetyThreshold",
+					value
+				)
 			end,
 		})
 
@@ -517,6 +553,8 @@ return function(ctx)
 					runtime.Health.IsOutOfCombat()
 				local lastDamage =
 					runtime.Health.GetLastDamage()
+				local statusAnalysis =
+					statuses and statuses.Analysis or {}
 
 				runtime.UI:Notify(
 					"Automation status",
@@ -552,6 +590,36 @@ return function(ctx)
 						.. "\nStatuses: "
 						.. tostring(
 							statuses and statuses.Text or statusesError
+						)
+						.. "\nStatus risk: DoT "
+						.. tostring(
+							math.floor(
+								(
+									statusAnalysis.DamagePerSecond
+										or 0
+								) * 100
+							)
+						)
+						.. "%/s"
+						.. " | move blocked "
+						.. tostring(
+							statusAnalysis.MovementBlocked or false
+						)
+						.. " | skills blocked "
+						.. tostring(
+							statusAnalysis.SkillsBlocked or false
+						)
+						.. "\nHealing blocked: "
+						.. tostring(
+							statusAnalysis.HealingBlocked or false
+						)
+						.. " | vulnerable: "
+						.. tostring(
+							statusAnalysis.HasDefenseDebuff or false
+						)
+						.. " | fatal: "
+						.. tostring(
+							statusAnalysis.HasFatalStatus or false
 						)
 						.. "\nOut of combat: "
 						.. tostring(outOfCombat)

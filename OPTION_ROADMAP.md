@@ -38,7 +38,10 @@
 - Pathfinding approach with sprinting, fence jumps, moving-target refresh, and stuck recovery
 - Speed-aware ranged kiting and optional automation movement multiplier
 - Barrier-aware Auto Dodge, post-hit follow-up Dodge, low-health retreat, and quick-item healing
-- Automatic pause during Knockdown or status metadata that blocks actions
+- Exact status handling: skill-only Darkness pause; full Frozen/Shock/Knockdown/Stunned pause
+- DoT/vulnerability safety thresholds, Poison heal suppression, and regeneration projection
+- Optional capped compensation for non-zero status slows
+- Explicit Death Mark warning instead of a fake cleanse
 - Shared target provider for filtered class auras and exact Summoner proximity checks
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
@@ -59,7 +62,7 @@ Available controls:
 - Boss-only, elite-only, and comma-separated mob-name filters
 - Pathfinding approach, sprinting, obstacle jumps, stopping distance, and stuck recovery
 - Primary-range and live-Walkspeed-aware kiting
-- Incoming/post-damage Dodge, barrier-aware retreat thresholds, and quick-item healing
+- Incoming/post-damage Dodge, barrier/debuff-aware retreat thresholds, and projected-healing-aware quick items
 
 Swordmaster behavior, server hitbox validation, and `Shared.Mobs` client targeting are verified. The direct `AttackTarget` remote is explicitly flagged as autofarming, and invalid damage identifiers are recorded as Kill Aura before a delayed kick. Those trap paths remain deliberately unexposed; farming uses normal class skill execution.
 

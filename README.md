@@ -127,8 +127,9 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Obstacle-aware pathfinding with sprinting, fence jumps, moving-target repathing, and stuck recovery
 - Adaptive ranged kiting using live player/mob speed and equipped-class Primary range
 - Barrier-aware Auto Dodge/retreat with post-damage follow-up Dodge
-- Knockdown/action-block detection and optional quick-item healing
-- Optional automation-only WalkspeedManager multiplier
+- Exact catalog-driven responses for Darkness, freezes, Shock, Knockdown, Stunned, Poison, damage-over-time, vulnerability, healing, and Death Mark
+- Projected regeneration-aware quick-item healing
+- Optional automation-only WalkspeedManager multiplier with capped slow compensation
 - Optional approach, stopping distance, attack range, and selected-slot mode
 - Shared filtered targets for every class aura
 - Exact live Summoner counts and proximity-based Lesser-army detonation

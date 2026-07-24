@@ -12,6 +12,7 @@ return function()
 	local speedBoostWarnings = {}
 	local damageListeners = {}
 	local recentDamage = {}
+	local fatalStatusWarnings = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -79,13 +80,32 @@ return function()
 		speedBoostWarnings[runtime] = nil
 	end
 
-	local function updateSpeedBoost(runtime)
+	local function updateSpeedBoost(runtime, statusState)
 		local character = runtime.Game.GetCharacter()
 		local boosted = boostedCharacters[runtime]
 		local enabled =
 			runtime.State:Get("Farming.SpeedBoostEnabled", false)
 		local multiplier =
 			runtime.State:Get("Farming.SpeedBoostMultiplier", 1.5)
+		local statusSpeedMultiplier =
+			tonumber(
+				statusState and statusState.WalkspeedMultiplier
+			)
+
+		if
+			runtime.State:Get(
+				"Farming.SpeedBoostCounterSlows",
+				true
+			)
+			and statusSpeedMultiplier
+			and statusSpeedMultiplier > 0
+			and statusSpeedMultiplier < 1
+		then
+			multiplier = math.min(
+				3,
+				multiplier / statusSpeedMultiplier
+			)
+		end
 
 		if
 			boosted
@@ -538,7 +558,13 @@ return function()
 		}
 	end
 
-	local function dodgeThreat(runtime, adapter, threat, healthRatio)
+	local function dodgeThreat(
+		runtime,
+		adapter,
+		threat,
+		healthRatio,
+		statusState
+	)
 		local damage = recentDamage[runtime]
 		local damagedRecently =
 			runtime.State:Get("Farming.DodgeAfterDamage", true)
@@ -551,6 +577,7 @@ return function()
 
 		if
 			not runtime.State:Get("Farming.AutoDodge", true)
+			or (statusState and statusState.SkillsBlocked)
 			or (
 				(not threat or threat.Count <= 0)
 				and not damagedRecently
@@ -590,16 +617,45 @@ return function()
 		return true
 	end
 
-	local function useEmergencyHeal(runtime, healthRatio)
+	local function useEmergencyHeal(runtime, healthRatio, statusState)
+		local threshold =
+			runtime.State:Get("Farming.HealItemHealthThreshold", 40)
+
+		if
+			runtime.State:Get("Farming.DebuffSurvival", true)
+			and statusState
+			and statusState.HasDamageOverTime
+		then
+			threshold = math.max(
+				threshold,
+				runtime.State:Get(
+					"Farming.DebuffSafetyThreshold",
+					60
+				)
+			)
+		end
+
 		if
 			not runtime.State:Get("Farming.AutoHealItem", false)
+			or (statusState and statusState.HealingBlocked)
 			or healthRatio
-				> runtime.State:Get(
-					"Farming.HealItemHealthThreshold",
-					40
-				) / 100
+				> threshold / 100
 		then
 			return false
+		end
+
+		if statusState and statusState.HasHealingOverTime then
+			local projectedRatio =
+				healthRatio
+				+ math.max(
+					0,
+					statusState.HealingPerSecond
+						- statusState.DamagePerSecond
+				) * 2
+
+			if projectedRatio > threshold / 100 then
+				return false
+			end
 		end
 
 		local itemName =
@@ -622,29 +678,54 @@ return function()
 		return true
 	end
 
-	local function handleDefense(runtime)
+	local function handleDefense(runtime, statusState)
 		local threat = runtime.MobsAPI.GetThreatState(
 			runtime.State:Get("Farming.ThreatRadius", 25)
 		)
 		local survival = Engine.GetSurvivalState(runtime)
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
-		useEmergencyHeal(runtime, survival.HealthRatio)
+		useEmergencyHeal(
+			runtime,
+			survival.HealthRatio,
+			statusState
+		)
 		dodgeThreat(
 			runtime,
 			adapter,
 			threat,
-			survival.ProtectionRatio
+			survival.ProtectionRatio,
+			statusState
 		)
+		local retreatThreshold =
+			runtime.State:Get("Farming.RetreatHealthThreshold", 30)
+
+		if
+			runtime.State:Get("Farming.DebuffSurvival", true)
+			and statusState
+			and (
+				statusState.HasDamageOverTime
+				or statusState.HasDefenseDebuff
+			)
+		then
+			retreatThreshold = math.max(
+				retreatThreshold,
+				runtime.State:Get(
+					"Farming.DebuffSafetyThreshold",
+					60
+				)
+			)
+		end
 
 		if
 			runtime.State:Get("Farming.EmergencyRetreat", true)
 			and threat
 			and threat.Nearest
+			and not (
+				statusState
+				and statusState.MovementBlocked
+			)
 			and survival.ProtectionRatio
-				<= runtime.State:Get(
-					"Farming.RetreatHealthThreshold",
-					30
-				) / 100
+				<= retreatThreshold / 100
 		then
 			runtime.Navigator.RetreatFrom(
 				threat.Nearest.Position,
@@ -655,6 +736,22 @@ return function()
 		end
 
 		return false
+	end
+
+	local function updateFatalStatusWarning(runtime, statusState)
+		if statusState and statusState.HasFatalStatus then
+			if not fatalStatusWarnings[runtime] then
+				fatalStatusWarnings[runtime] = true
+				runtime.UI:Notify(
+					"Death Mark detected",
+					"The supplied status source says Death Mark kills when its countdown ends. No verified client cleanse exists, so automation will not pretend Dodge or retreat can remove it.",
+					8,
+					0
+				)
+			end
+		else
+			fatalStatusWarnings[runtime] = nil
+		end
 	end
 
 	function Engine.Start(runtime, targetProvider)
@@ -669,12 +766,19 @@ return function()
 				not runtime.Stopped
 				and runtime.State:Get("Farming.Enabled", false)
 			do
-				updateSpeedBoost(runtime)
+				local statusState =
+					runtime.Status.GetAutomationState()
+						or {
+							MovementBlocked = false,
+							SkillsBlocked = false,
+						}
+				updateSpeedBoost(runtime, statusState)
 				updateDamageListener(runtime)
-				local incapacitated =
-					runtime.Status.IsIncapacitated()
+				updateFatalStatusWarning(runtime, statusState)
+				local retreating =
+					handleDefense(runtime, statusState)
 
-				if incapacitated then
+				if statusState.MovementBlocked then
 					runtime.Navigator.Stop()
 					Engine.StopSprint(runtime)
 				else
@@ -682,8 +786,11 @@ return function()
 						Engine.GetTarget(runtime)
 
 					if target and descriptor then
-						if not handleDefense(runtime) then
+						if not retreating then
 							approachTarget(runtime, descriptor)
+						end
+
+						if not statusState.SkillsBlocked then
 							useFarmAttack(
 								runtime,
 								target,
@@ -711,6 +818,7 @@ return function()
 			lastDodgeAttempts[runtime] = nil
 			lastHealAttempts[runtime] = nil
 			speedBoostWarnings[runtime] = nil
+			fatalStatusWarnings[runtime] = nil
 		end)
 	end
 
