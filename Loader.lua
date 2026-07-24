@@ -23,6 +23,8 @@ local MODULES = {
 	{ Key = "Health", Path = "Game/Health" },
 	{ Key = "Status", Path = "Game/Status" },
 	{ Key = "Walkspeed", Path = "Game/Walkspeed" },
+	{ Key = "MissionsAPI", Path = "Game/Missions" },
+	{ Key = "TeleportAPI", Path = "Game/Teleport" },
 	{ Key = "MobsAPI", Path = "Game/Mobs" },
 	{ Key = "Navigator", Path = "Game/Navigator" },
 	{ Key = "Skills", Path = "Game/Skills" },

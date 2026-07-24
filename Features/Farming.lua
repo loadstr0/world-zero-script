@@ -39,6 +39,8 @@ return function(ctx)
 		runtime.State:Set("Farming.SkillRetryInterval", 0.6)
 		runtime.State:Set("Farming.AttackRange", 45)
 		runtime.State:Set("Farming.AutoDodge", true)
+		runtime.State:Set("Farming.AutoThawFreezeTag", true)
+		runtime.State:Set("Farming.FreezeTagRescueRange", 120)
 		runtime.State:Set("Farming.DebuffSurvival", true)
 		runtime.State:Set("Farming.DebuffSafetyThreshold", 60)
 		runtime.State:Set("Farming.DodgeAfterDamage", true)
@@ -365,6 +367,37 @@ return function(ctx)
 		})
 
 		runtime.UI:CreateSection(tab, "Damage avoidance")
+		runtime.UI:CreateToggle(tab, "FarmingAutoThawFreezeTag", {
+			Name = "Thaw Freeze Tag teammates",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.AutoThawFreezeTag",
+					value
+				)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingFreezeTagRescueRange", {
+			Name = "Freeze Tag rescue range",
+			Range = { 20, 300 },
+			Increment = 10,
+			Suffix = " studs",
+			CurrentValue = 120,
+			Callback = function(value)
+				runtime.State:Set(
+					"Farming.FreezeTagRescueRange",
+					value
+				)
+			end,
+		})
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Verified freeze behavior",
+			"Freeze Tag thaws after a non-frozen player remains within 15 studs for one second, so automation can rescue teammates. Normal Frozen and Frozen Heartbreak only lock movement; their supplied handlers expose no client break-free action."
+		)
+
 		runtime.UI:CreateToggle(tab, "FarmingAutoDodge", {
 			Name = "Auto Dodge incoming attacks",
 			CurrentValue = true,

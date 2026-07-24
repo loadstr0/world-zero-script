@@ -37,41 +37,28 @@
 
 The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, Dual Wielder, Guardian, Hunter, Icefire Mage, Leviathan, Mage, Mage of Light, Mage of Shadows, Necromancer, Paladin, Starbreaker, Stormcaller, Summoner, and Warlord have verified automation panels. Greatsword has a verified source-status panel, but its supplied module is an unfinished non-damaging prototype. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
 
+## Batch export received
+
+`WorldZeroSourceDump/1784933652` exported 89 of 89 requested scripts with no failures. It includes every status handler plus settings, gear, missions, objectives, quests, teleports, chests, drops, inventory, item data, world events, and related client interfaces.
+
+The batch confirms:
+
+- Normal `Frozen` and `FrozenHeartbreak` only lock client movement and expose no break-free request.
+- `FrozenFreezeTag` is removed server-side after a non-frozen player remains within 15 studs for one second.
+- `Shared.Teleport` provides validated world, hub, mission, and matchmaking travel requests.
+- `Shared.Missions` provides mission data, queue controls, one server-validated free reward, and replay/return party choices.
+- Client drops are represented by pickup parts under `workspace.Coins` and redeem only after the character or pet reaches the verified pickup radius.
+- Spawned mission/event chests use `Shared.Chests`; the game automatically requests opening once the character is within 10 studs.
+
 ## Next priority
 
-All supplied production class skillsets now have class-aware UI coverage. Greatsword remains intentionally limited to source status because its supplied implementation is a non-damaging prototype.
+Mission selection, matchmaking, automatic free-reward claiming, replay/return behavior, dynamic world travel, and Freeze Tag teammate rescue are now implemented.
 
-Mob filtering, boss/elite/name targeting, ownership checks, exact summon tracking, barrier-aware survival, catalog-driven status responses, and speed-aware kiting are now implemented.
+The next source-backed options from this dump are:
 
-Run `Tools/SourceExporter.lua` in the game to collect the remaining batch in one operation. It requests these priority sources recursively where appropriate:
-
-1. `ReplicatedStorage.Shared.Status.Statuses.Frozen`
-2. `ReplicatedStorage.Shared.Status.Statuses.FrozenFreezeTag`
-3. `ReplicatedStorage.Shared.Settings`
-4. `ReplicatedStorage.Shared.Gear`
-5. `ReplicatedStorage.Shared.Gamebeast.Infra.Shared.Modules.GetRemote`
-6. `ReplicatedStorage.Shared.Drops`
-7. `ReplicatedStorage.Shared.Missions`
-8. `ReplicatedStorage.Shared.Missions.MissionData`
-9. `ReplicatedStorage.Shared.Teleport`
-10. `ReplicatedStorage.Shared.Teleport.WorldData`
-
-The two Frozen handlers may reveal whether normal Frozen/Heartbreak has a client break-free action that can be automated; Freeze Tag explicitly requires another player. `Shared.Settings` and `Shared.Gear` remain the next speed/perk sources after that.
-
-After those, the next useful client modules are:
-
-- `ReplicatedStorage.Client.Gui.GuiScripts.MissionObjective`
-- `ReplicatedStorage.Client.Gui.GuiScripts.MissionQueue`
-- `ReplicatedStorage.Client.Gui.GuiScripts.MissionSelect`
-- `ReplicatedStorage.Client.Gui.GuiScripts.QuestTracker`
-- `ReplicatedStorage.Client.Gui.GuiScripts.HubTeleport`
-- `ReplicatedStorage.Client.Gui.GuiScripts.WorldTeleport`
-- `ReplicatedStorage.Client.Gui.GuiScripts.LootReceived`
-
-If your extractor also supports instance-tree scans, capture the names and classes of:
-
-- Direct children of `ReplicatedStorage` that are RemoteEvents or RemoteFunctions
-- The live workspace folders containing mobs/enemies
-- The live workspace folders containing drops, chests, and mission objectives
+- Auto pathfinding to dropped items and currency.
+- Auto approach/open for spawned mission and world-event chests.
+- Quest completion/reward claiming with objective navigation.
+- Inventory cleanup and rule-based selling with locked/favorited item protection.
 
 Do not invoke the admin command modules. They are useful as naming clues only and may be server-authorized.

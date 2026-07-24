@@ -754,6 +754,97 @@ return function()
 		end
 	end
 
+	local function getFrozenTeammate(runtime)
+		if
+			not runtime.State:Get(
+				"Farming.AutoThawFreezeTag",
+				true
+			)
+		then
+			return nil
+		end
+
+		local root = runtime.Game.GetRootPart()
+
+		if not root then
+			return nil
+		end
+
+		local nearest = nil
+		local nearestDistance =
+			runtime.State:Get("Farming.FreezeTagRescueRange", 120)
+		local localPlayer = runtime.Game.GetLocalPlayer()
+
+		for _, player in ipairs(
+			runtime.Context.Services.Players:GetPlayers()
+		) do
+			if player ~= localPlayer then
+				local character = player.Character
+				local targetRoot = character
+					and (
+						character:FindFirstChild("HumanoidRootPart")
+						or character.PrimaryPart
+					)
+
+				if targetRoot then
+					local frozen =
+						runtime.Status.Has(
+							"FrozenFreezeTag",
+							character
+						)
+
+					if frozen then
+						local distance =
+							(targetRoot.Position - root.Position).Magnitude
+
+						if distance < nearestDistance then
+							nearestDistance = distance
+							nearest = {
+								Player = player,
+								Character = character,
+								Position = targetRoot.Position,
+								Distance = distance,
+							}
+						end
+					end
+				end
+			end
+		end
+
+		return nearest
+	end
+
+	local function rescueFrozenTeammate(runtime)
+		local teammate = getFrozenTeammate(runtime)
+
+		if not teammate then
+			return false
+		end
+
+		if teammate.Distance >= 12 then
+			runtime.Navigator.MoveTo(
+				teammate.Position,
+				{
+					StopDistance = 10,
+					AutoJump = runtime.State:Get(
+						"Farming.AutoJump",
+						true
+					),
+					RepathInterval = 0.5,
+					StuckTimeout = runtime.State:Get(
+						"Farming.StuckTimeout",
+						0.9
+					),
+				}
+			)
+		else
+			Engine.StopSprint(runtime)
+			runtime.Navigator.Stop()
+		end
+
+		return true
+	end
+
 	function Engine.Start(runtime, targetProvider)
 		if activeLoops[runtime] then
 			return
@@ -782,23 +873,29 @@ return function()
 					runtime.Navigator.Stop()
 					Engine.StopSprint(runtime)
 				else
-					local target, descriptor =
-						Engine.GetTarget(runtime)
+					local rescuing =
+						not retreating
+						and rescueFrozenTeammate(runtime)
 
-					if target and descriptor then
-						if not retreating then
-							approachTarget(runtime, descriptor)
-						end
+					if not rescuing then
+						local target, descriptor =
+							Engine.GetTarget(runtime)
 
-						if not statusState.SkillsBlocked then
-							useFarmAttack(
-								runtime,
-								target,
-								descriptor
-							)
+						if target and descriptor then
+							if not retreating then
+								approachTarget(runtime, descriptor)
+							end
+
+							if not statusState.SkillsBlocked then
+								useFarmAttack(
+									runtime,
+									target,
+									descriptor
+								)
+							end
+						else
+							Engine.Stop(runtime)
 						end
-					else
-						Engine.Stop(runtime)
 					end
 				end
 

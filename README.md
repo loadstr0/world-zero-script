@@ -43,11 +43,13 @@ World Zero Script/
 |   |-- Context.lua
 |   |-- Energy.lua
 |   |-- Health.lua
+|   |-- Missions.lua
 |   |-- Mobs.lua
 |   |-- Navigator.lua
 |   |-- Profile.lua
 |   |-- Status.lua
 |   |-- Skills.lua
+|   |-- Teleport.lua
 |   |-- Walkspeed.lua
 |   `-- Classes/
 |       |-- Assassin.lua
@@ -130,6 +132,9 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Adaptive ranged kiting using live player/mob speed and equipped-class Primary range
 - Barrier-aware Auto Dodge/retreat with post-damage follow-up Dodge
 - Exact catalog-driven responses for Darkness, freezes, Shock, Knockdown, Stunned, Poison, damage-over-time, vulnerability, healing, and Death Mark
+- Freeze Tag teammate rescue using the verified 15-stud thaw condition
+- Dynamic world travel from live `WorldData`
+- Mission selection, matchmaking, free-reward claiming, and replay/return automation
 - Projected regeneration-aware quick-item healing
 - Optional automation-only WalkspeedManager multiplier with capped slow compensation
 - Optional approach, stopping distance, attack range, and selected-slot mode
