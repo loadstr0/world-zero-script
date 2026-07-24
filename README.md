@@ -28,6 +28,8 @@ Dependencies are obtained with `ctx:Require("ModuleName")`. Shared Roblox servic
 World Zero Script/
 |-- Loader.lua
 |-- ExampleBridge.lua
+|-- Tools/
+|   `-- SourceExporter.lua
 |-- Core/
 |   |-- Config.lua
 |   |-- Executor.lua
@@ -201,6 +203,23 @@ loadstring(game:HttpGet(
 The runtime prints labeled `INITIALIZATION START` and `INITIALIZATION END` boundaries around all feature-registration output.
 
 The repository must be public for this unauthenticated raw URL. Local research files and decompiled references are excluded by `.gitignore`.
+
+## Source exporter
+
+`Tools/SourceExporter.lua` exports the next research batch without pasting every decompiled module into chat. It writes a timestamped `WorldZeroSourceDump` folder inside the executor workspace, preserving the replicated hierarchy and adding a JSON manifest, remote inventory, and likely live-world objective/drop locations.
+
+Execute it separately from the main interface:
+
+```lua
+loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/loadstr0/world-zero-script/main/Tools/SourceExporter.lua?cache="
+		.. tostring(os.time())
+))()
+```
+
+The output folder path is printed and copied to the clipboard when supported. Copy the whole timestamped folder into this project's ignored `References/` folder before sharing it with Codex. Both `References/` and a root-level `WorldZeroSourceDump/` are ignored so raw game sources cannot be committed accidentally.
+
+The default batch covers the status handlers, settings, gear, remote resolver, missions, objectives, quests, teleports, chests, drops, inventory, and the related client interfaces. To add paths without editing the exporter, set `getgenv().WorldZeroSourceExporter.ModulePaths` or `.TreePaths` before executing it; tree paths recursively include every script below that instance.
 
 ## Configuration and updates
 

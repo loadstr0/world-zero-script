@@ -41,7 +41,9 @@ The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Sh
 
 All supplied production class skillsets now have class-aware UI coverage. Greatsword remains intentionally limited to source status because its supplied implementation is a non-damaging prototype.
 
-Mob filtering, boss/elite/name targeting, ownership checks, exact summon tracking, barrier-aware survival, catalog-driven status responses, and speed-aware kiting are now implemented. The next non-class sources are:
+Mob filtering, boss/elite/name targeting, ownership checks, exact summon tracking, barrier-aware survival, catalog-driven status responses, and speed-aware kiting are now implemented.
+
+Run `Tools/SourceExporter.lua` in the game to collect the remaining batch in one operation. It requests these priority sources recursively where appropriate:
 
 1. `ReplicatedStorage.Shared.Status.Statuses.Frozen`
 2. `ReplicatedStorage.Shared.Status.Statuses.FrozenFreezeTag`

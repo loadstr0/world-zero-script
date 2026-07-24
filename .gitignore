@@ -1,5 +1,6 @@
 # Local research and extracted game source
 /References/
+/WorldZeroSourceDump/
 /script-inventory.txt
 /CONTEXT.md
 
@@ -14,4 +15,3 @@
 /.idea/
 .DS_Store
 Thumbs.db
-
