@@ -3,6 +3,21 @@ return function(ctx)
 	RayfieldUI.__index = RayfieldUI
 
 	local Logger = ctx:Require("Logger")
+	local Executor = ctx:Require("Executor")
+
+	local function prepareUIThread(self)
+		if not Executor.Has("SetThreadIdentity") then
+			return
+		end
+
+		local runtimeConfig = self.Config.Runtime or {}
+		local ok, identityError = Executor.EnsureThreadIdentity(runtimeConfig.ThreadIdentity)
+
+		if not ok and not self.IdentityWarningShown then
+			self.IdentityWarningShown = true
+			Logger.warn("Rayfield thread identity restore failed:", identityError)
+		end
+	end
 
 	local function normalizeIcon(icon)
 		-- Rayfield treats string icons as Lucide names. Unsupported names can
@@ -49,6 +64,7 @@ return function(ctx)
 			Window = Window,
 			Config = config,
 			Tabs = {},
+			IdentityWarningShown = false,
 		}, RayfieldUI)
 	end
 
@@ -57,6 +73,7 @@ return function(ctx)
 			return self.Tabs[key]
 		end
 
+		prepareUIThread(self)
 		local ok, tab = pcall(function()
 			return self.Window:CreateTab(title, normalizeIcon(icon))
 		end)
@@ -86,10 +103,23 @@ return function(ctx)
 	end
 
 	function RayfieldUI:CreateSection(tab, title)
-		return tab:CreateSection(title)
+		prepareUIThread(self)
+		local ok, section = pcall(function()
+			return tab:CreateSection(title)
+		end)
+
+		if ok then
+			return section
+		end
+
+		Logger.warn("Rayfield skipped section heading:", title, section)
+		return {
+			Set = function() end,
+		}
 	end
 
 	function RayfieldUI:CreateParagraph(tab, title, content)
+		prepareUIThread(self)
 		return tab:CreateParagraph({
 			Title = title,
 			Content = content,
@@ -97,6 +127,7 @@ return function(ctx)
 	end
 
 	function RayfieldUI:CreateButton(tab, options)
+		prepareUIThread(self)
 		return tab:CreateButton({
 			Name = options.Name,
 			Callback = options.Callback,
@@ -104,6 +135,7 @@ return function(ctx)
 	end
 
 	function RayfieldUI:CreateToggle(tab, id, options)
+		prepareUIThread(self)
 		return tab:CreateToggle({
 			Name = options.Name,
 			CurrentValue = options.CurrentValue == true,
@@ -113,6 +145,7 @@ return function(ctx)
 	end
 
 	function RayfieldUI:CreateSlider(tab, id, options)
+		prepareUIThread(self)
 		return tab:CreateSlider({
 			Name = options.Name,
 			Range = options.Range,
@@ -125,6 +158,7 @@ return function(ctx)
 	end
 
 	function RayfieldUI:CreateDropdown(tab, id, options)
+		prepareUIThread(self)
 		return tab:CreateDropdown({
 			Name = options.Name,
 			Options = options.Options,
@@ -136,6 +170,7 @@ return function(ctx)
 	end
 
 	function RayfieldUI:CreateInput(tab, id, options)
+		prepareUIThread(self)
 		return tab:CreateInput({
 			Name = options.Name,
 			CurrentValue = options.CurrentValue or "",
@@ -147,6 +182,7 @@ return function(ctx)
 	end
 
 	function RayfieldUI:CreateKeybind(tab, id, options)
+		prepareUIThread(self)
 		return tab:CreateKeybind({
 			Name = options.Name,
 			CurrentKeybind = options.CurrentKeybind,
@@ -157,6 +193,7 @@ return function(ctx)
 	end
 
 	function RayfieldUI:Notify(title, content, duration, icon)
+		prepareUIThread(self)
 		self.Library:Notify({
 			Title = title,
 			Content = content,
@@ -166,10 +203,12 @@ return function(ctx)
 	end
 
 	function RayfieldUI:LoadConfiguration()
+		prepareUIThread(self)
 		self.Library:LoadConfiguration()
 	end
 
 	function RayfieldUI:Destroy()
+		prepareUIThread(self)
 		self.Library:Destroy()
 	end
 

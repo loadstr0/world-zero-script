@@ -33,6 +33,9 @@ return function(ctx)
 		end
 
 		local Logger = ctx:Require("Logger")
+		print("")
+		Logger.info("========== INITIALIZATION START ==========")
+
 		local config = ctx:Require("Config").Resolve()
 		local valid, reason = ctx:Require("Config").Validate(config)
 
@@ -95,6 +98,8 @@ return function(ctx)
 		ui:LoadConfiguration()
 		ui:Notify("World Zero", "Modular interface loaded.", 4, "circle-check")
 		Logger.info("Started in PlaceId", game.PlaceId)
+		Logger.info("=========== INITIALIZATION END ===========")
+		print("")
 
 		return runtime
 	end
