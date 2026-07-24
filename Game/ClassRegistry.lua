@@ -28,6 +28,10 @@ return function(ctx)
 			AdapterKey = "Dragoon",
 			FeatureKey = "DragoonFeature",
 		},
+		DualWielder = {
+			AdapterKey = "DualWielder",
+			FeatureKey = "DualWielderFeature",
+		},
 		Swordmaster = {
 			AdapterKey = "Swordmaster",
 			FeatureKey = "SwordmasterFeature",

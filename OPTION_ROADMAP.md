@@ -18,6 +18,7 @@
 - Defender conditional party-heal automation with eight-hit Cyclone and Groundbreaker
 - Demon Prince burst mode with chained Scythe Throw and health-guarded Dark Binding
 - Dragoon live Dragon Chain completion with marked-target bonus and Dragon Dance
+- Dual Wielder maximum-speed Tempo, 5% kill-healing, and multi-stage Ultimate
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload

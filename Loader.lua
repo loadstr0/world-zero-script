@@ -35,6 +35,8 @@ local MODULES = {
 	{ Key = "DemonFeature", Path = "Features/Classes/Demon" },
 	{ Key = "Dragoon", Path = "Game/Classes/Dragoon" },
 	{ Key = "DragoonFeature", Path = "Features/Classes/Dragoon" },
+	{ Key = "DualWielder", Path = "Game/Classes/DualWielder" },
+	{ Key = "DualWielderFeature", Path = "Features/Classes/DualWielder" },
 	{ Key = "Swordmaster", Path = "Game/Classes/Swordmaster" },
 	{ Key = "SwordmasterFeature", Path = "Features/Classes/Swordmaster" },
 	{ Key = "ClassRegistry", Path = "Game/ClassRegistry" },
