@@ -27,4 +27,11 @@ local loaderUrl = getgenv().WorldZeroBase
 	.. tostring(os.time())
 	.. tostring(math.random(1000, 9999))
 
-loadstring(game:HttpGet(loaderUrl))()
+local source = game:HttpGet(loaderUrl)
+local loader, compileError = loadstring(source)
+
+if not loader then
+	error("[WorldZeroBridge] Loader compilation failed: " .. tostring(compileError), 0)
+end
+
+loader()

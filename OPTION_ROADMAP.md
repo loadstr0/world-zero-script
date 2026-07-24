@@ -35,7 +35,7 @@
 - Warlord emergency Block, triple Piledriver, defense break, and Yggdrasil automation
 - Filtered Auto Farm with nearest, boss, health, level, elite, and name targeting
 - Automatic equipped-class rotation through every available special, Primary, and Ultimate
-- Pathfinding approach with sprinting, fence jumps, moving-target refresh, and stuck recovery
+- Smooth pathfinding approach with sprinting, fence jumps, target-movement refresh, failed-path fallback, and stuck recovery
 - Speed-aware ranged kiting and optional automation movement multiplier
 - Barrier-aware Auto Dodge, post-hit follow-up Dodge, low-health retreat, and quick-item healing
 - Exact status handling: skill-only Darkness pause; full Frozen/Shock/Knockdown/Stunned pause
@@ -46,6 +46,9 @@
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
+- Tracked-quest automation with exact mob objectives, quest-location fallback, and claiming
+- Dropped-item/currency collection and proximity-open reward-chest routing
+- Protected inventory cleanup with preview, tier/level rules, and locked/favorited exclusions
 
 ## High-power combat options
 
@@ -87,8 +90,7 @@ Filtered targets now feed the existing class auras, enabling boss-only class rot
 ### Other possible high-power options
 
 - Auto farm world filters
-- Auto mission selection/repeat
-- Auto loot and chest collection
+- Automatic quest-linked dungeon selection
 - Boss targeting and phase-aware attacks
 - Mob vacuum only if the game exposes client-authoritative movement
 - Cooldown modification only if server validation permits it

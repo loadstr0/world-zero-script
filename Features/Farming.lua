@@ -12,8 +12,10 @@ return function(ctx)
 		local statusStatus = runtime.Status.Describe()
 		local walkspeedStatus = runtime.Walkspeed.Describe()
 		local targetProvider = function(range)
-			return Engine.GetTarget(runtime, range)
+			return Engine.GetActiveTarget(runtime, range)
 		end
+
+		runtime.AutomationTargetProvider = targetProvider
 
 		runtime.State:Set("Farming.Enabled", false)
 		runtime.State:Set("Farming.TargetMode", "Nearest")
@@ -31,7 +33,8 @@ return function(ctx)
 		runtime.State:Set("Farming.SpeedBoostCounterSlows", true)
 		runtime.State:Set("Farming.AutoJump", true)
 		runtime.State:Set("Farming.RepathInterval", 1.25)
-		runtime.State:Set("Farming.StuckTimeout", 0.9)
+		runtime.State:Set("Farming.TargetMoveThreshold", 10)
+		runtime.State:Set("Farming.StuckTimeout", 1.4)
 		runtime.State:Set("Farming.AutoAttack", true)
 		runtime.State:Set("Farming.RotationMode", "Full Rotation")
 		runtime.State:Set("Farming.AttackSlot", "Primary")
@@ -66,13 +69,7 @@ return function(ctx)
 			CurrentValue = false,
 			Callback = function(value)
 				runtime.State:Set("Farming.Enabled", value)
-
-				if value then
-					runtime.Actions.SetTargetProvider(targetProvider)
-					Engine.Start(runtime, targetProvider)
-				else
-					runtime.Actions.ClearTargetProvider(targetProvider)
-				end
+				Engine.Reconcile(runtime)
 			end,
 		})
 
@@ -119,10 +116,7 @@ return function(ctx)
 			CurrentOption = { "Nearest" },
 			MultipleOptions = false,
 			Callback = function(options)
-				runtime.State:Set(
-					"Farming.TargetMode",
-					options and options[1] or "Nearest"
-				)
+				runtime.State:Set("Farming.TargetMode", options and options[1] or "Nearest")
 			end,
 		})
 
@@ -239,12 +233,23 @@ return function(ctx)
 
 		runtime.UI:CreateSlider(tab, "FarmingStuckTimeout", {
 			Name = "Stuck jump recovery delay",
-			Range = { 0.4, 2 },
+			Range = { 0.5, 3 },
 			Increment = 0.1,
 			Suffix = "s",
-			CurrentValue = 0.9,
+			CurrentValue = 1.4,
 			Callback = function(value)
 				runtime.State:Set("Farming.StuckTimeout", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingTargetMoveThreshold", {
+			Name = "Target movement before path refresh",
+			Range = { 3, 30 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 10,
+			Callback = function(value)
+				runtime.State:Set("Farming.TargetMoveThreshold", value)
 			end,
 		})
 
@@ -267,10 +272,7 @@ return function(ctx)
 			Suffix = "x",
 			CurrentValue = 1.5,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.SpeedBoostMultiplier",
-					value
-				)
+				runtime.State:Set("Farming.SpeedBoostMultiplier", value)
 			end,
 		})
 
@@ -278,10 +280,7 @@ return function(ctx)
 			Name = "Compensate status slows",
 			CurrentValue = true,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.SpeedBoostCounterSlows",
-					value
-				)
+				runtime.State:Set("Farming.SpeedBoostCounterSlows", value)
 			end,
 		})
 
@@ -309,10 +308,7 @@ return function(ctx)
 			CurrentOption = { "Full Rotation" },
 			MultipleOptions = false,
 			Callback = function(options)
-				runtime.State:Set(
-					"Farming.RotationMode",
-					options and options[1] or "Full Rotation"
-				)
+				runtime.State:Set("Farming.RotationMode", options and options[1] or "Full Rotation")
 			end,
 		})
 
@@ -329,10 +325,7 @@ return function(ctx)
 			CurrentOption = { "Primary" },
 			MultipleOptions = false,
 			Callback = function(options)
-				runtime.State:Set(
-					"Farming.AttackSlot",
-					options and options[1] or "Primary"
-				)
+				runtime.State:Set("Farming.AttackSlot", options and options[1] or "Primary")
 			end,
 		})
 
@@ -371,10 +364,7 @@ return function(ctx)
 			Name = "Thaw Freeze Tag teammates",
 			CurrentValue = true,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.AutoThawFreezeTag",
-					value
-				)
+				runtime.State:Set("Farming.AutoThawFreezeTag", value)
 			end,
 		})
 
@@ -385,10 +375,7 @@ return function(ctx)
 			Suffix = " studs",
 			CurrentValue = 120,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.FreezeTagRescueRange",
-					value
-				)
+				runtime.State:Set("Farming.FreezeTagRescueRange", value)
 			end,
 		})
 
@@ -421,10 +408,7 @@ return function(ctx)
 			Suffix = "%",
 			CurrentValue = 60,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.DebuffSafetyThreshold",
-					value
-				)
+				runtime.State:Set("Farming.DebuffSafetyThreshold", value)
 			end,
 		})
 
@@ -443,10 +427,7 @@ return function(ctx)
 			Suffix = "s",
 			CurrentValue = 1.25,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.DamageReactionWindow",
-					value
-				)
+				runtime.State:Set("Farming.DamageReactionWindow", value)
 			end,
 		})
 
@@ -468,10 +449,7 @@ return function(ctx)
 			Suffix = "%",
 			CurrentValue = 70,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.DodgeHealthThreshold",
-					value
-				)
+				runtime.State:Set("Farming.DodgeHealthThreshold", value)
 			end,
 		})
 
@@ -490,10 +468,7 @@ return function(ctx)
 			Suffix = "%",
 			CurrentValue = 30,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.RetreatHealthThreshold",
-					value
-				)
+				runtime.State:Set("Farming.RetreatHealthThreshold", value)
 			end,
 		})
 
@@ -533,10 +508,7 @@ return function(ctx)
 			Suffix = "%",
 			CurrentValue = 40,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.HealItemHealthThreshold",
-					value
-				)
+				runtime.State:Set("Farming.HealItemHealthThreshold", value)
 			end,
 		})
 
@@ -547,10 +519,7 @@ return function(ctx)
 			Suffix = "s",
 			CurrentValue = 5,
 			Callback = function(value)
-				runtime.State:Set(
-					"Farming.HealItemRetryInterval",
-					value
-				)
+				runtime.State:Set("Farming.HealItemRetryInterval", value)
 			end,
 		})
 
@@ -570,102 +539,53 @@ return function(ctx)
 			Name = "Show automation status",
 			Callback = function()
 				local threat, threatError =
-					runtime.MobsAPI.GetThreatState(
-						runtime.State:Get("Farming.ThreatRadius", 25)
-					)
+					runtime.MobsAPI.GetThreatState(runtime.State:Get("Farming.ThreatRadius", 25))
 				local navigation = runtime.Navigator.GetState()
-				local className =
-					runtime.ClassRegistry.GetCurrentClass() or "Unknown"
-				local survival =
-					Engine.GetSurvivalState(runtime)
-				local statuses, statusesError =
-					runtime.Status.GetSummary()
-				local walkspeed, walkspeedError =
-					runtime.Walkspeed.Get()
-				local outOfCombat =
-					runtime.Health.IsOutOfCombat()
-				local lastDamage =
-					runtime.Health.GetLastDamage()
-				local statusAnalysis =
-					statuses and statuses.Analysis or {}
+				local className = runtime.ClassRegistry.GetCurrentClass() or "Unknown"
+				local survival = Engine.GetSurvivalState(runtime)
+				local statuses, statusesError = runtime.Status.GetSummary()
+				local walkspeed, walkspeedError = runtime.Walkspeed.Get()
+				local outOfCombat = runtime.Health.IsOutOfCombat()
+				local lastDamage = runtime.Health.GetLastDamage()
+				local statusAnalysis = statuses and statuses.Analysis or {}
 
 				runtime.UI:Notify(
 					"Automation status",
 					"Class: "
 						.. tostring(className)
 						.. "\nRotation: "
-						.. tostring(
-							runtime.State:Get(
-								"Farming.RotationMode",
-								"Full Rotation"
-							)
-						)
+						.. tostring(runtime.State:Get("Farming.RotationMode", "Full Rotation"))
 						.. "\nHealth: "
-						.. tostring(
-							math.floor(survival.HealthRatio * 100)
-						)
+						.. tostring(math.floor(survival.HealthRatio * 100))
 						.. "%"
 						.. "\nBarrier: "
 						.. tostring(math.floor(survival.Barrier))
 						.. " | protected: "
-						.. tostring(
-							math.floor(
-								survival.ProtectionRatio * 100
-							)
-						)
+						.. tostring(math.floor(survival.ProtectionRatio * 100))
 						.. "%"
 						.. "\nWalkspeed: "
-						.. tostring(
-							walkspeed
-								and math.floor(walkspeed * 10) / 10
-							or walkspeedError
-						)
+						.. tostring(walkspeed and math.floor(walkspeed * 10) / 10 or walkspeedError)
 						.. "\nStatuses: "
-						.. tostring(
-							statuses and statuses.Text or statusesError
-						)
+						.. tostring(statuses and statuses.Text or statusesError)
 						.. "\nStatus risk: DoT "
-						.. tostring(
-							math.floor(
-								(
-									statusAnalysis.DamagePerSecond
-										or 0
-								) * 100
-							)
-						)
+						.. tostring(math.floor((statusAnalysis.DamagePerSecond or 0) * 100))
 						.. "%/s"
 						.. " | move blocked "
-						.. tostring(
-							statusAnalysis.MovementBlocked or false
-						)
+						.. tostring(statusAnalysis.MovementBlocked or false)
 						.. " | skills blocked "
-						.. tostring(
-							statusAnalysis.SkillsBlocked or false
-						)
+						.. tostring(statusAnalysis.SkillsBlocked or false)
 						.. "\nHealing blocked: "
-						.. tostring(
-							statusAnalysis.HealingBlocked or false
-						)
+						.. tostring(statusAnalysis.HealingBlocked or false)
 						.. " | vulnerable: "
-						.. tostring(
-							statusAnalysis.HasDefenseDebuff or false
-						)
+						.. tostring(statusAnalysis.HasDefenseDebuff or false)
 						.. " | fatal: "
-						.. tostring(
-							statusAnalysis.HasFatalStatus or false
-						)
+						.. tostring(statusAnalysis.HasFatalStatus or false)
 						.. "\nOut of combat: "
 						.. tostring(outOfCombat)
 						.. "\nLast damage: "
-						.. tostring(
-							lastDamage and lastDamage.Amount or 0
-						)
+						.. tostring(lastDamage and lastDamage.Amount or 0)
 						.. " from "
-						.. tostring(
-							lastDamage
-								and lastDamage.Attacker
-								or "none"
-						)
+						.. tostring(lastDamage and lastDamage.Attacker or "none")
 						.. "\nThreats: "
 						.. tostring(threat and threat.Count or 0)
 						.. " (attacking: "
@@ -673,11 +593,7 @@ return function(ctx)
 						.. ")"
 						.. "\nNavigation: "
 						.. tostring(navigation.Status)
-						.. (
-							threat
-								and ""
-							or ("\nThreat scan: " .. tostring(threatError))
-						),
+						.. (threat and "" or ("\nThreat scan: " .. tostring(threatError))),
 					8,
 					0
 				)
@@ -690,12 +606,7 @@ return function(ctx)
 				local target, descriptor = Engine.GetTarget(runtime)
 
 				if not target or not descriptor then
-					runtime.UI:Notify(
-						"Farm target",
-						"No mob matches the current filters.",
-						4,
-						0
-					)
+					runtime.UI:Notify("Farm target", "No mob matches the current filters.", 4, 0)
 					return
 				end
 
@@ -725,18 +636,12 @@ return function(ctx)
 		runtime.UI:CreateButton(tab, {
 			Name = "Scan matching mobs",
 			Callback = function()
-				local matching, matchingError =
-					runtime.MobsAPI.GetMatching(
-						Engine.GetOptions(runtime)
-					)
+				local matching, matchingError = runtime.MobsAPI.GetMatching(Engine.GetOptions(runtime))
 
 				runtime.UI:Notify(
 					"Mob scan",
 					matching
-							and (
-								tostring(#matching)
-								.. " valid mob(s) match the current filters."
-							)
+							and (tostring(#matching) .. " valid mob(s) match the current filters.")
 						or ("Scan failed: " .. tostring(matchingError)),
 					5,
 					0

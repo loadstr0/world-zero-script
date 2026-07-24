@@ -14,29 +14,34 @@ if string.sub(base, -1) ~= "/" then
 end
 
 env.WorldZeroBase = base
-env.WorldZeroBridge = env.WorldZeroBridge or {
-	Window = {
-		Name = "World Zero",
-		LoadingTitle = "World Zero",
-		LoadingSubtitle = "Modular Rayfield build",
-		Theme = "Default",
-		ToggleUIKeybind = "Z",
-	},
-	ConfigurationSaving = {
-		Enabled = true,
-		FolderName = "WorldZero",
-		FileName = "WorldZeroConfig",
-	},
-	Debug = true,
-}
+env.WorldZeroBridge = env.WorldZeroBridge
+	or {
+		Window = {
+			Name = "World Zero",
+			LoadingTitle = "World Zero",
+			LoadingSubtitle = "Modular Rayfield build",
+			Theme = "Default",
+			ToggleUIKeybind = "Z",
+		},
+		ConfigurationSaving = {
+			Enabled = true,
+			FolderName = "WorldZero",
+			FileName = "WorldZeroConfig",
+		},
+		Debug = true,
+	}
 
 local loaderUrl = base .. "Loader.lua"
 
 if env.WorldZeroCacheBust ~= false then
-	loaderUrl = loaderUrl
-		.. "?cache="
-		.. tostring(os.time())
-		.. tostring(math.random(1000, 9999))
+	loaderUrl = loaderUrl .. "?cache=" .. tostring(os.time()) .. tostring(math.random(1000, 9999))
 end
 
-loadstring(game:HttpGet(loaderUrl))()
+local source = game:HttpGet(loaderUrl)
+local loader, compileError = loadstring(source)
+
+if not loader then
+	error("[WorldZeroBootstrap] Loader compilation failed: " .. tostring(compileError), 0)
+end
+
+loader()

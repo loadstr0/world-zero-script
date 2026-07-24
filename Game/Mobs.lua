@@ -53,9 +53,7 @@ return function(ctx)
 			return nil
 		end
 
-		return mob.PrimaryPart
-			or mob:FindFirstChild("Collider")
-			or mob:FindFirstChild("HumanoidRootPart")
+		return mob.PrimaryPart or mob:FindFirstChild("Collider") or mob:FindFirstChild("HumanoidRootPart")
 	end
 
 	local function getPropertyValue(properties, name)
@@ -84,16 +82,32 @@ return function(ctx)
 			return true
 		end
 
-		local searchable = string.lower(
-			table.concat({
-				tostring(descriptor.ModelName or ""),
-				tostring(descriptor.Type or ""),
-				tostring(descriptor.NameTag or ""),
-			}, " ")
-		)
+		local searchable = string.lower(table.concat({
+			tostring(descriptor.ModelName or ""),
+			tostring(descriptor.Type or ""),
+			tostring(descriptor.NameTag or ""),
+		}, " "))
 
 		for _, token in ipairs(tokens) do
 			if string.find(searchable, token, 1, true) then
+				return true
+			end
+		end
+
+		return false
+	end
+
+	local function exactNameMatches(descriptor, names)
+		if type(names) ~= "table" or #names == 0 then
+			return true
+		end
+
+		for _, allowed in ipairs(names) do
+			if
+				tostring(descriptor.ModelName) == tostring(allowed)
+				or tostring(descriptor.Type) == tostring(allowed)
+				or tostring(descriptor.NameTag) == tostring(allowed)
+			then
 				return true
 			end
 		end
@@ -162,8 +176,7 @@ return function(ctx)
 			IsHidden = hidden == true,
 			Invincible = data.Invincible == true,
 			DoNotMove = data.DoNotMove == true,
-			CannotTeleport = data.CannotTeleport == true
-				or mob:FindFirstChild("CannotTeleport") ~= nil,
+			CannotTeleport = data.CannotTeleport == true or mob:FindFirstChild("CannotTeleport") ~= nil,
 			Owner = owner,
 			IsOwned = owner ~= nil,
 			Position = position,
@@ -202,20 +215,15 @@ return function(ctx)
 			return false
 		end
 
-		if
-			tonumber(options.Range)
-			and descriptor.Distance
-			and descriptor.Distance > tonumber(options.Range)
-		then
+		if tonumber(options.Range) and descriptor.Distance and descriptor.Distance > tonumber(options.Range) then
 			return false
 		end
 
-		return nameMatches(descriptor, options.NameFilter)
+		return exactNameMatches(descriptor, options.ExactNames) and nameMatches(descriptor, options.NameFilter)
 	end
 
 	local function getDescriptorSafely(mob, origin)
-		local ok, descriptor, descriptorError =
-			pcall(Mobs.GetDescriptor, mob, origin)
+		local ok, descriptor, descriptorError = pcall(Mobs.GetDescriptor, mob, origin)
 
 		if not ok then
 			return nil, "mob_descriptor_failed"
@@ -243,8 +251,7 @@ return function(ctx)
 			end
 		end
 
-		return (candidate.Distance or math.huge)
-			< (current.Distance or math.huge)
+		return (candidate.Distance or math.huge) < (current.Distance or math.huge)
 	end
 
 	function Mobs.SelectTarget(options)
@@ -267,10 +274,7 @@ return function(ctx)
 		for _, mob in pairs(all) do
 			local descriptor = getDescriptorSafely(mob, root.Position)
 
-			if
-				Mobs.IsValidTarget(descriptor, options)
-				and isBetter(descriptor, selected, mode)
-			then
+			if Mobs.IsValidTarget(descriptor, options) and isBetter(descriptor, selected, mode) then
 				selected = descriptor
 			end
 		end
@@ -311,10 +315,7 @@ return function(ctx)
 
 	function Mobs.GetOwnedSummary(owner)
 		owner = owner or GameContext.GetLocalPlayer()
-		local ownerCharacter = typeof(owner) == "Instance"
-				and owner:IsA("Player")
-				and owner.Character
-			or nil
+		local ownerCharacter = typeof(owner) == "Instance" and owner:IsA("Player") and owner.Character or nil
 		local all, allError = Mobs.GetAll()
 
 		if not all then
@@ -336,10 +337,7 @@ return function(ctx)
 				descriptor
 				and descriptor.Health.Alive
 				and descriptor.IsOwned
-				and (
-					descriptor.Owner == owner
-					or descriptor.Owner == ownerCharacter
-				)
+				and (descriptor.Owner == owner or descriptor.Owner == ownerCharacter)
 			then
 				local mobType = string.lower(tostring(descriptor.Type))
 				summary.Total = summary.Total + 1
@@ -380,12 +378,7 @@ return function(ctx)
 				or (kind == "weak" and string.find(typeName, "weak", 1, true))
 				or (kind == "strong" and string.find(typeName, "strong", 1, true))
 
-			if
-				kindMatches
-				and (
-					descriptor.Position - targetPart.Position
-				).Magnitude <= (tonumber(radius) or 25)
-			then
+			if kindMatches and (descriptor.Position - targetPart.Position).Magnitude <= (tonumber(radius) or 25) then
 				count = count + 1
 			end
 		end
@@ -421,15 +414,11 @@ return function(ctx)
 				Mobs.IsValidTarget(descriptor, {
 					Range = tonumber(radius) or 30,
 					IncludeOwned = false,
-				})
-				and descriptor.CurrentTarget == character
+				}) and descriptor.CurrentTarget == character
 			then
 				state.Count = state.Count + 1
 
-				if
-					type(descriptor.CurrentAttack) == "string"
-					and descriptor.CurrentAttack ~= ""
-				then
+				if type(descriptor.CurrentAttack) == "string" and descriptor.CurrentAttack ~= "" then
 					state.AttackingCount = state.AttackingCount + 1
 				end
 
@@ -453,9 +442,7 @@ return function(ctx)
 			HasMobData = module and type(module.GetMobData) == "function" or false,
 			HasBossTags = module and type(module.GetBossTag) == "function" or false,
 			HasEliteState = module and type(module.IsElite) == "function" or false,
-			HasOwnership = module
-				and type(module.GetOwner) == "function"
-				or false,
+			HasOwnership = module and type(module.GetOwner) == "function" or false,
 		}
 	end
 

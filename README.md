@@ -40,13 +40,17 @@ World Zero Script/
 |   |-- Actions.lua
 |   |-- ClassRegistry.lua
 |   |-- Combat.lua
+|   |-- Chests.lua
 |   |-- Context.lua
+|   |-- Drops.lua
 |   |-- Energy.lua
 |   |-- Health.lua
+|   |-- Inventory.lua
 |   |-- Missions.lua
 |   |-- Mobs.lua
 |   |-- Navigator.lua
 |   |-- Profile.lua
+|   |-- Quests.lua
 |   |-- Status.lua
 |   |-- Skills.lua
 |   |-- Teleport.lua
@@ -128,13 +132,16 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 
 - Filtered Auto Farm with boss, elite, name, health, level, and distance targeting
 - Full equipped-class rotation across every available special attack, Primary, and charged Ultimate
-- Obstacle-aware pathfinding with sprinting, fence jumps, moving-target repathing, and stuck recovery
+- Smooth obstacle-aware pathfinding with sprinting, fence jumps, movement-threshold repathing, failed-path fallback, and stuck recovery
 - Adaptive ranged kiting using live player/mob speed and equipped-class Primary range
 - Barrier-aware Auto Dodge/retreat with post-damage follow-up Dodge
 - Exact catalog-driven responses for Darkness, freezes, Shock, Knockdown, Stunned, Poison, damage-over-time, vulnerability, healing, and Death Mark
 - Freeze Tag teammate rescue using the verified 15-stud thaw condition
 - Dynamic world travel from live `WorldData`
 - Mission selection, matchmaking, free-reward claiming, and replay/return automation
+- Tracked-quest automation with exact kill-mob targeting, quest-area fallback routing, and reward claiming
+- Coordinated dropped-item/currency collection and spawned reward-chest approach
+- Previewable manual inventory cleanup that always protects locked and favorited items
 - Projected regeneration-aware quick-item healing
 - Optional automation-only WalkspeedManager multiplier with capped slow compensation
 - Optional approach, stopping distance, attack range, and selected-slot mode

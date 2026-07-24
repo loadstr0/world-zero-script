@@ -50,15 +50,10 @@ The batch confirms:
 - Client drops are represented by pickup parts under `workspace.Coins` and redeem only after the character or pet reaches the verified pickup radius.
 - Spawned mission/event chests use `Shared.Chests`; the game automatically requests opening once the character is within 10 studs.
 
-## Next priority
+## Implemented from the batch
 
-Mission selection, matchmaking, automatic free-reward claiming, replay/return behavior, dynamic world travel, and Freeze Tag teammate rescue are now implemented.
+Mission selection, matchmaking, automatic free-reward claiming, replay/return behavior, dynamic world travel, Freeze Tag teammate rescue, dropped-item collection, reward-chest routing, tracked-quest objective navigation/claiming, and protected rule-based inventory cleanup are now implemented.
 
-The next source-backed options from this dump are:
-
-- Auto pathfinding to dropped items and currency.
-- Auto approach/open for spawned mission and world-event chests.
-- Quest completion/reward claiming with objective navigation.
-- Inventory cleanup and rule-based selling with locked/favorited item protection.
+No additional source is required for the current loot, kill-quest routing, or pathfinding work. A future phase-aware boss system or automatic quest-linked dungeon selection would benefit from targeted mission/objective sources after live testing identifies the exact missing behavior.
 
 Do not invoke the admin command modules. They are useful as naming clues only and may be server-authorized.

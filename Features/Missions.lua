@@ -1,14 +1,16 @@
-return function()
+return function(ctx)
 	local Missions = {
 		Id = "Missions",
 	}
 
+	local Engine = ctx:Require("FarmingEngine")
+
 	function Missions.Register(runtime)
 		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Automation)
 		local status = runtime.MissionsAPI.Describe()
+		local questStatus = runtime.QuestsAPI.Describe()
 		local missionList, listError = runtime.MissionsAPI.List()
-		local difficulties, difficultyError =
-			runtime.MissionsAPI.ListDifficulties()
+		local difficulties, difficultyError = runtime.MissionsAPI.ListDifficulties()
 		local missionLabels = {}
 		local missionByLabel = {}
 		local difficultyLabels = {}
@@ -35,16 +37,93 @@ return function()
 		runtime.State:Set("Missions.AutoFinishEnabled", false)
 		runtime.State:Set("Missions.AutoClaimReward", true)
 		runtime.State:Set("Missions.FinishDelay", 4)
+		runtime.State:Set("Quests.Enabled", false)
+		runtime.State:Set("Quests.AutoClaim", true)
+		runtime.State:Set("Quests.RouteToArea", true)
+		runtime.State:Set("Quests.SearchRange", 500)
 
-		runtime.UI:CreateSection(tab, "Missions")
+		runtime.UI:CreateSection(tab, "Tracked quests")
+		runtime.UI:CreateToggle(tab, "QuestAutomationEnabled", {
+			Name = "Enable tracked quest automation",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Quests.Enabled", value)
+				Engine.Reconcile(runtime)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "QuestAutoClaim", {
+			Name = "Claim completed quests automatically",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Quests.AutoClaim", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "QuestRouteToArea", {
+			Name = "Travel to quest objective areas",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Quests.RouteToArea", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "QuestMobSearchRange", {
+			Name = "Quest mob search range",
+			Range = { 100, 1500 },
+			Increment = 50,
+			Suffix = " studs",
+			CurrentValue = 500,
+			Callback = function(value)
+				runtime.State:Set("Quests.SearchRange", value)
+			end,
+		})
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Quest routing",
+			questStatus.Available
+					and "Automation follows Profile.TrackingQuest first, then the next active quest. Kill quests target only the exact mob names from Objective[3]. When none are alive, it walks to QuestLocations[quest.ref], matching the game's tracker fallback."
+				or ("Shared.Quests unavailable: " .. tostring(questStatus.Error))
+		)
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Show tracked quest",
+			Callback = function()
+				local quest, questError = runtime.QuestsAPI.GetCurrent()
+
+				if not quest then
+					runtime.UI:Notify("Tracked quest", "No active quest: " .. tostring(questError), 5, 0)
+					return
+				end
+
+				runtime.UI:Notify(
+					"Tracked quest",
+					quest.Name
+						.. "\nID: "
+						.. tostring(quest.ID)
+						.. "\nObjective: "
+						.. quest.ObjectiveType
+						.. "\nProgress: "
+						.. tostring(quest.Progress)
+						.. "/"
+						.. tostring(quest.Required)
+						.. "\nReady to claim: "
+						.. tostring(quest.ReadyToClaim)
+						.. "\nRoute available: "
+						.. tostring(quest.Location ~= nil),
+					7,
+					0
+				)
+			end,
+		})
+
+		runtime.UI:CreateSection(tab, "Dungeon missions")
 		runtime.UI:CreateParagraph(
 			tab,
 			"Verified mission integration",
 			status.Available
-					and (
-						tostring(status.MissionCount)
-						.. " production mission(s) loaded from Shared.Missions. Access, level, party, reward, and replay checks remain server-authoritative."
-					)
+					and (tostring(status.MissionCount) .. " production mission(s) loaded from Shared.Missions. Access, level, party, reward, and replay checks remain server-authoritative.")
 				or ("Shared.Missions unavailable: " .. tostring(status.Error))
 		)
 
@@ -52,147 +131,119 @@ return function()
 			runtime.UI:CreateParagraph(
 				tab,
 				"Mission list",
-				"No mission options were available: "
-					.. tostring(listError)
+				"No mission options were available: " .. tostring(listError)
 			)
-			return
-		end
+		else
+			runtime.UI:CreateDropdown(tab, "MissionSelection", {
+				Name = "Mission",
+				Options = missionLabels,
+				CurrentOption = { missionLabels[1] },
+				MultipleOptions = false,
+				Callback = function(options)
+					local selected = options and missionByLabel[options[1]]
 
-		runtime.UI:CreateDropdown(tab, "MissionSelection", {
-			Name = "Mission",
-			Options = missionLabels,
-			CurrentOption = { missionLabels[1] },
-			MultipleOptions = false,
-			Callback = function(options)
-				local selected =
-					options and missionByLabel[options[1]]
+					if selected then
+						selectedMissionId = selected.ID
+					end
+				end,
+			})
 
-				if selected then
-					selectedMissionId = selected.ID
-				end
-			end,
-		})
+			runtime.UI:CreateDropdown(tab, "MissionDifficulty", {
+				Name = "Difficulty",
+				Options = difficultyLabels,
+				CurrentOption = {
+					difficultyLabels[1] or "Difficulty 1 [1]",
+				},
+				MultipleOptions = false,
+				Callback = function(options)
+					local selected = options and difficultyByLabel[options[1]]
 
-		runtime.UI:CreateDropdown(tab, "MissionDifficulty", {
-			Name = "Difficulty",
-			Options = difficultyLabels,
-			CurrentOption = {
-				difficultyLabels[1]
-					or ("Difficulty 1 [1]"),
-			},
-			MultipleOptions = false,
-			Callback = function(options)
-				local selected =
-					options and difficultyByLabel[options[1]]
+					if selected then
+						selectedDifficultyId = selected.ID
+					end
+				end,
+			})
 
-				if selected then
-					selectedDifficultyId = selected.ID
-				end
-			end,
-		})
-
-		if #difficultyLabels == 0 then
-			runtime.UI:CreateParagraph(
-				tab,
-				"Difficulty list",
-				"Difficulty metadata was unavailable: "
-					.. tostring(difficultyError)
-			)
-		end
-
-		runtime.UI:CreateButton(tab, {
-			Name = "Start selected mission",
-			Callback = function()
-				local ok, startError = runtime.TeleportAPI.ToMission(
-					selectedMissionId,
-					selectedDifficultyId
+			if #difficultyLabels == 0 then
+				runtime.UI:CreateParagraph(
+					tab,
+					"Difficulty list",
+					"Difficulty metadata was unavailable: " .. tostring(difficultyError)
 				)
+			end
 
-				runtime.UI:Notify(
-					"Mission travel",
-					ok
-							and "Mission request sent."
-						or ("Request failed: " .. tostring(startError)),
-					5,
-					0
-				)
-			end,
-		})
+			runtime.UI:CreateButton(tab, {
+				Name = "Start selected mission",
+				Callback = function()
+					local ok, startError = runtime.TeleportAPI.ToMission(selectedMissionId, selectedDifficultyId)
 
-		runtime.UI:CreateButton(tab, {
-			Name = "Matchmake selected mission",
-			Callback = function()
-				local ok, queueError = runtime.MissionsAPI.Queue(
-					selectedMissionId,
-					selectedDifficultyId
-				)
-
-				runtime.UI:Notify(
-					"Mission queue",
-					ok
-							and "Matchmaking request sent."
-						or ("Queue failed: " .. tostring(queueError)),
-					5,
-					0
-				)
-			end,
-		})
-
-		runtime.UI:CreateButton(tab, {
-			Name = "Leave matchmaking queue",
-			Callback = function()
-				local ok, leaveError =
-					runtime.MissionsAPI.LeaveQueue()
-
-				runtime.UI:Notify(
-					"Mission queue",
-					ok
-							and "Leave-queue request sent."
-						or ("Request failed: " .. tostring(leaveError)),
-					5,
-					0
-				)
-			end,
-		})
-
-		runtime.UI:CreateButton(tab, {
-			Name = "Show current mission",
-			Callback = function()
-				local current, currentError =
-					runtime.MissionsAPI.GetCurrent()
-
-				if not current then
 					runtime.UI:Notify(
-						"Current mission",
-						"No active mission: " .. tostring(currentError),
+						"Mission travel",
+						ok and "Mission request sent." or ("Request failed: " .. tostring(startError)),
 						5,
 						0
 					)
-					return
-				end
+				end,
+			})
 
-				runtime.UI:Notify(
-					"Current mission",
-					tostring(current.NameTag or current.Name or current.ID)
-						.. "\nID: "
-						.. tostring(current.ID)
-						.. "\nLevel requirement: "
-						.. tostring(current.LevelRequirement or "unknown"),
-					6,
-					0
-				)
-			end,
-		})
+			runtime.UI:CreateButton(tab, {
+				Name = "Matchmake selected mission",
+				Callback = function()
+					local ok, queueError = runtime.MissionsAPI.Queue(selectedMissionId, selectedDifficultyId)
 
-		runtime.UI:CreateSection(tab, "Mission completion")
+					runtime.UI:Notify(
+						"Mission queue",
+						ok and "Matchmaking request sent." or ("Queue failed: " .. tostring(queueError)),
+						5,
+						0
+					)
+				end,
+			})
+
+			runtime.UI:CreateButton(tab, {
+				Name = "Leave matchmaking queue",
+				Callback = function()
+					local ok, leaveError = runtime.MissionsAPI.LeaveQueue()
+
+					runtime.UI:Notify(
+						"Mission queue",
+						ok and "Leave-queue request sent." or ("Request failed: " .. tostring(leaveError)),
+						5,
+						0
+					)
+				end,
+			})
+
+			runtime.UI:CreateButton(tab, {
+				Name = "Show current mission",
+				Callback = function()
+					local current, currentError = runtime.MissionsAPI.GetCurrent()
+
+					if not current then
+						runtime.UI:Notify("Current mission", "No active mission: " .. tostring(currentError), 5, 0)
+						return
+					end
+
+					runtime.UI:Notify(
+						"Current mission",
+						tostring(current.NameTag or current.Name or current.ID)
+							.. "\nID: "
+							.. tostring(current.ID)
+							.. "\nLevel requirement: "
+							.. tostring(current.LevelRequirement or "unknown"),
+						6,
+						0
+					)
+				end,
+			})
+		end
+
+		runtime.UI:CreateSection(tab, "Dungeon end screen")
 		runtime.UI:CreateToggle(tab, "MissionAutoFinishEnabled", {
-			Name = "Enable mission completion automation",
+			Name = "Automate dungeon reward and exit",
 			CurrentValue = false,
 			Callback = function(value)
-				runtime.State:Set(
-					"Missions.AutoFinishEnabled",
-					value
-				)
+				runtime.State:Set("Missions.AutoFinishEnabled", value)
 			end,
 		})
 
@@ -202,10 +253,7 @@ return function()
 			CurrentOption = { "Replay" },
 			MultipleOptions = false,
 			Callback = function(options)
-				runtime.State:Set(
-					"Missions.FinishAction",
-					options and options[1] or "Replay"
-				)
+				runtime.State:Set("Missions.FinishAction", options and options[1] or "Replay")
 			end,
 		})
 
@@ -213,10 +261,7 @@ return function()
 			Name = "Claim free mission reward automatically",
 			CurrentValue = true,
 			Callback = function(value)
-				runtime.State:Set(
-					"Missions.AutoClaimReward",
-					value
-				)
+				runtime.State:Set("Missions.AutoClaimReward", value)
 			end,
 		})
 
@@ -237,126 +282,80 @@ return function()
 			"The free reward uses the same GetMissionPrize request as the reward screen; inventory and eligibility are checked by the server. Replay only succeeds for the party leader. Other members are marked ready and follow the leader's choice."
 		)
 
-		local finishConnection, finishError =
-			runtime.MissionsAPI.ObserveFinished(
-				function(...)
-					local arguments = { ... }
-					local failed = arguments[3] == true
+		local finishConnection, finishError = runtime.MissionsAPI.ObserveFinished(function(...)
+			local arguments = { ... }
+			local failed = arguments[3] == true
 
-					if failed then
-						return
-					end
+			if failed then
+				return
+			end
+
+			if not runtime.State:Get("Missions.AutoFinishEnabled", false) then
+				return
+			end
+
+			finishSequence = finishSequence + 1
+			local sequence = finishSequence
+
+			task.spawn(function()
+				if runtime.State:Get("Missions.AutoClaimReward", true) then
+					task.wait(1)
 
 					if
-						not runtime.State:Get(
-							"Missions.AutoFinishEnabled",
-							false
-						)
+						runtime.Stopped
+						or sequence ~= finishSequence
+						or not runtime.State:Get("Missions.AutoFinishEnabled", false)
 					then
 						return
 					end
 
-					finishSequence = finishSequence + 1
-					local sequence = finishSequence
+					local reward, rewardError = runtime.MissionsAPI.ClaimFreeReward()
 
-					task.spawn(function()
-						if
-							runtime.State:Get(
-								"Missions.AutoClaimReward",
-								true
-							)
-						then
-							task.wait(1)
-
-							if
-								runtime.Stopped
-								or sequence ~= finishSequence
-								or not runtime.State:Get(
-									"Missions.AutoFinishEnabled",
-									false
-								)
-							then
-								return
-							end
-
-							local reward, rewardError =
-								runtime.MissionsAPI.ClaimFreeReward()
-
-							if reward then
-								runtime.UI:Notify(
-									"Mission reward",
-									tostring(reward.Count)
-										.. "x "
-										.. tostring(reward.Name)
-										.. " claimed.",
-									5,
-									0
-								)
-							else
-								runtime.UI:Notify(
-									"Mission reward",
-									"No free reward was claimed: "
-										.. tostring(rewardError),
-									5,
-									0
-								)
-							end
-						end
-
-						task.wait(
-							runtime.State:Get(
-								"Missions.FinishDelay",
-								4
-							)
+					if reward then
+						runtime.UI:Notify(
+							"Mission reward",
+							tostring(reward.Count) .. "x " .. tostring(reward.Name) .. " claimed.",
+							5,
+							0
 						)
-
-						if
-							runtime.Stopped
-							or sequence ~= finishSequence
-							or not runtime.State:Get(
-								"Missions.AutoFinishEnabled",
-								false
-							)
-						then
-							return
-						end
-
-						local action =
-							runtime.State:Get(
-								"Missions.FinishAction",
-								"Replay"
-							)
-
-						if action == "Do nothing" then
-							return
-						end
-
-						local ok, actionError =
-							runtime.MissionsAPI.FinishChoice(
-								action == "Replay"
-							)
-
-						if not ok then
-							runtime.UI:Notify(
-								"Mission completion",
-								"Completion action failed: "
-									.. tostring(actionError),
-								6,
-								0
-							)
-						end
-					end)
+					else
+						runtime.UI:Notify(
+							"Mission reward",
+							"No free reward was claimed: " .. tostring(rewardError),
+							5,
+							0
+						)
+					end
 				end
-			)
+
+				task.wait(runtime.State:Get("Missions.FinishDelay", 4))
+
+				if
+					runtime.Stopped
+					or sequence ~= finishSequence
+					or not runtime.State:Get("Missions.AutoFinishEnabled", false)
+				then
+					return
+				end
+
+				local action = runtime.State:Get("Missions.FinishAction", "Replay")
+
+				if action == "Do nothing" then
+					return
+				end
+
+				local ok, actionError = runtime.MissionsAPI.FinishChoice(action == "Replay")
+
+				if not ok then
+					runtime.UI:Notify("Mission completion", "Completion action failed: " .. tostring(actionError), 6, 0)
+				end
+			end)
+		end)
 
 		if finishConnection then
 			runtime.Janitor:Add(finishConnection)
 		elseif finishError then
-			runtime.UI:CreateParagraph(
-				tab,
-				"Completion listener",
-				"Unavailable: " .. tostring(finishError)
-			)
+			runtime.UI:CreateParagraph(tab, "Completion listener", "Unavailable: " .. tostring(finishError))
 		end
 	end
 

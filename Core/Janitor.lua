@@ -2,6 +2,20 @@ return function()
 	local Janitor = {}
 	Janitor.__index = Janitor
 
+	local function cleanupItem(item, method)
+		if type(item) == "function" then
+			item()
+		elseif type(method) == "function" then
+			method(item)
+		elseif type(method) == "string" and item and type(item[method]) == "function" then
+			item[method](item)
+		elseif typeof(item) == "RBXScriptConnection" then
+			item:Disconnect()
+		elseif item and type(item.Destroy) == "function" then
+			item:Destroy()
+		end
+	end
+
 	function Janitor.new()
 		return setmetatable({
 			Items = {},
@@ -11,6 +25,7 @@ return function()
 
 	function Janitor:Add(item, cleanupMethod)
 		if self.Cleaned then
+			pcall(cleanupItem, item, cleanupMethod)
 			return item
 		end
 
@@ -34,19 +49,7 @@ return function()
 			local item = entry.Item
 			local method = entry.Method
 
-			pcall(function()
-				if type(item) == "function" then
-					item()
-				elseif type(method) == "function" then
-					method(item)
-				elseif type(method) == "string" and item and type(item[method]) == "function" then
-					item[method](item)
-				elseif typeof(item) == "RBXScriptConnection" then
-					item:Disconnect()
-				elseif item and type(item.Destroy) == "function" then
-					item:Destroy()
-				end
-			end)
+			pcall(cleanupItem, item, method)
 		end
 
 		table.clear(self.Items)
@@ -54,4 +57,3 @@ return function()
 
 	return Janitor
 end
-

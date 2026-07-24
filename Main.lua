@@ -64,9 +64,14 @@ return function(ctx)
 			Status = ctx:Require("Status"),
 			Walkspeed = ctx:Require("Walkspeed"),
 			MissionsAPI = ctx:Require("MissionsAPI"),
+			QuestsAPI = ctx:Require("QuestsAPI"),
 			TeleportAPI = ctx:Require("TeleportAPI"),
 			MobsAPI = ctx:Require("MobsAPI"),
+			DropsAPI = ctx:Require("DropsAPI"),
+			ChestsAPI = ctx:Require("ChestsAPI"),
+			InventoryAPI = ctx:Require("InventoryAPI"),
 			Navigator = ctx:Require("Navigator"),
+			FarmingEngine = ctx:Require("FarmingEngine"),
 			Skills = ctx:Require("Skills"),
 			Assassin = ctx:Require("Assassin"),
 			Archer = ctx:Require("Archer"),
@@ -110,8 +115,7 @@ return function(ctx)
 			local feature = ctx:Require(moduleName)
 
 			if runtime.Executor.Has("SetThreadIdentity") then
-				local identityOk, identityError =
-					runtime.Executor.EnsureThreadIdentity(identityConfig.ThreadIdentity)
+				local identityOk, identityError = runtime.Executor.EnsureThreadIdentity(identityConfig.ThreadIdentity)
 
 				if not identityOk and not identityWarningShown then
 					identityWarningShown = true
@@ -169,6 +173,13 @@ return function(ctx)
 		end
 
 		runtime.Stopped = true
+		pcall(runtime.FarmingEngine.Stop, runtime)
+		pcall(runtime.FarmingEngine.ClearSpeedBoost, runtime)
+
+		if runtime.AutomationTargetProvider then
+			pcall(runtime.Actions.ClearTargetProvider, runtime.AutomationTargetProvider)
+		end
+
 		runtime.Janitor:Cleanup()
 		pcall(function()
 			runtime.UI:Destroy()

@@ -45,6 +45,11 @@ return function()
 
 			connected = false
 			local listeners = self.Listeners[key]
+
+			if not listeners then
+				return
+			end
+
 			local index = table.find(listeners, callback)
 
 			if index then
@@ -55,4 +60,3 @@ return function()
 
 	return State
 end
-
