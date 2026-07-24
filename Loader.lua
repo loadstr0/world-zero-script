@@ -20,6 +20,8 @@ local MODULES = {
 	{ Key = "Actions", Path = "Game/Actions" },
 	{ Key = "CombatAPI", Path = "Game/Combat" },
 	{ Key = "Skills", Path = "Game/Skills" },
+	{ Key = "Archer", Path = "Game/Classes/Archer" },
+	{ Key = "ArcherFeature", Path = "Features/Classes/Archer" },
 	{ Key = "Swordmaster", Path = "Game/Classes/Swordmaster" },
 	{ Key = "SwordmasterFeature", Path = "Features/Classes/Swordmaster" },
 	{ Key = "ClassRegistry", Path = "Game/ClassRegistry" },

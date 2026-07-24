@@ -42,12 +42,14 @@ World Zero Script/
 |   |-- Profile.lua
 |   |-- Skills.lua
 |   `-- Classes/
+|       |-- Archer.lua
 |       `-- Swordmaster.lua
 |-- UI/
 |   |-- Navigation.lua
 |   `-- Rayfield.lua
 |-- Features/
 |   |-- Classes/
+|   |   |-- Archer.lua
 |   |   `-- Swordmaster.lua
 |   |-- Combat.lua
 |   |-- Farming.lua
@@ -79,13 +81,14 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Swordmaster auto-unsheath and cooldown-aware Skill1/Skill2 rotation
 - Server-validated target scanning and minimum-target gating
 - Server-safe Swordmaster aura through normal skill execution
+- Archer ranged aura with configurable skills and automatic charged Ultimate
 - Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate buttons
 - Configurable attack-check interval
 - Sprint toggle
 - Mount and sheath buttons
 - Quick-item name input and use button
 
-Skill names and slots are available from `Shared.Skills`. Swordmaster execution details are verified through `Shared.Combat.Skillsets.Swordmaster`; other classes still require their relevant skillset source.
+Skill names and slots are available from `Shared.Skills`. Swordmaster and Archer execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
 
 The Combat tab reads the live `Shared.Skills` catalog and identifies the equipped class through the replicated `LocalPlayer.Class` attribute verified in `Shared.Profile`. `Game/ClassRegistry.lua` selects only the matching verified class panel. A class change automatically rebuilds the interface, while skill execution remains routed through `Client.Actions`.
 

@@ -10,6 +10,14 @@ return function()
 		local skillCatalog = runtime.Skills.Describe()
 		local classStatus = runtime.ClassRegistry.Describe()
 		local currentClass = classStatus.ClassName or skillCatalog.ClassName or "Unknown"
+		local classAdapter = runtime.ClassRegistry.GetCurrentAdapter()
+		local classMetadata = classAdapter
+				and type(classAdapter.Describe) == "function"
+				and classAdapter.Describe()
+			or {}
+		local defaultTargetRange = classMetadata.Primary
+				and tonumber(classMetadata.Primary.Range)
+			or 15
 		local selectedSkillSlot = "Primary"
 		local skillLabels = {}
 		local labelToSlot = {}
@@ -28,7 +36,7 @@ return function()
 			labelToSlot.Primary = "Primary"
 		end
 
-		runtime.State:Set("Combat.TargetRange", 15)
+		runtime.State:Set("Combat.TargetRange", defaultTargetRange)
 		runtime.State:Set("Combat.AimDuration", 0.2)
 		runtime.State:Set("Combat.AutoAim", true)
 		runtime.State:Set("Combat.MinimumTargets", 1)
@@ -48,15 +56,18 @@ return function()
 				.. (classStatus.Verified and "verified" or "awaiting class skillset source")
 				.. "\nLoaded skill slots: "
 				.. tostring(#(skillCatalog.Options or {}))
+				.. "\nRecommended target range: "
+				.. tostring(defaultTargetRange)
+				.. " studs"
 		)
 
 		runtime.UI:CreateSection(tab, "Targeting")
 		runtime.UI:CreateSlider(tab, "CombatTargetRange", {
 			Name = "Target range",
-			Range = { 5, 50 },
+			Range = { 5, 60 },
 			Increment = 1,
 			Suffix = " studs",
-			CurrentValue = 15,
+			CurrentValue = defaultTargetRange,
 			Callback = function(value)
 				runtime.State:Set("Combat.TargetRange", value)
 			end,
@@ -87,7 +98,7 @@ return function()
 			Name = "Scan valid targets now",
 			Callback = function()
 				local count, scanError = runtime.CombatAPI.CountTargetsInRadius(
-					runtime.State:Get("Combat.TargetRange", 15)
+					runtime.State:Get("Combat.TargetRange", defaultTargetRange)
 				)
 
 				if count == nil then
@@ -109,7 +120,7 @@ return function()
 			Callback = function()
 				runtime.Actions.AimAtNearestTarget(
 					runtime.State:Get("Combat.AimDuration", 0.2),
-					runtime.State:Get("Combat.TargetRange", 15)
+					runtime.State:Get("Combat.TargetRange", defaultTargetRange)
 				)
 			end,
 		})

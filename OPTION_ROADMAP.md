@@ -12,6 +12,7 @@
 - Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate controls
 - Server-validated radius scan and minimum-target gating
 - Server-safe Swordmaster combat aura through normal skill execution
+- Archer ranged aura with Skill1/Skill2/Skill3 rotation and charged Ultimate
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload

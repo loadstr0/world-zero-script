@@ -60,6 +60,7 @@ return function(ctx)
 			Actions = ctx:Require("Actions"),
 			CombatAPI = ctx:Require("CombatAPI"),
 			Skills = ctx:Require("Skills"),
+			Archer = ctx:Require("Archer"),
 			Swordmaster = ctx:Require("Swordmaster"),
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),

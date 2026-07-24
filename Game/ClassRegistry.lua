@@ -4,6 +4,10 @@ return function(ctx)
 	local Profile = ctx:Require("Profile")
 
 	local REGISTRY = {
+		Archer = {
+			AdapterKey = "Archer",
+			FeatureKey = "ArcherFeature",
+		},
 		Swordmaster = {
 			AdapterKey = "Swordmaster",
 			FeatureKey = "SwordmasterFeature",

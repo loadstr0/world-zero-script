@@ -5,17 +5,18 @@
 - `ReplicatedStorage.Client.Actions`
 - `ReplicatedStorage.Shared.Skills`
 - `ReplicatedStorage.Shared.Combat.Skillsets.Swordmaster`
+- `ReplicatedStorage.Shared.Combat.Skillsets.Archer`
 - `ReplicatedStorage.Shared.Combat.Skillsets.General`
 - `ReplicatedStorage.Shared.Combat`
 - `ReplicatedStorage.Shared.Profile`
 
-The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster has a six-step primary combo, Crescent Strike, Leap Slash, Dodge, Sheath, and a charged 20-hit Ultimate. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
+The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster and Archer now have verified class panels. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
 
 ## Next priority
 
 For class-aware UI coverage, send the currently equipped class first, followed by the remaining skillsets:
 
-- `Archer`, `Assassin`, `Berserker`, `Defender`, `Demon`
+- `Assassin`, `Berserker`, `Defender`, `Demon`
 - `Dragoon`, `DualWielder`, `Greatsword`, `Guardian`, `Hunter`
 - `IcefireMage`, `Leviathan`, `Mage`, `MageOfLight`, `MageOfShadows`
 - `Necromancer`, `Paladin`, `Starbreaker`, `Stormcaller`, `Summoner`, `Warlord`
