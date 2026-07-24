@@ -7,17 +7,18 @@
 - `ReplicatedStorage.Shared.Combat.Skillsets.Swordmaster`
 - `ReplicatedStorage.Shared.Combat.Skillsets.Archer`
 - `ReplicatedStorage.Shared.Combat.Skillsets.Assassin`
+- `ReplicatedStorage.Shared.Combat.Skillsets.Berserker`
 - `ReplicatedStorage.Shared.Combat.Skillsets.General`
 - `ReplicatedStorage.Shared.Combat`
 - `ReplicatedStorage.Shared.Profile`
 
-The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster, Archer, and Assassin now have verified class panels. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
+The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster, Archer, Assassin, and Berserker now have verified class panels. `General` only supplies the shared Sprint slot. `Shared.Combat` reconstructs skill hitboxes and rate-limits skill identifiers on the server. `Shared.Profile` mirrors `Profile.Class.Value` to the player's `Class` attribute whenever the equipped class changes.
 
 ## Next priority
 
 For class-aware UI coverage, send the currently equipped class first, followed by the remaining skillsets:
 
-- `Berserker`, `Defender`, `Demon`
+- `Defender`, `Demon`
 - `Dragoon`, `DualWielder`, `Greatsword`, `Guardian`, `Hunter`
 - `IcefireMage`, `Leviathan`, `Mage`, `MageOfLight`, `MageOfShadows`
 - `Necromancer`, `Paladin`, `Starbreaker`, `Stormcaller`, `Summoner`, `Warlord`

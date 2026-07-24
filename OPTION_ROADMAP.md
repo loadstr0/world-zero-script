@@ -14,6 +14,7 @@
 - Server-safe Swordmaster combat aura through normal skill execution
 - Archer ranged aura with Skill1/Skill2/Skill3 rotation and charged Ultimate
 - Assassin Shadow Cloak, Shadow Leap, Shadow Strike, and full-energy Ultimate rotation
+- Berserker Rage burst mode with Aggro Slam, eight-hit Giga Spin, and Fissure
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
