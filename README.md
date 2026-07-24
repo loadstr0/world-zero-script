@@ -52,6 +52,7 @@ World Zero Script/
 |       |-- Demon.lua
 |       |-- Dragoon.lua
 |       |-- DualWielder.lua
+|       |-- Greatsword.lua
 |       `-- Swordmaster.lua
 |-- UI/
 |   |-- Navigation.lua
@@ -65,6 +66,7 @@ World Zero Script/
 |   |   |-- Demon.lua
 |   |   |-- Dragoon.lua
 |   |   |-- DualWielder.lua
+|   |   |-- Greatsword.lua
 |   |   `-- Swordmaster.lua
 |   |-- Combat.lua
 |   |-- Farming.lua
@@ -110,6 +112,8 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Quick-item name input and use button
 
 Skill names and slots are available from `Shared.Skills`. Swordmaster, Archer, Assassin, Berserker, Defender, Demon, Dragoon, and Dual Wielder execution details are verified through their respective `Shared.Combat.Skillsets` modules; other classes still require their relevant skillset source.
+
+The supplied Greatsword module is also source-verified, but it is an unfinished non-damaging prototype: its only hit callback prints `HIT`, and it defines no class skills or Ultimate. The class-aware panel reports that limitation and deliberately does not expose fake automation.
 
 The Combat tab reads the live `Shared.Skills` catalog and identifies the equipped class through the replicated `LocalPlayer.Class` attribute verified in `Shared.Profile`. `Game/ClassRegistry.lua` selects only the matching verified class panel. A class change automatically rebuilds the interface, while skill execution remains routed through `Client.Actions`.
 

@@ -32,6 +32,11 @@ return function(ctx)
 			AdapterKey = "DualWielder",
 			FeatureKey = "DualWielderFeature",
 		},
+		Greatsword = {
+			AdapterKey = "Greatsword",
+			FeatureKey = "GreatswordFeature",
+			AutomationReady = false,
+		},
 		Swordmaster = {
 			AdapterKey = "Swordmaster",
 			FeatureKey = "SwordmasterFeature",
@@ -88,12 +93,14 @@ return function(ctx)
 
 	function ClassRegistry.Describe()
 		local className, classError = ClassRegistry.GetCurrentClass()
+		local definition = className and REGISTRY[className] or nil
 
 		return {
 			ClassName = className,
 			Error = classError,
-			Verified = className ~= nil and ClassRegistry.IsVerified(className),
-			Definition = className and REGISTRY[className] or nil,
+			Verified = definition ~= nil,
+			AutomationReady = definition ~= nil and definition.AutomationReady ~= false,
+			Definition = definition,
 		}
 	end
 

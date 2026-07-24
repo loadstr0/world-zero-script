@@ -25,6 +25,13 @@ return function()
 		local status = actions.Available
 				and ("Available; initialized: " .. tostring(actions.Initialized))
 			or ("Unavailable: " .. tostring(actions.Error))
+		local automationStatus = "awaiting class skillset source"
+
+		if classStatus.Verified then
+			automationStatus = classStatus.AutomationReady
+					and "verified"
+				or "source verified; combat implementation incomplete"
+		end
 
 		for _, skill in ipairs(skillCatalog.Options or {}) do
 			local label = tostring(skill.Name) .. " (" .. tostring(skill.Slot) .. ")"
@@ -54,7 +61,7 @@ return function()
 			"Equipped class",
 			tostring(currentClass)
 				.. "\nAutomation profile: "
-				.. (classStatus.Verified and "verified" or "awaiting class skillset source")
+				.. automationStatus
 				.. "\nLoaded skill slots: "
 				.. tostring(#(skillCatalog.Options or {}))
 				.. "\nRecommended target range: "

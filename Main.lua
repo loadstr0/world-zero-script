@@ -70,6 +70,7 @@ return function(ctx)
 			Demon = ctx:Require("Demon"),
 			Dragoon = ctx:Require("Dragoon"),
 			DualWielder = ctx:Require("DualWielder"),
+			Greatsword = ctx:Require("Greatsword"),
 			Swordmaster = ctx:Require("Swordmaster"),
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),
