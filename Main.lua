@@ -64,6 +64,7 @@ return function(ctx)
 			Assassin = ctx:Require("Assassin"),
 			Archer = ctx:Require("Archer"),
 			Berserker = ctx:Require("Berserker"),
+			Defender = ctx:Require("Defender"),
 			Swordmaster = ctx:Require("Swordmaster"),
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),

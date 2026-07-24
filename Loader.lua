@@ -27,6 +27,8 @@ local MODULES = {
 	{ Key = "ArcherFeature", Path = "Features/Classes/Archer" },
 	{ Key = "Berserker", Path = "Game/Classes/Berserker" },
 	{ Key = "BerserkerFeature", Path = "Features/Classes/Berserker" },
+	{ Key = "Defender", Path = "Game/Classes/Defender" },
+	{ Key = "DefenderFeature", Path = "Features/Classes/Defender" },
 	{ Key = "Swordmaster", Path = "Game/Classes/Swordmaster" },
 	{ Key = "SwordmasterFeature", Path = "Features/Classes/Swordmaster" },
 	{ Key = "ClassRegistry", Path = "Game/ClassRegistry" },
