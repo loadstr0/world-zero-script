@@ -123,14 +123,27 @@ return function(ctx)
 
 		task.defer(function()
 			local previousCommit = env.WorldZeroLoadedCommit
+			local previousBase = env.WorldZeroBase
 			local remoteCommit = targetCommit
 
 			if type(remoteCommit) ~= "string" then
 				remoteCommit = Updater.GetRemoteCommit()
 			end
 
-			local separator = string.find(ctx.Base, "?", 1, true) and "&" or "?"
-			local bootstrapUrl = ctx.Base .. "Bootstrap.lua" .. separator .. "cache=" .. tostring(os.time())
+			local bootstrapBase = ctx.Base
+
+			if type(remoteCommit) == "string" then
+				bootstrapBase = "https://raw.githubusercontent.com/loadstr0/world-zero-script/"
+					.. remoteCommit
+					.. "/"
+			end
+
+			local separator = string.find(bootstrapBase, "?", 1, true) and "&" or "?"
+			local bootstrapUrl = bootstrapBase
+				.. "Bootstrap.lua"
+				.. separator
+				.. "cache="
+				.. tostring(os.time())
 			local okSource, source = pcall(function()
 				return game:HttpGet(bootstrapUrl)
 			end)
@@ -153,7 +166,9 @@ return function(ctx)
 				env.WorldZeroLoadedCommit = remoteCommit
 			end
 
+			env.WorldZeroBase = bootstrapBase
 			local okRun, runError = pcall(chunk)
+			env.WorldZeroBase = previousBase
 
 			if not okRun then
 				env.WorldZeroLoadedCommit = previousCommit
