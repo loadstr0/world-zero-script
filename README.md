@@ -88,12 +88,12 @@ The visible interface is intentionally smaller than the module tree:
 
 ## Publish and execute
 
-Publish this folder as the root of a public GitHub repository. Before committing, replace `YOUR_NAME/YOUR_REPO` in `Bootstrap.lua`.
+This folder is configured for the public repository `loadstr0/world-zero-script`.
 
 Execute it with:
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_NAME/YOUR_REPO/main/Bootstrap.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/loadstr0/world-zero-script/main/Bootstrap.lua"))()
 ```
 
 The repository must be public for this unauthenticated raw URL. Local research files and decompiled references are excluded by `.gitignore`.

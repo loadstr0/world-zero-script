@@ -2,7 +2,7 @@
 --
 -- Replace both URLs after publishing the folder to a raw-file host.
 
-getgenv().WorldZeroBase = "https://raw.githubusercontent.com/YOUR_NAME/YOUR_REPO/main/"
+getgenv().WorldZeroBase = "https://raw.githubusercontent.com/loadstr0/world-zero-script/main/"
 
 getgenv().WorldZeroBridge = {
 	Window = {

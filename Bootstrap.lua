@@ -1,13 +1,9 @@
 -- Single-file public entry point.
--- Replace YOUR_NAME/YOUR_REPO before publishing, or set WorldZeroBase first.
+-- Public entry point for loadstr0/world-zero-script.
 
 local env = getgenv()
-local defaultBase = "https://raw.githubusercontent.com/YOUR_NAME/YOUR_REPO/main/"
+local defaultBase = "https://raw.githubusercontent.com/loadstr0/world-zero-script/main/"
 local base = env.WorldZeroBase or defaultBase
-
-if string.find(base, "YOUR_NAME/YOUR_REPO", 1, true) then
-	error("[WorldZero] Configure the GitHub owner and repository in Bootstrap.lua.", 0)
-end
 
 if string.sub(base, -1) ~= "/" then
 	base = base .. "/"
@@ -31,4 +27,3 @@ env.WorldZeroBridge = env.WorldZeroBridge or {
 }
 
 loadstring(game:HttpGet(base .. "Loader.lua"))()
-
