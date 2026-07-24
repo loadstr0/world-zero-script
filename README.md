@@ -36,6 +36,7 @@ World Zero Script/
 |   `-- State.lua
 |-- Game/
 |   |-- Actions.lua
+|   |-- Swordmaster.lua
 |   |-- Skills.lua
 |   `-- Context.lua
 |-- UI/
@@ -53,7 +54,7 @@ World Zero Script/
 `-- Main.lua
 ```
 
-Feature modules currently register their Rayfield tabs but deliberately contain no guessed game calls. They will be filled in as requested World Zero source is supplied.
+Feature modules register Rayfield controls only when the corresponding World Zero behavior has been verified from supplied source.
 
 `Game/Actions.lua` is the guarded adapter for the live `ReplicatedStorage.Client.Actions` module. Feature modules should use this adapter instead of requiring the game module directly.
 
@@ -69,12 +70,14 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - One-shot nearest-target aim
 - Optional aim before primary attacks
 - Manual and automatic primary attacks
+- Swordmaster auto-unsheath and cooldown-aware Skill1/Skill2 rotation
+- Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate buttons
 - Configurable attack-check interval
 - Sprint toggle
 - Mount and sheath buttons
 - Quick-item name input and use button
 
-Skill names and slots are now available from `Shared.Skills`; class-specific execution details still require the relevant class skillset source.
+Skill names and slots are available from `Shared.Skills`. Swordmaster execution details are verified through `Shared.Combat.Skillsets.Swordmaster`; other classes still require their relevant skillset source.
 
 The Combat tab now reads the live `Shared.Skills` catalog, identifies the current class through `Shared.Profile`, and builds a class-specific skill dropdown. Skill execution remains routed through `Client.Actions`.
 

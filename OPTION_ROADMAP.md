@@ -6,6 +6,8 @@
 - Manual primary and selected-skill activation
 - Nearest-target aim
 - Experimental nearest-target Auto Primary
+- Swordmaster auto-unsheath and cooldown-aware Skill1/Skill2 rotation
+- Direct Crescent Strike, Leap Slash, Dodge, and charged Ultimate controls
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
@@ -25,18 +27,21 @@ Planned controls:
 
 Required source:
 
-1. `ReplicatedStorage.Shared.Combat.Skillsets.Swordmaster`
-2. `ReplicatedStorage.Shared.Combat`
-3. `ReplicatedStorage.Shared.Mobs`
+1. `ReplicatedStorage.Shared.Combat`
+2. `ReplicatedStorage.Shared.Mobs`
 
-The existing Auto Primary loop is not considered a finished kill aura because Swordmaster's `Attack` behavior has not been verified.
+Swordmaster's normal attack behavior is now verified. The existing rotation is still not considered a finished kill aura because target validation and mob enumeration remain unverified.
 
 ### Skill Aura / Rotation
 
-Potentially available after class skillset inspection:
+Available now:
 
-- Automatic Skill1/Skill2/Ultimate rotation
+- Automatic Skill1/Skill2 rotation
 - Cooldown-aware priority
+
+Still requires more source:
+
+- Automatic Ultimate usage with a verified full-energy check
 - Minimum target count per skill
 - Boss burst mode
 

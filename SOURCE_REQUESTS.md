@@ -4,22 +4,22 @@
 
 - `ReplicatedStorage.Client.Actions`
 - `ReplicatedStorage.Shared.Skills`
+- `ReplicatedStorage.Shared.Combat.Skillsets.Swordmaster`
 
-The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`.
+The supplied sources confirm that `UseSkill(slot)` resolves metadata through `Shared.Skills`, then dispatches to the current class module under `Shared.Combat.Skillsets`. Swordmaster has a six-step primary combo, Crescent Strike, Leap Slash, Dodge, Sheath, and a charged 20-hit Ultimate.
 
 ## Next priority
 
 Please extract the full source for these modules next, in this order:
 
-1. `ReplicatedStorage.Shared.Combat.Skillsets.Swordmaster`
-2. `ReplicatedStorage.Shared.Combat`
-3. `ReplicatedStorage.Shared.Mobs`
-4. `ReplicatedStorage.Shared.Gamebeast.Infra.Shared.Modules.GetRemote`
-5. `ReplicatedStorage.Shared.Drops`
-6. `ReplicatedStorage.Shared.Missions`
-7. `ReplicatedStorage.Shared.Missions.MissionData`
-8. `ReplicatedStorage.Shared.Teleport`
-9. `ReplicatedStorage.Shared.Teleport.WorldData`
+1. `ReplicatedStorage.Shared.Combat`
+2. `ReplicatedStorage.Shared.Mobs`
+3. `ReplicatedStorage.Shared.Gamebeast.Infra.Shared.Modules.GetRemote`
+4. `ReplicatedStorage.Shared.Drops`
+5. `ReplicatedStorage.Shared.Missions`
+6. `ReplicatedStorage.Shared.Missions.MissionData`
+7. `ReplicatedStorage.Shared.Teleport`
+8. `ReplicatedStorage.Shared.Teleport.WorldData`
 
 After those, the next useful client modules are:
 

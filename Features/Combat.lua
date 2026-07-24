@@ -5,6 +5,26 @@ return function()
 
 	local autoPrimaryLoopRunning = false
 
+	local function chooseRotationSlot(runtime)
+		if runtime.State:Get("Combat.SwordmasterSkill1", false) then
+			local canUse = runtime.Swordmaster.CanUse("Skill1")
+
+			if canUse then
+				return "Skill1"
+			end
+		end
+
+		if runtime.State:Get("Combat.SwordmasterSkill2", false) then
+			local canUse = runtime.Swordmaster.CanUse("Skill2")
+
+			if canUse then
+				return "Skill2"
+			end
+		end
+
+		return "Primary"
+	end
+
 	local function startAutoPrimaryLoop(runtime)
 		if autoPrimaryLoopRunning then
 			return
@@ -18,12 +38,20 @@ return function()
 				local target = runtime.Actions.GetNearestTarget(range)
 
 				if target and runtime.Actions.IsBusy() ~= true then
-					if runtime.State:Get("Combat.AutoAim", true) then
-						local duration = runtime.State:Get("Combat.AimDuration", 0.2)
-						runtime.Actions.AimAtNearestTarget(duration, range)
+					local ready = true
+
+					if runtime.State:Get("Combat.AutoUnsheath", true) then
+						ready = runtime.Swordmaster.EnsureUnsheathed()
 					end
 
-					runtime.Actions.UseSkill("Primary")
+					if ready then
+						if runtime.State:Get("Combat.AutoAim", true) then
+							local duration = runtime.State:Get("Combat.AimDuration", 0.2)
+							runtime.Actions.AimAtNearestTarget(duration, range)
+						end
+
+						runtime.Swordmaster.Use(chooseRotationSlot(runtime))
+					end
 				end
 
 				task.wait(runtime.State:Get("Combat.AttackInterval", 0.15))
@@ -74,11 +102,14 @@ return function()
 		runtime.State:Set("Combat.AttackInterval", 0.15)
 		runtime.State:Set("Combat.AutoAim", true)
 		runtime.State:Set("Combat.AutoPrimary", false)
+		runtime.State:Set("Combat.AutoUnsheath", true)
+		runtime.State:Set("Combat.SwordmasterSkill1", false)
+		runtime.State:Set("Combat.SwordmasterSkill2", false)
 
 		runtime.UI:CreateSection(tab, "Targeting")
 		runtime.UI:CreateSlider(tab, "CombatTargetRange", {
 			Name = "Target range",
-			Range = { 5, 30 },
+			Range = { 5, 50 },
 			Increment = 1,
 			Suffix = " studs",
 			CurrentValue = 15,
@@ -136,7 +167,7 @@ return function()
 		})
 
 		runtime.UI:CreateToggle(tab, "CombatAutoPrimary", {
-			Name = "Auto primary",
+			Name = "Auto Swordmaster rotation",
 			CurrentValue = false,
 			Callback = function(value)
 				runtime.State:Set("Combat.AutoPrimary", value)
@@ -144,6 +175,65 @@ return function()
 				if value then
 					startAutoPrimaryLoop(runtime)
 				end
+			end,
+		})
+
+		runtime.UI:CreateSection(tab, "Swordmaster rotation")
+		runtime.UI:CreateToggle(tab, "CombatAutoUnsheath", {
+			Name = "Auto unsheath before attacking",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.AutoUnsheath", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "CombatSwordmasterSkill1", {
+			Name = "Use Crescent Strike in rotation",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Combat.SwordmasterSkill1", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "CombatSwordmasterSkill2", {
+			Name = "Use Leap Slash in rotation",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Combat.SwordmasterSkill2", value)
+			end,
+		})
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Verified behavior",
+			"Primary chains six swings and resets after 0.75s. Primary range is 10 studs; Crescent Strike can acquire a mob up to 50 studs away."
+		)
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Use Crescent Strike",
+			Callback = function()
+				runtime.Swordmaster.UseCrescentStrike()
+			end,
+		})
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Use Leap Slash",
+			Callback = function()
+				runtime.Swordmaster.UseLeapSlash()
+			end,
+		})
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Dodge",
+			Callback = function()
+				runtime.Swordmaster.UseDodge()
+			end,
+		})
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Use Ultimate when charged",
+			Callback = function()
+				runtime.Swordmaster.UseUltimate()
 			end,
 		})
 

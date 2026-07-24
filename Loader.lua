@@ -18,6 +18,7 @@ local MODULES = {
 	{ Key = "GameContext", Path = "Game/Context" },
 	{ Key = "Actions", Path = "Game/Actions" },
 	{ Key = "Skills", Path = "Game/Skills" },
+	{ Key = "Swordmaster", Path = "Game/Swordmaster" },
 	{ Key = "Navigation", Path = "UI/Navigation" },
 	{ Key = "RayfieldUI", Path = "UI/Rayfield" },
 	{ Key = "Home", Path = "Features/Home" },

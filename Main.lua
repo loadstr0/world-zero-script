@@ -58,6 +58,7 @@ return function(ctx)
 			Game = ctx:Require("GameContext"),
 			Actions = ctx:Require("Actions"),
 			Skills = ctx:Require("Skills"),
+			Swordmaster = ctx:Require("Swordmaster"),
 			Navigation = ctx:Require("Navigation"),
 			UI = ui,
 			Stopped = false,
