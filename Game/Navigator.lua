@@ -17,6 +17,7 @@ return function(ctx)
 	local lastMovePosition = nil
 	local lastMoveAt = 0
 	local pathFailed = false
+	local currentOwner = nil
 
 	local function numberOption(value, fallback, minimum)
 		local numeric = tonumber(value) or fallback
@@ -43,7 +44,7 @@ return function(ctx)
 
 	local function issueMove(humanoid, position, force)
 		local now = os.clock()
-		local commandInterval = 0.75
+		local commandInterval = 6
 		local changed = not lastMovePosition or (lastMovePosition - position).Magnitude >= 0.75
 
 		if not force and humanoid == lastHumanoid and not changed and now - lastMoveAt < commandInterval then
@@ -142,8 +143,7 @@ return function(ctx)
 			if
 				destination
 				and not targetMoved
-				and now - lastCompute
-					< numberOption(options.FailedPathRetryInterval, 3, repathInterval)
+				and now - lastCompute < numberOption(options.FailedPathRetryInterval, 3, repathInterval)
 			then
 				return false
 			end
@@ -171,6 +171,16 @@ return function(ctx)
 			clearPath()
 			lastRoot = root
 			lastHumanoid = humanoid
+			lastMovePosition = nil
+			lastProgressPosition = root.Position
+			lastProgressAt = os.clock()
+		end
+
+		local requestedOwner = tostring(options.Owner or "Default")
+
+		if currentOwner ~= requestedOwner then
+			clearPath()
+			currentOwner = requestedOwner
 			lastMovePosition = nil
 			lastProgressPosition = root.Position
 			lastProgressAt = os.clock()
@@ -263,6 +273,7 @@ return function(ctx)
 
 		clearPath()
 		lastMovePosition = nil
+		currentOwner = nil
 		lastStatus = "idle"
 	end
 
@@ -272,6 +283,9 @@ return function(ctx)
 			Waypoint = waypointIndex,
 			WaypointCount = #waypoints,
 			Destination = destination,
+			Owner = currentOwner,
+			PathFailed = pathFailed,
+			LastMoveAge = lastMoveAt > 0 and os.clock() - lastMoveAt or nil,
 		}
 	end
 

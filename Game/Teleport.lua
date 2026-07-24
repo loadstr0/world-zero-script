@@ -11,8 +11,7 @@ return function(ctx)
 			return cachedModule
 		end
 
-		local moduleScript =
-			GameContext.FindReplicated("Shared.Teleport")
+		local moduleScript = GameContext.FindReplicated("Shared.Teleport")
 
 		if not moduleScript or not moduleScript:IsA("ModuleScript") then
 			return nil, "shared_teleport_not_found"
@@ -55,8 +54,7 @@ return function(ctx)
 			return nil, "teleport_missing_locations"
 		end
 
-		local ok, locations =
-			pcall(module.GetLocations, module)
+		local ok, locations = pcall(module.GetLocations, module)
 
 		if not ok or type(locations) ~= "table" then
 			return nil, "world_locations_unavailable"
@@ -69,13 +67,8 @@ return function(ctx)
 				local id = tonumber(data.ID) or tonumber(key)
 
 				if id then
-					local name =
-						tostring(data.Name or data.NameTag or ("World " .. id))
-					local subtext =
-						type(data.Subtext) == "string"
-							and data.Subtext ~= ""
-							and data.Subtext
-						or nil
+					local name = tostring(data.Name or data.NameTag or ("World " .. id))
+					local subtext = type(data.Subtext) == "string" and data.Subtext ~= "" and data.Subtext or nil
 					local label = name
 
 					if subtext and subtext ~= name then
@@ -88,10 +81,8 @@ return function(ctx)
 						ID = id,
 						Name = name,
 						Label = label,
-						WorldOrderID =
-							tonumber(data.WorldOrderID) or 9999,
-						LevelRequirement =
-							tonumber(data.LevelRequirement) or 1,
+						WorldOrderID = tonumber(data.WorldOrderID) or 9999,
+						LevelRequirement = tonumber(data.LevelRequirement) or 1,
 						Data = data,
 					})
 				end
@@ -120,14 +111,53 @@ return function(ctx)
 			return nil, "teleport_missing_current_world"
 		end
 
-		local ok, data =
-			pcall(module.GetCurrentWorldData, module)
+		local ok, data = pcall(module.GetCurrentWorldData, module)
 
 		if not ok then
 			return nil, "current_world_query_failed"
 		end
 
 		return data
+	end
+
+	function Teleport.GetCurrentWorldOrder()
+		local current, currentError = Teleport.GetCurrentWorld()
+
+		if not current then
+			return nil, currentError
+		end
+
+		return tonumber(current.WorldOrderID) or tonumber(current.ID), nil
+	end
+
+	function Teleport.FindOpenWorldByOrder(worldOrder)
+		local requested = tonumber(worldOrder)
+
+		if not requested then
+			return nil, "invalid_world_order"
+		end
+
+		local worlds, worldsError = Teleport.ListWorlds()
+
+		if not worlds then
+			return nil, worldsError
+		end
+
+		local fallback = nil
+
+		for _, world in ipairs(worlds) do
+			if world.WorldOrderID == requested then
+				if world.Data.IsOpenWorld == true then
+					return world
+				elseif world.Data.IsTown == true then
+					fallback = fallback or world
+				elseif not fallback then
+					fallback = world
+				end
+			end
+		end
+
+		return fallback, fallback and nil or "world_destination_unavailable"
 	end
 
 	function Teleport.ToWorld(worldId)
@@ -147,12 +177,7 @@ return function(ctx)
 			return false, "local_player_unavailable"
 		end
 
-		local ok, travelError = pcall(
-			module.TeleportToWorld,
-			module,
-			player,
-			tonumber(worldId)
-		)
+		local ok, travelError = pcall(module.TeleportToWorld, module, player, tonumber(worldId))
 
 		if not ok then
 			return false, "world_teleport_failed:" .. tostring(travelError)
@@ -187,20 +212,14 @@ return function(ctx)
 
 		if not destinationId then
 			local current = Teleport.GetCurrentWorld()
-			destinationId =
-				current and tonumber(current.ID) or nil
+			destinationId = current and tonumber(current.ID) or nil
 		end
 
 		if not destinationId then
 			return false, "hub_destination_unavailable"
 		end
 
-		local ok, travelError = pcall(
-			module.TeleportToHub,
-			module,
-			player,
-			destinationId
-		)
+		local ok, travelError = pcall(module.TeleportToHub, module, player, destinationId)
 
 		if not ok then
 			return false, "hub_teleport_failed:" .. tostring(travelError)
@@ -226,13 +245,8 @@ return function(ctx)
 			return false, "local_player_unavailable"
 		end
 
-		local ok, travelError = pcall(
-			module.TeleportToMission,
-			module,
-			player,
-			tonumber(missionId),
-			tonumber(difficultyId) or 1
-		)
+		local ok, travelError =
+			pcall(module.TeleportToMission, module, player, tonumber(missionId), tonumber(difficultyId) or 1)
 
 		if not ok then
 			return false, "mission_teleport_failed:" .. tostring(travelError)
@@ -249,12 +263,8 @@ return function(ctx)
 			Available = module ~= nil,
 			Error = resolveError,
 			WorldCount = worlds and #worlds or 0,
-			SupportsWorldTravel =
-				module and type(module.TeleportToWorld) == "function" or false,
-			SupportsMissionTravel =
-				module
-					and type(module.TeleportToMission) == "function"
-				or false,
+			SupportsWorldTravel = module and type(module.TeleportToWorld) == "function" or false,
+			SupportsMissionTravel = module and type(module.TeleportToMission) == "function" or false,
 		}
 	end
 

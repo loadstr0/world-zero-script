@@ -139,8 +139,8 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Freeze Tag teammate rescue using the verified 15-stud thaw condition
 - Dynamic world travel from live `WorldData`
 - Mission selection, matchmaking, free-reward claiming, and replay/return automation
-- Tracked-quest automation with exact kill-mob targeting, quest-area fallback routing, and reward claiming
-- Coordinated dropped-item/currency collection and spawned reward-chest approach
+- Main-quest-first automation with exact kill-mob targeting, cross-world travel, quest-area fallback routing, and reward claiming
+- Coordinated dropped-item/currency collection and spawned reward-chest approach without pausing in-range combat
 - Previewable manual inventory cleanup that always protects locked and favorited items
 - Projected regeneration-aware quick-item healing
 - Optional automation-only WalkspeedManager multiplier with capped slow compensation

@@ -40,6 +40,7 @@ return function(ctx)
 		runtime.State:Set("Quests.Enabled", false)
 		runtime.State:Set("Quests.AutoClaim", true)
 		runtime.State:Set("Quests.RouteToArea", true)
+		runtime.State:Set("Quests.AutoWorldTravel", true)
 		runtime.State:Set("Quests.SearchRange", 500)
 
 		runtime.UI:CreateSection(tab, "Tracked quests")
@@ -68,6 +69,14 @@ return function(ctx)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "QuestAutoWorldTravel", {
+			Name = "Travel to the quest's world automatically",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Quests.AutoWorldTravel", value)
+			end,
+		})
+
 		runtime.UI:CreateSlider(tab, "QuestMobSearchRange", {
 			Name = "Quest mob search range",
 			Range = { 100, 1500 },
@@ -83,14 +92,15 @@ return function(ctx)
 			tab,
 			"Quest routing",
 			questStatus.Available
-					and "Automation follows Profile.TrackingQuest first, then the next active quest. Kill quests target only the exact mob names from Objective[3]. When none are alive, it walks to QuestLocations[quest.ref], matching the game's tracker fallback."
+					and "Main/world-story quests are always selected before side, daily, weekly, guild, or event quests. Within the same category, current-world and explicitly tracked quests win. Exact KillMob names come from Objective[3]; missing mobs route to QuestLocations[quest.ref], and another linked world can be joined automatically."
 				or ("Shared.Quests unavailable: " .. tostring(questStatus.Error))
 		)
 
 		runtime.UI:CreateButton(tab, {
 			Name = "Show tracked quest",
 			Callback = function()
-				local quest, questError = runtime.QuestsAPI.GetCurrent()
+				local currentWorldOrder = runtime.TeleportAPI.GetCurrentWorldOrder()
+				local quest, questError = runtime.QuestsAPI.GetCurrent(currentWorldOrder)
 
 				if not quest then
 					runtime.UI:Notify("Tracked quest", "No active quest: " .. tostring(questError), 5, 0)
@@ -104,6 +114,10 @@ return function(ctx)
 						.. tostring(quest.ID)
 						.. "\nObjective: "
 						.. quest.ObjectiveType
+						.. "\nCategory: "
+						.. tostring(quest.Category)
+						.. " | explicitly tracked: "
+						.. tostring(quest.IsTracked)
 						.. "\nProgress: "
 						.. tostring(quest.Progress)
 						.. "/"
@@ -111,8 +125,62 @@ return function(ctx)
 						.. "\nReady to claim: "
 						.. tostring(quest.ReadyToClaim)
 						.. "\nRoute available: "
-						.. tostring(quest.Location ~= nil),
+						.. tostring(quest.Location ~= nil)
+						.. "\nQuest world/current world: "
+						.. tostring(quest.LinkedWorld)
+						.. "/"
+						.. tostring(currentWorldOrder)
+						.. "\nQuest ref: "
+						.. tostring(quest.Reference)
+						.. "\nRoute error: "
+						.. tostring(quest.LocationError)
+						.. "\nMob names: "
+						.. table.concat(quest.AllowedMobNames, ", "),
 					7,
+					0
+				)
+			end,
+		})
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Show quest automation diagnosis",
+			Callback = function()
+				local decision = Engine.GetStatus(runtime)
+
+				if not decision then
+					runtime.UI:Notify("Quest diagnosis", "Automation has not produced a decision yet.", 5, 0)
+					return
+				end
+
+				local quest = decision.Quest
+				local navigation = decision.Navigator or {}
+				runtime.UI:Notify(
+					"Quest diagnosis",
+					"Quest: "
+						.. tostring(quest and quest.Name or "none")
+						.. "\nCategory: "
+						.. tostring(quest and quest.Category or "none")
+						.. "\nQuest target: "
+						.. tostring(decision.QuestTarget and decision.QuestTarget.NameTag or "none")
+						.. "\nFallback combat target: "
+						.. tostring(decision.FarmTarget and decision.FarmTarget.NameTag or "none")
+						.. "\nRouting: "
+						.. tostring(decision.Routing)
+						.. " | error: "
+						.. tostring(decision.RouteError)
+						.. "\nCollecting: "
+						.. tostring(decision.Collecting)
+						.. " | error: "
+						.. tostring(decision.CollectionError)
+						.. "\nNavigation: "
+						.. tostring(navigation.Status)
+						.. " | owner: "
+						.. tostring(navigation.Owner)
+						.. "\nWaypoints: "
+						.. tostring(navigation.Waypoint)
+						.. "/"
+						.. tostring(navigation.WaypointCount),
+					9,
 					0
 				)
 			end,

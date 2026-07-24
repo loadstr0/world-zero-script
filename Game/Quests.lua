@@ -107,7 +107,7 @@ return function(ctx)
 		local reference = data and data.ref
 
 		if type(reference) ~= "string" or reference == "" then
-			return nil
+			return nil, "quest_reference_unavailable"
 		end
 
 		local locations = ReplicatedStorage:FindFirstChild("QuestLocations")
@@ -115,7 +115,7 @@ return function(ctx)
 		local location = locations and locations:FindFirstChild(reference)
 
 		if not location then
-			return nil
+			return nil, "quest_location_not_in_current_place"
 		end
 
 		local position = nil
@@ -131,7 +131,7 @@ return function(ctx)
 		end
 
 		if not position then
-			return nil
+			return nil, "quest_location_has_no_position"
 		end
 
 		local rangeValue = location:FindFirstChild("Range")
@@ -159,7 +159,23 @@ return function(ctx)
 		return data
 	end
 
-	function Quests.GetSelectedID()
+	local function getCategory(data)
+		if data.WorldQuest == true then
+			return "Main"
+		elseif data.DailyQuest == true then
+			return "Daily"
+		elseif data.WeeklyQuest == true then
+			return "Weekly"
+		elseif data.GuildWeeklyQuest == true then
+			return "Guild"
+		elseif data.FromEvent ~= nil then
+			return "Event"
+		end
+
+		return "Side"
+	end
+
+	function Quests.GetSelectedID(currentWorldOrder)
 		local active, activeError = getActiveInstances()
 
 		if not active then
@@ -170,23 +186,40 @@ return function(ctx)
 		local tracking = profile and profile:FindFirstChild("TrackingQuest")
 		local trackedID = tracking and tonumber(tracking.Value) or 0
 
-		if trackedID > 0 then
-			for _, entry in ipairs(active) do
-				if entry.ID == trackedID then
-					return trackedID
-				end
-			end
+		for _, entry in ipairs(active) do
+			entry.Data = Quests.GetData(entry.ID) or {}
+			entry.IsMain = entry.Data.WorldQuest == true
+			entry.IsTracked = entry.ID == trackedID
+			entry.IsCurrentWorld = tonumber(currentWorldOrder) ~= nil
+				and tonumber(entry.Data.LinkedWorld) == tonumber(currentWorldOrder)
+			entry.Priority = tonumber(entry.Data.Priority) or 0
 		end
 
+		table.sort(active, function(a, b)
+			if a.IsMain ~= b.IsMain then
+				return a.IsMain
+			elseif a.IsCurrentWorld ~= b.IsCurrentWorld then
+				return a.IsCurrentWorld
+			elseif a.IsTracked ~= b.IsTracked then
+				return a.IsTracked
+			elseif a.ReadyToClaim ~= b.ReadyToClaim then
+				return a.ReadyToClaim
+			elseif a.Priority ~= b.Priority then
+				return a.Priority > b.Priority
+			end
+
+			return a.ID < b.ID
+		end)
+
 		if active[1] then
-			return active[1].ID
+			return active[1].ID, nil, active[1]
 		end
 
 		return nil, "no_active_quest"
 	end
 
-	function Quests.GetCurrent()
-		local id, idError = Quests.GetSelectedID()
+	function Quests.GetCurrent(currentWorldOrder)
+		local id, idError, selection = Quests.GetSelectedID(currentWorldOrder)
 
 		if not id then
 			return nil, idError
@@ -212,6 +245,8 @@ return function(ctx)
 			end
 		end
 
+		local location, locationError = getLocation(data)
+
 		return {
 			ID = id,
 			Name = tostring(data.NameTag or data.Name or data.Title or ("Quest " .. tostring(id))),
@@ -223,7 +258,13 @@ return function(ctx)
 			Progress = tonumber(progress) or 0,
 			ReadyToClaim = readyToClaim,
 			AlreadyClaimed = alreadyClaimed == true,
-			Location = getLocation(data),
+			IsMain = data.WorldQuest == true,
+			Category = getCategory(data),
+			LinkedWorld = tonumber(data.LinkedWorld),
+			IsTracked = selection and selection.IsTracked == true,
+			Location = location,
+			LocationError = locationError,
+			Reference = data.ref,
 		}
 	end
 

@@ -46,7 +46,7 @@
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
-- Tracked-quest automation with exact mob objectives, quest-location fallback, and claiming
+- Main-quest-first automation with exact mob objectives, cross-world travel, quest-location fallback, and claiming
 - Dropped-item/currency collection and proximity-open reward-chest routing
 - Protected inventory cleanup with preview, tier/level rules, and locked/favorited exclusions
 

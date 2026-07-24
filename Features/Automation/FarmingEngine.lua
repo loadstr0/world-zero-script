@@ -15,6 +15,8 @@ return function()
 	local fatalStatusWarnings = {}
 	local lastQuestClaims = {}
 	local visitedCollectibles = {}
+	local lastWorldTravel = {}
+	local automationDecisions = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -73,15 +75,12 @@ return function()
 
 	function Engine.GetActiveTarget(runtime, rangeOverride)
 		if runtime.State:Get("Quests.Enabled", false) and runtime.QuestsAPI then
-			local questState = runtime.QuestsAPI.GetCurrent()
+			local currentWorldOrder = runtime.TeleportAPI.GetCurrentWorldOrder()
+			local questState = runtime.QuestsAPI.GetCurrent(currentWorldOrder)
 			local target, descriptor = Engine.GetQuestTarget(runtime, questState, rangeOverride)
 
 			if target and descriptor then
 				return target, descriptor
-			end
-
-			if questState then
-				return nil, "quest_target_unavailable"
 			end
 		end
 
@@ -90,6 +89,10 @@ return function()
 		end
 
 		return nil, "automation_has_no_mob_target"
+	end
+
+	function Engine.GetStatus(runtime)
+		return automationDecisions[runtime]
 	end
 
 	function Engine.IsEnabled(runtime)
@@ -279,6 +282,7 @@ return function()
 					descriptor.Position,
 					math.max(8, stopDistance - descriptor.Distance + 6),
 					{
+						Owner = "CombatKite",
 						AutoJump = runtime.State:Get("Farming.AutoJump", true),
 						RepathInterval = runtime.State:Get("Farming.RepathInterval", 1.25),
 						StuckTimeout = runtime.State:Get("Farming.StuckTimeout", 1.4),
@@ -300,6 +304,7 @@ return function()
 		end
 
 		local moved, movementError = runtime.Navigator.MoveTo(descriptor.Position, {
+			Owner = "Combat",
 			StopDistance = stopDistance,
 			AutoJump = runtime.State:Get("Farming.AutoJump", true),
 			RepathInterval = runtime.State:Get("Farming.RepathInterval", 1.25),
@@ -501,9 +506,11 @@ return function()
 		}
 	end
 
-	local function moveToPoint(runtime, position, stopDistance)
-		if not runtime.State:Get("Farming.AutoApproach", true) or typeof(position) ~= "Vector3" then
-			return false
+	local function moveToPoint(runtime, position, stopDistance, owner)
+		if not runtime.State:Get("Farming.AutoApproach", true) then
+			return false, "auto_approach_disabled"
+		elseif typeof(position) ~= "Vector3" then
+			return false, "invalid_target_position"
 		end
 
 		local root = runtime.Game.GetRootPart()
@@ -520,6 +527,7 @@ return function()
 
 		local options = getNavigationOptions(runtime)
 		options.StopDistance = stopDistance
+		options.Owner = owner or "Automation"
 		return runtime.Navigator.MoveTo(position, options)
 	end
 
@@ -591,7 +599,11 @@ return function()
 		end
 
 		local stopDistance = candidate.Kind == "Chest" and 8 or 2.5
-		moveToPoint(runtime, candidate.Position, stopDistance)
+		local moved, movementError = moveToPoint(runtime, candidate.Position, stopDistance, "Loot")
+
+		if not moved then
+			return false, movementError
+		end
 
 		if candidate.Kind == "Chest" and candidate.Distance <= stopDistance + 1 then
 			local visited = visitedCollectibles[runtime] or {}
@@ -634,15 +646,79 @@ return function()
 		return true
 	end
 
-	local function routeQuest(runtime, questState)
-		if not questState or not runtime.State:Get("Quests.RouteToArea", true) or not questState.Location then
-			return false
+	local function queueBootstrapAfterTeleport(runtime)
+		if not runtime.Executor.QueueOnTeleport then
+			return false, "queue_on_teleport_unavailable"
+		end
+
+		local bootstrapUrl = runtime.Context.Base
+			.. "Bootstrap.lua?cache="
+			.. tostring(os.time())
+			.. tostring(math.random(1000, 9999))
+		local source = "loadstring(game:HttpGet(" .. string.format("%q", bootstrapUrl) .. "))()"
+		local ok, queueError = pcall(runtime.Executor.QueueOnTeleport, source)
+
+		return ok, ok and nil or "queue_on_teleport_failed:" .. tostring(queueError)
+	end
+
+	local function routeQuest(runtime, questState, currentWorldOrder)
+		if not questState then
+			return false, "no_active_quest"
+		end
+
+		if
+			runtime.State:Get("Quests.AutoWorldTravel", true)
+			and questState.LinkedWorld
+			and currentWorldOrder
+			and questState.LinkedWorld ~= currentWorldOrder
+		then
+			local previous = lastWorldTravel[runtime]
+			local now = os.clock()
+
+			if previous and previous.WorldOrder == questState.LinkedWorld and now - previous.At < 20 then
+				return true, "world_travel_pending"
+			end
+
+			local world, worldError = runtime.TeleportAPI.FindOpenWorldByOrder(questState.LinkedWorld)
+
+			if not world then
+				return false, worldError
+			end
+
+			local queued, queueError = queueBootstrapAfterTeleport(runtime)
+			local traveled, travelError = runtime.TeleportAPI.ToWorld(world.ID)
+
+			if not traveled then
+				return false, travelError
+			end
+
+			lastWorldTravel[runtime] = {
+				WorldOrder = questState.LinkedWorld,
+				At = now,
+			}
+			runtime.UI:Notify(
+				"Quest world travel",
+				"Traveling to "
+					.. tostring(world.Name)
+					.. (
+						queued and "; automation is queued to resume."
+						or (". Re-execute after arrival because " .. tostring(queueError))
+					),
+				7,
+				0
+			)
+			return true, "world_travel_requested"
+		end
+
+		if not runtime.State:Get("Quests.RouteToArea", true) then
+			return false, "quest_routing_disabled"
+		elseif not questState.Location then
+			return false, questState.LocationError or "quest_location_unavailable"
 		end
 
 		local stopDistance = math.min(25, math.max(10, questState.Location.Range or 15))
 
-		moveToPoint(runtime, questState.Location.Position, stopDistance)
-		return true
+		return moveToPoint(runtime, questState.Location.Position, stopDistance, "Quest")
 	end
 
 	local function dodgeThreat(runtime, adapter, threat, healthRatio, statusState)
@@ -750,10 +826,12 @@ return function()
 			and not (statusState and statusState.MovementBlocked)
 			and survival.ProtectionRatio <= retreatThreshold / 100
 		then
+			local retreatOptions = getNavigationOptions(runtime)
+			retreatOptions.Owner = "EmergencyRetreat"
 			runtime.Navigator.RetreatFrom(
 				threat.Nearest.Position,
 				runtime.State:Get("Farming.RetreatDistance", 35),
-				getNavigationOptions(runtime)
+				retreatOptions
 			)
 			return true
 		end
@@ -828,19 +906,21 @@ return function()
 		end
 
 		if teammate.Distance >= 12 then
-			runtime.Navigator.MoveTo(teammate.Position, {
+			local moved = runtime.Navigator.MoveTo(teammate.Position, {
+				Owner = "Rescue",
 				StopDistance = 10,
 				AutoJump = runtime.State:Get("Farming.AutoJump", true),
 				RepathInterval = 0.5,
 				StuckTimeout = runtime.State:Get("Farming.StuckTimeout", 1.4),
 				TargetMoveThreshold = runtime.State:Get("Farming.TargetMoveThreshold", 10),
 			})
+
+			return moved == true
 		else
 			Engine.StopSprint(runtime)
 			runtime.Navigator.Stop()
+			return true
 		end
-
-		return true
 	end
 
 	function Engine.Start(runtime, targetProvider)
@@ -872,46 +952,73 @@ return function()
 
 						if not rescuing then
 							local questState = nil
+							local currentWorldOrder = nil
 
 							if runtime.State:Get("Quests.Enabled", false) and runtime.QuestsAPI then
-								questState = runtime.QuestsAPI.GetCurrent()
+								currentWorldOrder = runtime.TeleportAPI.GetCurrentWorldOrder()
+								questState = runtime.QuestsAPI.GetCurrent(currentWorldOrder)
 							end
 
 							local questHandled = claimQuest(runtime, questState)
-							local target = nil
-							local descriptor = nil
+							local questTarget = nil
+							local questDescriptor = nil
 
 							if not questHandled and questState and questState.ObjectiveType == "KillMob" then
-								target, descriptor = Engine.GetQuestTarget(runtime, questState)
+								questTarget, questDescriptor = Engine.GetQuestTarget(runtime, questState)
 							end
 
-							if not target and not questState and runtime.State:Get("Farming.Enabled", false) then
-								target, descriptor = Engine.GetTarget(runtime)
+							local farmTarget = nil
+							local farmDescriptor = nil
+
+							if not questHandled and runtime.State:Get("Farming.Enabled", false) then
+								farmTarget, farmDescriptor = Engine.GetTarget(runtime)
 							end
+
+							local target = questTarget or farmTarget
+							local descriptor = questDescriptor or farmDescriptor
 
 							local collectible = not retreating
 									and not questHandled
 									and getCollectible(runtime, target ~= nil or questState ~= nil)
 								or nil
-							local collecting = collect(runtime, collectible)
+							local collecting, collectionError = collect(runtime, collectible)
+							local routing = false
+							local routeError = nil
 
-							if collecting then
-							-- Collection shares this movement loop so it cannot
-							-- fight quest or mob navigation.
-							elseif target and descriptor then
-								if not retreating then
+							if
+								not collecting
+								and not retreating
+								and not questHandled
+								and questState
+								and not questTarget
+							then
+								routing, routeError = routeQuest(runtime, questState, currentWorldOrder)
+							end
+
+							if target and descriptor then
+								if not retreating and not collecting and not routing then
 									approachTarget(runtime, descriptor)
 								end
 
 								if not statusState.SkillsBlocked then
 									useFarmAttack(runtime, target, descriptor)
 								end
-							elseif not retreating and not questHandled and routeQuest(runtime, questState) then
-							-- The game's tracker uses this same fallback
-							-- location when a kill target has not spawned.
-							elseif not retreating then
+							elseif not retreating and not collecting and not routing and not questHandled then
 								Engine.Stop(runtime)
 							end
+
+							automationDecisions[runtime] = {
+								Quest = questState,
+								QuestTarget = questDescriptor,
+								FarmTarget = farmDescriptor,
+								Collectible = collectible,
+								Collecting = collecting == true,
+								CollectionError = collectionError,
+								Routing = routing == true,
+								RouteError = routeError,
+								CurrentWorldOrder = currentWorldOrder,
+								Navigator = runtime.Navigator.GetState(),
+							}
 						end
 					end
 
@@ -953,6 +1060,8 @@ return function()
 			fatalStatusWarnings[runtime] = nil
 			lastQuestClaims[runtime] = nil
 			visitedCollectibles[runtime] = nil
+			lastWorldTravel[runtime] = nil
+			automationDecisions[runtime] = nil
 
 			if not runtime.Stopped and Engine.IsEnabled(runtime) then
 				if targetProvider then
