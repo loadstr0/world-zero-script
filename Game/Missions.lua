@@ -407,6 +407,11 @@ return function(ctx)
 			return false, "leave_choice_failed:" .. tostring(choiceError)
 		end
 
+		-- The game's MissionRewards controller allows the replay choice remote
+		-- to settle before marking the player ready. Sending both in the same
+		-- frame can leave the server on its previous return/replay choice.
+		task.wait(1)
+
 		local readyOk, readyError = pcall(
 			module.NotifyReadyToLeave,
 			module,
