@@ -68,7 +68,7 @@ return function(ctx)
 		end
 
 		local encodedResume = HttpService:JSONEncode({
-			Version = 1,
+			Version = 2,
 			QueuedAt = os.time(),
 			State = resumeState,
 		})

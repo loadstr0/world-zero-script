@@ -23,6 +23,30 @@ return function(ctx)
 		GearEnabled = "Gear.Enabled",
 	}
 
+	local TELEPORT_STATE_VERSION = 2
+
+	local function migrateTeleportState(payload)
+		local version = tonumber(payload.Version) or 1
+		local state = payload.State
+
+		if version < 2 then
+			-- Version 1 persisted the original recovery profile, which could force
+			-- 70-95% downtime even after the timer-aware defaults were introduced.
+			state["Farming.DebuffSafetyThreshold"] = 45
+			state["Farming.DodgeHealthThreshold"] = 50
+			state["Farming.RetreatHealthThreshold"] = 35
+			state["Farming.RecoveryResumeThreshold"] = 60
+			state["Farming.ConservativeRecovery"] = false
+			state["Farming.BossTimerSurvival"] = true
+			state["Farming.BossRetreatHealthThreshold"] = 25
+			state["Farming.BossUrgentTimeThreshold"] = 45
+			state["Farming.BossRecoveryResumeThreshold"] = 45
+			payload.Version = TELEPORT_STATE_VERSION
+		end
+
+		return state
+	end
+
 	local function restoreTeleportState(runtime, Logger)
 		local env = getgenv()
 		local encoded = env.WorldZeroTeleportResume
@@ -39,8 +63,9 @@ return function(ctx)
 		end
 
 		env.WorldZeroTeleportResume = nil
+		local restoredState = migrateTeleportState(payload)
 
-		for key, value in pairs(payload.State) do
+		for key, value in pairs(restoredState) do
 			local valueType = type(value)
 
 			if type(key) == "string" and (valueType == "boolean" or valueType == "number" or valueType == "string") then
@@ -50,7 +75,7 @@ return function(ctx)
 
 		for controlName, stateKey in pairs(TELEPORT_RESUME_CONTROLS) do
 			local control = runtime.Controls[controlName]
-			local value = payload.State[stateKey]
+			local value = restoredState[stateKey]
 
 			if control and type(control.Set) == "function" and type(value) == "boolean" then
 				pcall(control.Set, control, value)
