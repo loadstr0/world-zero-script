@@ -28,6 +28,33 @@ return function(ctx)
 			or nil
 	end
 
+	local function reachedRouteStep(root, step)
+		local part = step and step.Part
+
+		if not root or not part then
+			return false
+		end
+
+		local localPosition = part.CFrame:PointToObjectSpace(root.Position)
+		local halfSize = part.Size * 0.5
+		local margin = 4
+
+		if
+			math.abs(localPosition.X) <= halfSize.X + margin
+			and math.abs(localPosition.Y) <= halfSize.Y + margin
+			and math.abs(localPosition.Z) <= halfSize.Z + margin
+		then
+			return true
+		end
+
+		local offset = root.Position - part.Position
+		local horizontal = Vector3.new(offset.X, 0, offset.Z).Magnitude
+		local verticalTolerance = math.max(8, halfSize.Y + margin)
+
+		return horizontal <= step.StopDistance + margin
+			and math.abs(offset.Y) <= verticalTolerance
+	end
+
 	local function getEntranceGuide(root, targetPart)
 		if not progressionSession or not PathfindingService or not targetPart then
 			return nil
@@ -313,7 +340,7 @@ return function(ctx)
 		while progressionSession.Step <= #route do
 			local step = route[progressionSession.Step]
 
-			if (root.Position - step.Part.Position).Magnitude > step.StopDistance + 4 then
+			if not reachedRouteStep(root, step) then
 				break
 			end
 
