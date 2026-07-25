@@ -47,9 +47,10 @@ local DEFAULT_TREE_PATHS = {
 }
 
 local config = env.WorldZeroSourceExporter or {}
-local outputBase =
-	tostring(config.OutputRoot or "WorldZeroSourceDump")
-local runId = tostring(os.time())
+local outputBase = tostring(config.OutputRoot or "WorldZeroSourceDump")
+local fullReplicatedStorage = config.FullReplicatedStorage ~= false
+local runId =
+	tostring(config.RunId or (fullReplicatedStorage and ("replicated-storage-" .. tostring(game.PlaceId)) or os.time()))
 local outputRoot = outputBase .. "/" .. runId
 local sourceRoot = outputRoot .. "/sources"
 local modulePaths = config.ModulePaths or DEFAULT_MODULE_PATHS
@@ -58,6 +59,9 @@ local childTimeout = tonumber(config.ChildTimeout) or 3
 local yieldEvery = math.max(tonumber(config.YieldEvery) or 10, 1)
 local includeMetadata = config.IncludeMetadata ~= false
 local copiedOutputPath = config.CopyOutputPath ~= false
+local resume = config.Resume ~= false
+local overwrite = config.Overwrite == true
+local checkpointEvery = math.max(tonumber(config.CheckpointEvery) or 25, 1)
 
 if type(modulePaths) ~= "table" then
 	modulePaths = DEFAULT_MODULE_PATHS
@@ -80,6 +84,7 @@ end
 local writeFile = getCapability("writefile") or writefile
 local makeFolder = getCapability("makefolder") or makefolder
 local isFolder = getCapability("isfolder") or isfolder
+local isFile = getCapability("isfile") or isfile
 local setClipboard = getCapability("setclipboard") or setclipboard
 local decompiler = getCapability("decompile") or decompile
 
@@ -87,18 +92,9 @@ if typeof(decompiler) ~= "function" and syn then
 	decompiler = syn.decompile
 end
 
-assert(
-	typeof(writeFile) == "function",
-	"[WorldZeroSourceExporter] writefile() is unavailable"
-)
-assert(
-	typeof(makeFolder) == "function",
-	"[WorldZeroSourceExporter] makefolder() is unavailable"
-)
-assert(
-	typeof(decompiler) == "function",
-	"[WorldZeroSourceExporter] decompile() is unavailable"
-)
+assert(typeof(writeFile) == "function", "[WorldZeroSourceExporter] writefile() is unavailable")
+assert(typeof(makeFolder) == "function", "[WorldZeroSourceExporter] makefolder() is unavailable")
+assert(typeof(decompiler) == "function", "[WorldZeroSourceExporter] decompile() is unavailable")
 
 local createdFolders = {}
 
@@ -129,13 +125,7 @@ local function ensureFolder(path)
 			local ok, folderError = pcall(makeFolder, current)
 
 			if not ok and not folderExists(current) then
-				error(
-					"[WorldZeroSourceExporter] Could not create "
-						.. current
-						.. ": "
-						.. tostring(folderError),
-					0
-				)
+				error("[WorldZeroSourceExporter] Could not create " .. current .. ": " .. tostring(folderError), 0)
 			end
 
 			createdFolders[current] = true
@@ -144,11 +134,7 @@ local function ensureFolder(path)
 end
 
 local function sanitizeSegment(value)
-	local cleaned = string.gsub(
-		tostring(value),
-		"[<>:\"/\\|%?%*%c]",
-		"_"
-	)
+	local cleaned = string.gsub(tostring(value), '[<>:"/\\|%?%*%c]', "_")
 
 	if cleaned == "" then
 		return "_"
@@ -174,11 +160,7 @@ local function resolvePath(path)
 		return nil, "empty_path"
 	end
 
-	local serviceOk, current = pcall(
-		game.GetService,
-		game,
-		segments[1]
-	)
+	local serviceOk, current = pcall(game.GetService, game, segments[1])
 
 	if not serviceOk or not current then
 		return nil, "service_not_found:" .. tostring(segments[1])
@@ -189,12 +171,7 @@ local function resolvePath(path)
 		local child = current:FindFirstChild(name)
 
 		if not child then
-			local waitOk, waited = pcall(
-				current.WaitForChild,
-				current,
-				name,
-				childTimeout
-			)
+			local waitOk, waited = pcall(current.WaitForChild, current, name, childTimeout)
 
 			if waitOk then
 				child = waited
@@ -212,12 +189,7 @@ local function resolvePath(path)
 end
 
 local function isScript(instance)
-	return instance
-		and (
-			instance:IsA("ModuleScript")
-			or instance:IsA("LocalScript")
-			or instance:IsA("Script")
-		)
+	return instance and (instance:IsA("ModuleScript") or instance:IsA("LocalScript") or instance:IsA("Script"))
 end
 
 local function getOutputPath(instance)
@@ -227,10 +199,7 @@ local function getOutputPath(instance)
 		segments[index] = sanitizeSegment(segment)
 	end
 
-	return sourceRoot
-		.. "/"
-		.. table.concat(segments, "/")
-		.. ".lua"
+	return sourceRoot .. "/" .. table.concat(segments, "/") .. ".lua"
 end
 
 local function writeText(path, text)
@@ -247,6 +216,15 @@ local function writeText(path, text)
 	end
 
 	return true
+end
+
+local function fileExists(path)
+	if typeof(isFile) ~= "function" then
+		return false
+	end
+
+	local ok, result = pcall(isFile, path)
+	return ok and result == true
 end
 
 local queue = {}
@@ -285,8 +263,7 @@ local function discoverModule(path)
 			Path = path,
 			Kind = "module",
 			Ok = false,
-			Error = "resolved_instance_is_not_script:"
-				.. instance.ClassName,
+			Error = "resolved_instance_is_not_script:" .. instance.ClassName,
 		})
 		return
 	end
@@ -342,16 +319,8 @@ local function getRemoteInventory()
 	for _, instance in ipairs(ReplicatedStorage:GetDescendants()) do
 		local className = instance.ClassName
 
-		if className == "RemoteEvent"
-			or className == "RemoteFunction"
-			or className == "UnreliableRemoteEvent"
-		then
-			table.insert(
-				lines,
-				className
-					.. "\t"
-					.. instance:GetFullName()
-			)
+		if className == "RemoteEvent" or className == "RemoteFunction" or className == "UnreliableRemoteEvent" then
+			table.insert(lines, className .. "\t" .. instance:GetFullName())
 		end
 	end
 
@@ -385,12 +354,7 @@ local function getWorldCandidates()
 		end
 
 		if matched then
-			table.insert(
-				lines,
-				instance.ClassName
-					.. "\t"
-					.. instance:GetFullName()
-			)
+			table.insert(lines, instance.ClassName .. "\t" .. instance:GetFullName())
 		end
 	end
 
@@ -403,12 +367,16 @@ local function runExporter()
 	print("[WorldZeroSourceExporter] ========== EXPORT START ==========")
 	ensureFolder(sourceRoot)
 
-	for _, path in ipairs(modulePaths) do
-		discoverModule(path)
-	end
+	if fullReplicatedStorage then
+		discoverTree("ReplicatedStorage")
+	else
+		for _, path in ipairs(modulePaths) do
+			discoverModule(path)
+		end
 
-	for _, path in ipairs(treePaths) do
-		discoverTree(path)
+		for _, path in ipairs(treePaths) do
+			discoverTree(path)
+		end
 	end
 
 	table.sort(queue, function(a, b)
@@ -417,6 +385,45 @@ local function runExporter()
 
 	local exports = {}
 	local succeeded = 0
+	local skipped = 0
+
+	local function writeCheckpoint(processed)
+		local checkpoint = {
+			Exporter = "World Zero SourceExporter",
+			Version = 2,
+			GeneratedAt = os.time(),
+			PlaceId = game.PlaceId,
+			GameId = game.GameId,
+			OutputRoot = outputRoot,
+			FullReplicatedStorage = fullReplicatedStorage,
+			Summary = {
+				Discovered = #queue,
+				Processed = processed,
+				Succeeded = succeeded,
+				SkippedExisting = skipped,
+				Failed = processed - succeeded,
+			},
+			Exports = exports,
+		}
+		local encodeOk, encoded = pcall(HttpService.JSONEncode, HttpService, checkpoint)
+
+		if encodeOk then
+			writeText(outputRoot .. "/checkpoint.json", encoded)
+		end
+
+		writeText(
+			outputRoot .. "/PROGRESS.txt",
+			table.concat({
+				"World Zero SourceExporter progress",
+				"Output: " .. outputRoot,
+				"Discovered: " .. tostring(#queue),
+				"Processed: " .. tostring(processed),
+				"Succeeded: " .. tostring(succeeded),
+				"Skipped existing: " .. tostring(skipped),
+				"Failed: " .. tostring(processed - succeeded),
+			}, "\n")
+		)
+	end
 
 	for index, item in ipairs(queue) do
 		local instance = item.Instance
@@ -427,17 +434,9 @@ local function runExporter()
 		claimedOutputPaths[outputPath] = collisionIndex + 1
 
 		if collisionIndex > 0 then
-			outputPath = string.gsub(
-				outputPath,
-				"%.lua$",
-				"__duplicate_"
-					.. tostring(collisionIndex + 1)
-					.. ".lua"
-			)
+			outputPath = string.gsub(outputPath, "%.lua$", "__duplicate_" .. tostring(collisionIndex + 1) .. ".lua")
 		end
 
-		local decompileOk, source =
-			pcall(decompiler, instance)
 		local record = {
 			Index = index,
 			RequestedPath = item.RequestedPath,
@@ -448,61 +447,64 @@ local function runExporter()
 			Ok = false,
 		}
 
-		if decompileOk and type(source) == "string" and source ~= "" then
-			local header = "-- Exported by World Zero SourceExporter\n"
-				.. "-- Full Name: "
-				.. fullName
-				.. "\n"
-				.. "-- Class: "
-				.. instance.ClassName
-				.. "\n\n"
-			local writeOk, writeError =
-				writeText(outputPath, header .. source)
-
-			if writeOk then
-				record.Ok = true
-				succeeded = succeeded + 1
-				print(
-					"[WorldZeroSourceExporter] ["
-						.. tostring(index)
-						.. "/"
-						.. tostring(#queue)
-						.. "] "
-						.. fullName
-				)
-			else
-				record.Error = "write_failed:" .. tostring(writeError)
-				warn(
-					"[WorldZeroSourceExporter] Write failed:",
-					fullName,
-					writeError
-				)
-			end
+		if resume and not overwrite and fileExists(outputPath) then
+			record.Ok = true
+			record.SkippedExisting = true
+			succeeded = succeeded + 1
+			skipped = skipped + 1
 		else
-			record.Error = decompileOk
-					and "decompiler_returned_no_source"
-				or ("decompile_failed:" .. tostring(source))
-			warn(
-				"[WorldZeroSourceExporter] Decompile failed:",
-				fullName,
-				record.Error
-			)
+			local decompileOk, source = pcall(decompiler, instance)
+
+			if decompileOk and type(source) == "string" and source ~= "" then
+				local header = "-- Exported by World Zero SourceExporter\n"
+					.. "-- Full Name: "
+					.. fullName
+					.. "\n"
+					.. "-- Class: "
+					.. instance.ClassName
+					.. "\n\n"
+				local writeOk, writeError = writeText(outputPath, header .. source)
+
+				if writeOk then
+					record.Ok = true
+					succeeded = succeeded + 1
+					print(
+						"[WorldZeroSourceExporter] [" .. tostring(index) .. "/" .. tostring(#queue) .. "] " .. fullName
+					)
+				else
+					record.Error = "write_failed:" .. tostring(writeError)
+					warn("[WorldZeroSourceExporter] Write failed:", fullName, writeError)
+				end
+			else
+				record.Error = decompileOk and "decompiler_returned_no_source"
+					or ("decompile_failed:" .. tostring(source))
+				warn("[WorldZeroSourceExporter] Decompile failed:", fullName, record.Error)
+			end
 		end
 
 		table.insert(exports, record)
+
+		if index % checkpointEvery == 0 then
+			writeCheckpoint(index)
+		end
 
 		if index % yieldEvery == 0 then
 			task.wait()
 		end
 	end
 
+	writeCheckpoint(#queue)
+
 	local manifest = {
 		Exporter = "World Zero SourceExporter",
-		Version = 1,
+		Version = 2,
 		GeneratedAt = os.time(),
 		PlaceId = game.PlaceId,
 		GameId = game.GameId,
 		OutputRoot = outputRoot,
+		FullReplicatedStorage = fullReplicatedStorage,
+		Resume = resume,
+		Overwrite = overwrite,
 		RequestedModules = modulePaths,
 		RequestedTrees = treePaths,
 		Discovery = discoveryRecords,
@@ -510,6 +512,7 @@ local function runExporter()
 		Summary = {
 			Discovered = #queue,
 			Succeeded = succeeded,
+			SkippedExisting = skipped,
 			Failed = #queue - succeeded,
 		},
 	}
@@ -518,32 +521,43 @@ local function runExporter()
 		local remoteLines = getRemoteInventory()
 		local worldLines = getWorldCandidates()
 
-		writeText(
-			outputRoot .. "/metadata/ReplicatedRemotes.txt",
-			table.concat(remoteLines, "\n")
-		)
-		writeText(
-			outputRoot .. "/metadata/WorldCandidates.txt",
-			table.concat(worldLines, "\n")
-		)
+		writeText(outputRoot .. "/metadata/ReplicatedRemotes.txt", table.concat(remoteLines, "\n"))
+		writeText(outputRoot .. "/metadata/WorldCandidates.txt", table.concat(worldLines, "\n"))
 		manifest.Metadata = {
 			RemoteCount = #remoteLines,
 			WorldCandidateCount = #worldLines,
 		}
 	end
 
-	local manifestOk, encodedManifest =
-		pcall(HttpService.JSONEncode, HttpService, manifest)
+	local manifestOk, encodedManifest = pcall(HttpService.JSONEncode, HttpService, manifest)
 
 	if manifestOk then
 		writeText(outputRoot .. "/manifest.json", encodedManifest)
 	end
+
+	local failureLines = {}
+
+	for _, record in ipairs(exports) do
+		if not record.Ok then
+			table.insert(
+				failureLines,
+				table.concat({
+					tostring(record.ClassName),
+					tostring(record.FullName),
+					tostring(record.Error),
+				}, "\t")
+			)
+		end
+	end
+
+	writeText(outputRoot .. "/metadata/Failures.txt", table.concat(failureLines, "\n"))
 
 	local summary = table.concat({
 		"World Zero SourceExporter",
 		"Output: " .. outputRoot,
 		"Discovered: " .. tostring(#queue),
 		"Succeeded: " .. tostring(succeeded),
+		"Skipped existing: " .. tostring(skipped),
 		"Failed: " .. tostring(#queue - succeeded),
 		"PlaceId: " .. tostring(game.PlaceId),
 		"GameId: " .. tostring(game.GameId),
