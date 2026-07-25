@@ -108,16 +108,19 @@ return function(ctx)
 		end
 
 		local verticalDrop = root.Position.Y - targetPosition.Y
+		local distance = (root.Position - targetPosition).Magnitude
+		local directRouteBlocked = isDirectRouteBlocked(root, targetPosition)
 
-		if
-			(root.Position - targetPosition).Magnitude <= 32
-			or not isDirectRouteBlocked(root, targetPosition)
-		then
+		if distance <= 32 then
 			return nil
 		end
 
 		if verticalDrop < 24 then
-			if root.Position.Y >= 10 and targetPosition.Y >= 10 then
+			if
+				root.Position.Y >= 10
+				and targetPosition.Y >= 10
+				and not directRouteBlocked
+			then
 				return nil
 			end
 
@@ -130,6 +133,10 @@ return function(ctx)
 				FlightCruiseHeight = 6,
 				FlightNoclip = true,
 			}
+		end
+
+		if not directRouteBlocked then
+			return nil
 		end
 
 		local checkpoint, gate = collectRouteParts(missionObjects, targetPosition)
