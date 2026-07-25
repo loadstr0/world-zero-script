@@ -10,6 +10,21 @@ return function()
 			Title = "Automation",
 			Icon = 0,
 		},
+		Missions = {
+			Key = "Missions",
+			Title = "Quests & Missions",
+			Icon = 0,
+		},
+		Loot = {
+			Key = "Loot",
+			Title = "Loot",
+			Icon = 0,
+		},
+		Gear = {
+			Key = "Gear",
+			Title = "Gear",
+			Icon = 0,
+		},
 		Combat = {
 			Key = "Combat",
 			Title = "Combat",

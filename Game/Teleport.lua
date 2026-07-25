@@ -3,6 +3,7 @@ return function(ctx)
 
 	local GameContext = ctx:Require("GameContext")
 	local Profile = ctx:Require("Profile")
+	local Executor = ctx:Require("Executor")
 	local Players = ctx.Services.Players
 	local cachedModule = nil
 
@@ -31,6 +32,25 @@ return function(ctx)
 		return Players.LocalPlayer
 	end
 
+	function Teleport.QueueBootstrap()
+		if type(Executor.QueueOnTeleport) ~= "function" then
+			return false, "queue_on_teleport_unavailable"
+		end
+
+		local bootstrapUrl = ctx.Base
+			.. "Bootstrap.lua?cache="
+			.. tostring(os.time())
+			.. tostring(math.random(1000, 9999))
+		local source = "loadstring(game:HttpGet(" .. string.format("%q", bootstrapUrl) .. "))()"
+		local ok, queueError = pcall(Executor.QueueOnTeleport, source)
+
+		if not ok then
+			return false, "queue_on_teleport_failed:" .. tostring(queueError)
+		end
+
+		return true
+	end
+
 	local function isActiveDestination(data)
 		local now = os.time()
 		local starts = tonumber(data.StartTime)
@@ -41,6 +61,24 @@ return function(ctx)
 			and data.HiddenOnProduction ~= true
 			and (not starts or starts <= now)
 			and (not ends or now <= ends)
+	end
+
+	local function getKind(data)
+		local worldOrder = tonumber(data.WorldOrderID) or 0
+
+		if data.IsTown == true and worldOrder >= 100 then
+			return "Event Hub"
+		elseif data.IsTown == true then
+			return "Hub"
+		elseif data.IsOpenWorld == true and worldOrder >= 100 then
+			return "Event World"
+		elseif data.IsOpenWorld == true then
+			return "Open World"
+		elseif data.IsOtherWorld == true then
+			return "Special"
+		end
+
+		return "Destination"
 	end
 
 	function Teleport.ListWorlds()
@@ -83,6 +121,9 @@ return function(ctx)
 						Label = label,
 						WorldOrderID = tonumber(data.WorldOrderID) or 9999,
 						LevelRequirement = tonumber(data.LevelRequirement) or 1,
+						Kind = getKind(data),
+						IsHub = data.IsTown == true,
+						IsEvent = (tonumber(data.WorldOrderID) or 0) >= 100,
 						Data = data,
 					})
 				end
@@ -96,6 +137,60 @@ return function(ctx)
 
 			return a.ID < b.ID
 		end)
+
+		return result
+	end
+
+	function Teleport.ListByKind(kind)
+		local worlds, worldsError = Teleport.ListWorlds()
+
+		if not worlds then
+			return nil, worldsError
+		end
+
+		local result = {}
+
+		for _, world in ipairs(worlds) do
+			if world.Kind == kind then
+				table.insert(result, world)
+			end
+		end
+
+		return result
+	end
+
+	function Teleport.ListHubs(includeEvents)
+		local worlds, worldsError = Teleport.ListWorlds()
+
+		if not worlds then
+			return nil, worldsError
+		end
+
+		local result = {}
+
+		for _, world in ipairs(worlds) do
+			if world.IsHub and (includeEvents == true or not world.IsEvent) then
+				table.insert(result, world)
+			end
+		end
+
+		return result
+	end
+
+	function Teleport.ListEvents()
+		local worlds, worldsError = Teleport.ListWorlds()
+
+		if not worlds then
+			return nil, worldsError
+		end
+
+		local result = {}
+
+		for _, world in ipairs(worlds) do
+			if world.IsEvent then
+				table.insert(result, world)
+			end
+		end
 
 		return result
 	end
@@ -162,6 +257,7 @@ return function(ctx)
 
 	function Teleport.ToWorld(worldId)
 		local module, resolveError = resolve()
+		local destinationId = tonumber(worldId)
 
 		if not module then
 			return false, resolveError
@@ -169,6 +265,8 @@ return function(ctx)
 
 		if type(module.TeleportToWorld) ~= "function" then
 			return false, "teleport_missing_world_request"
+		elseif not destinationId then
+			return false, "invalid_world_id"
 		end
 
 		local player = getPlayer()
@@ -177,13 +275,14 @@ return function(ctx)
 			return false, "local_player_unavailable"
 		end
 
-		local ok, travelError = pcall(module.TeleportToWorld, module, player, tonumber(worldId))
+		local queued, queueError = Teleport.QueueBootstrap()
+		local ok, travelError = pcall(module.TeleportToWorld, module, player, destinationId)
 
 		if not ok then
 			return false, "world_teleport_failed:" .. tostring(travelError)
 		end
 
-		return true
+		return true, nil, queued, queueError
 	end
 
 	function Teleport.ToHub(worldId)
@@ -219,17 +318,20 @@ return function(ctx)
 			return false, "hub_destination_unavailable"
 		end
 
+		local queued, queueError = Teleport.QueueBootstrap()
 		local ok, travelError = pcall(module.TeleportToHub, module, player, destinationId)
 
 		if not ok then
 			return false, "hub_teleport_failed:" .. tostring(travelError)
 		end
 
-		return true
+		return true, nil, queued, queueError
 	end
 
 	function Teleport.ToMission(missionId, difficultyId)
 		local module, resolveError = resolve()
+		local destinationId = tonumber(missionId)
+		local destinationDifficulty = tonumber(difficultyId) or 1
 
 		if not module then
 			return false, resolveError
@@ -237,6 +339,8 @@ return function(ctx)
 
 		if type(module.TeleportToMission) ~= "function" then
 			return false, "teleport_missing_mission_request"
+		elseif not destinationId then
+			return false, "invalid_mission_id"
 		end
 
 		local player = getPlayer()
@@ -245,14 +349,15 @@ return function(ctx)
 			return false, "local_player_unavailable"
 		end
 
+		local queued, queueError = Teleport.QueueBootstrap()
 		local ok, travelError =
-			pcall(module.TeleportToMission, module, player, tonumber(missionId), tonumber(difficultyId) or 1)
+			pcall(module.TeleportToMission, module, player, destinationId, destinationDifficulty)
 
 		if not ok then
 			return false, "mission_teleport_failed:" .. tostring(travelError)
 		end
 
-		return true
+		return true, nil, queued, queueError
 	end
 
 	function Teleport.Describe()
@@ -263,8 +368,11 @@ return function(ctx)
 			Available = module ~= nil,
 			Error = resolveError,
 			WorldCount = worlds and #worlds or 0,
+			HubCount = module and #(Teleport.ListHubs(true) or {}) or 0,
+			EventCount = module and #(Teleport.ListEvents() or {}) or 0,
 			SupportsWorldTravel = module and type(module.TeleportToWorld) == "function" or false,
 			SupportsMissionTravel = module and type(module.TeleportToMission) == "function" or false,
+			SupportsQueueOnTeleport = type(Executor.QueueOnTeleport) == "function",
 		}
 	end
 

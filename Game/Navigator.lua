@@ -23,6 +23,7 @@ return function(ctx)
 	local flightConnection = nil
 	local flightTarget = nil
 	local flightOptions = nil
+	local flightCollisionStates = setmetatable({}, { __mode = "k" })
 
 	local function numberOption(value, fallback, minimum)
 		local numeric = tonumber(value) or fallback
@@ -77,6 +78,30 @@ return function(ctx)
 		return "Pathfinding"
 	end
 
+	local function setFlightCollision(enabled)
+		local character = GameContext.GetCharacter()
+
+		if enabled and character then
+			for _, descendant in ipairs(character:GetDescendants()) do
+				if descendant:IsA("BasePart") then
+					if flightCollisionStates[descendant] == nil then
+						flightCollisionStates[descendant] = descendant.CanCollide
+					end
+
+					descendant.CanCollide = false
+				end
+			end
+		else
+			for part, original in pairs(flightCollisionStates) do
+				if part.Parent then
+					part.CanCollide = original
+				end
+
+				flightCollisionStates[part] = nil
+			end
+		end
+	end
+
 	local function stopFlight()
 		if flightConnection then
 			flightConnection:Disconnect()
@@ -85,6 +110,7 @@ return function(ctx)
 
 		flightTarget = nil
 		flightOptions = nil
+		setFlightCollision(false)
 	end
 
 	local function placeRoot(root, targetPosition, travelDistance, options)
@@ -158,6 +184,8 @@ return function(ctx)
 			stopFlight()
 			return
 		end
+
+		setFlightCollision(flightOptions.FlightNoclip ~= false)
 
 		local stopDistance = numberOption(flightOptions.StopDistance, 0, 0)
 		local distance = (flightTarget - root.Position).Magnitude

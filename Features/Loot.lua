@@ -4,9 +4,10 @@ return function(ctx)
 	}
 
 	local Engine = ctx:Require("FarmingEngine")
+	local InventoryEngine = ctx:Require("InventoryEngine")
 
 	function Loot.Register(runtime)
-		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Automation)
+		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Loot)
 		local dropStatus = runtime.DropsAPI.Describe()
 		local chestStatus = runtime.ChestsAPI.Describe()
 		local inventoryStatus = runtime.InventoryAPI.Describe()
@@ -16,13 +17,25 @@ return function(ctx)
 		runtime.State:Set("Loot.ChestsEnabled", false)
 		runtime.State:Set("Loot.CollectionRange", 120)
 		runtime.State:Set("Loot.CombatPriorityRange", 35)
+		runtime.State:Set("Loot.CollectDuringCombat", false)
+		runtime.State:Set("Loot.AfterKillSweep", true)
+		runtime.State:Set("Loot.AfterKillSweepDuration", 2.5)
 		runtime.State:Set("Loot.SellingArmed", false)
 		runtime.State:Set("Loot.SellMaxTier", 1)
 		runtime.State:Set("Loot.SellMaxLevel", 10)
 		runtime.State:Set("Loot.PreserveModified", true)
+		runtime.State:Set("Loot.AutoSellEnabled", false)
+		runtime.State:Set("Loot.AutoSellArmed", false)
+		runtime.State:Set("Loot.AutoSellReserveSlots", 3)
+		runtime.State:Set("Loot.AutoSellBatchSize", 5)
+		runtime.State:Set("Loot.AutoSellInterval", 5)
+
+		runtime.Janitor:Add(function()
+			InventoryEngine.Stop(runtime)
+		end)
 
 		runtime.UI:CreateSection(tab, "Drop collection")
-		runtime.UI:CreateToggle(tab, "LootDropsEnabled", {
+		runtime.Controls.LootDropsEnabled = runtime.UI:CreateToggle(tab, "LootDropsEnabled", {
 			Name = "Collect dropped items and currency",
 			CurrentValue = false,
 			Callback = function(value)
@@ -31,7 +44,7 @@ return function(ctx)
 			end,
 		})
 
-		runtime.UI:CreateToggle(tab, "LootChestsEnabled", {
+		runtime.Controls.LootChestsEnabled = runtime.UI:CreateToggle(tab, "LootChestsEnabled", {
 			Name = "Approach spawned reward chests",
 			CurrentValue = false,
 			Callback = function(value)
@@ -62,6 +75,33 @@ return function(ctx)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "LootCollectDuringCombat", {
+			Name = "Allow loot to interrupt a live target",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Loot.CollectDuringCombat", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "LootAfterKillSweep", {
+			Name = "Brief loot sweep after each defeated target",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Loot.AfterKillSweep", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "LootAfterKillSweepDuration", {
+			Name = "Post-combat loot window",
+			Range = { 0.5, 6 },
+			Increment = 0.5,
+			Suffix = "s",
+			CurrentValue = 2.5,
+			Callback = function(value)
+				runtime.State:Set("Loot.AfterKillSweepDuration", value)
+			end,
+		})
+
 		runtime.UI:CreateParagraph(
 			tab,
 			"Verified collection behavior",
@@ -71,7 +111,7 @@ return function(ctx)
 		runtime.UI:CreateParagraph(
 			tab,
 			"Movement coordination",
-			"Drops, chests, quests, combat, retreats, and teammate rescues share one navigator. Nearby loot can briefly interrupt combat; distant loot waits until there is no active target."
+			"Drops, chests, quests, combat, retreats, and teammate rescues share one navigator. By default, loot never steals movement from a living combat target; a short sweep opens only after the locked target is defeated."
 		)
 
 		runtime.UI:CreateButton(tab, {
@@ -153,6 +193,7 @@ return function(ctx)
 				MaxTier = runtime.State:Get("Loot.SellMaxTier", 1),
 				MaxLevel = runtime.State:Get("Loot.SellMaxLevel", 10),
 				PreserveModified = runtime.State:Get("Loot.PreserveModified", true),
+				ExcludeItems = runtime.GearAPI.GetProtectedItems(),
 			})
 		end
 
@@ -214,14 +255,16 @@ return function(ctx)
 					return
 				end
 
-				local gold, soldOrError =
-					runtime.InventoryAPI.Sell(candidates, runtime.State:Get("Loot.PreserveModified", true))
+				local gold, soldOrError = runtime.InventoryAPI.Sell(
+					candidates,
+					runtime.State:Get("Loot.PreserveModified", true),
+					runtime.GearAPI.GetProtectedItems()
+				)
 				selling = false
 
 				runtime.UI:Notify(
 					"Inventory selling",
-					gold
-							and (tostring(soldOrError) .. " item(s) sold for " .. tostring(gold) .. " gold.")
+					gold and (tostring(soldOrError) .. " item(s) sold for " .. tostring(gold) .. " gold.")
 						or ("Sell failed: " .. tostring(soldOrError)),
 					6,
 					0
@@ -236,6 +279,81 @@ return function(ctx)
 					and "Locked and favorited items are always excluded and rechecked immediately before the server request. Modified-item protection is enabled by default. Selling is manual, armed separately, and can be previewed first."
 				or ("Inventory selling unavailable: " .. tostring(inventoryStatus.Error))
 		)
+
+		runtime.UI:CreateSection(tab, "Inventory pressure")
+		runtime.UI:CreateParagraph(
+			tab,
+			"Why this matters",
+			"World Zero refuses item pickups when inventory slots are full. The cleanup supervisor reads Shared.Inventory:GetRemainingSpace, preserves the current and best-potential loadout, and only sells items that also pass the locked, favorite, modified, tier, and level filters above."
+		)
+
+		runtime.UI:CreateToggle(tab, "LootAutoSellEnabled", {
+			Name = "Clean inventory automatically near full",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Loot.AutoSellEnabled", value)
+				InventoryEngine.Reconcile(runtime)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "LootAutoSellArmed", {
+			Name = "Arm automatic protected selling",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Loot.AutoSellArmed", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "LootAutoSellReserveSlots", {
+			Name = "Start cleanup at remaining slots",
+			Range = { 0, 10 },
+			Increment = 1,
+			Suffix = " slots",
+			CurrentValue = 3,
+			Callback = function(value)
+				runtime.State:Set("Loot.AutoSellReserveSlots", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "LootAutoSellBatchSize", {
+			Name = "Maximum items per cleanup",
+			Range = { 1, 15 },
+			Increment = 1,
+			Suffix = " items",
+			CurrentValue = 5,
+			Callback = function(value)
+				runtime.State:Set("Loot.AutoSellBatchSize", value)
+			end,
+		})
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Show inventory supervisor status",
+			Callback = function()
+				local capacity, capacityError = runtime.InventoryAPI.GetCapacity()
+				local status = InventoryEngine.GetStatus(runtime)
+				local capacityText = capacity
+						and (
+							tostring(capacity.Used)
+							.. "/"
+							.. tostring(capacity.Capacity)
+							.. " slots used; "
+							.. tostring(capacity.Remaining)
+							.. " remaining."
+						)
+					or ("Capacity unavailable: " .. tostring(capacityError))
+
+				runtime.UI:Notify(
+					"Inventory supervisor",
+					capacityText
+						.. "\nLast action: "
+						.. tostring(status and status.Action or "none")
+						.. "\nDetail: "
+						.. tostring(status and status.Error or "none"),
+					7,
+					0
+				)
+			end,
+		})
 	end
 
 	return Loot

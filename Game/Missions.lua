@@ -2,6 +2,7 @@ return function(ctx)
 	local Missions = {}
 
 	local GameContext = ctx:Require("GameContext")
+	local Profile = ctx:Require("Profile")
 	local Players = ctx.Services.Players
 	local cachedModule = nil
 
@@ -147,6 +148,47 @@ return function(ctx)
 		end
 
 		return result
+	end
+
+	function Missions.FindEasiestForWorld(worldOrder, difficultyId)
+		local requestedWorld = tonumber(worldOrder)
+		local requestedDifficulty = tonumber(difficultyId) or 1
+
+		if not requestedWorld then
+			return nil, "invalid_world_order"
+		end
+
+		local missions, missionsError = Missions.List()
+
+		if not missions then
+			return nil, missionsError
+		end
+
+		local profile = Profile.Get()
+		local level = tonumber(profile and profile:FindFirstChild("Level") and profile.Level.Value) or 1
+		local selected = nil
+
+		for _, mission in ipairs(missions) do
+			if
+				mission.DisplayWorldID == requestedWorld
+				and mission.LevelRequirement <= level
+				and type(mission.Data.difficulties) == "table"
+				and type(mission.Data.difficulties[requestedDifficulty]) == "table"
+				and (tonumber(mission.Data.difficulties[requestedDifficulty].levelRequirement) or 1) <= level
+				and (
+					not selected
+					or mission.WorldMissionID < selected.WorldMissionID
+					or (
+						mission.WorldMissionID == selected.WorldMissionID
+						and mission.LevelRequirement < selected.LevelRequirement
+					)
+				)
+			then
+				selected = mission
+			end
+		end
+
+		return selected, selected and nil or "eligible_world_dungeon_unavailable"
 	end
 
 	function Missions.GetCurrent()

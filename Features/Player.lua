@@ -6,6 +6,36 @@ return function()
 	function Player.Register(runtime)
 		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Player)
 		local quickItemName = ""
+		local localPlayer = runtime.Game.GetLocalPlayer()
+
+		runtime.State:Set("Player.AntiIdle", true)
+
+		if localPlayer then
+			local idleConnection = localPlayer.Idled:Connect(function()
+				if runtime.Stopped or not runtime.State:Get("Player.AntiIdle", true) then
+					return
+				end
+
+				pcall(function()
+					local virtualUser = runtime.Context.Services.VirtualUser
+					local camera = workspace.CurrentCamera
+					virtualUser:CaptureController()
+					virtualUser:Button2Down(Vector2.zero, camera and camera.CFrame or CFrame.new())
+					task.wait(0.05)
+					virtualUser:Button2Up(Vector2.zero, camera and camera.CFrame or CFrame.new())
+				end)
+			end)
+			runtime.Janitor:Add(idleConnection)
+		end
+
+		runtime.UI:CreateSection(tab, "Session")
+		runtime.UI:CreateToggle(tab, "PlayerAntiIdle", {
+			Name = "Prevent idle disconnects",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Player.AntiIdle", value)
+			end,
+		})
 
 		runtime.UI:CreateSection(tab, "Movement")
 		runtime.UI:CreateToggle(tab, "PlayerSprint", {

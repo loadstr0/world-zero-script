@@ -6,6 +6,18 @@ return function(ctx)
 	local Players = ctx.Services.Players
 	local ReplicatedStorage = ctx.Services.ReplicatedStorage
 	local cachedModule = nil
+	local DUNGEON_OBJECTIVES = {
+		DoDungeon = true,
+		DoDungeonWithDifficulty = true,
+		DoDungeonWithWorldAndDifficulty = true,
+		DoDungeonInWorld = true,
+		DoRandomDungeonWithDifficulty = true,
+		DoRandomDungeonWithDifficultyAndGuild = true,
+		DoThisDungeonWithFriends = true,
+		DoDungeonWithFriends = true,
+		DoDungeonWithGuild = true,
+		DoDungeonWithOthers = true,
+	}
 
 	local function resolve()
 		if type(cachedModule) == "table" then
@@ -246,14 +258,37 @@ return function(ctx)
 		end
 
 		local location, locationError = getLocation(data)
+		local objectiveType = tostring(objective[1] or "Unknown")
+		local arguments = type(objective[3]) == "table" and objective[3] or {}
+		local isDungeonObjective = DUNGEON_OBJECTIVES[objectiveType] == true
+		local exactDungeon = objectiveType == "DoDungeon"
+			or objectiveType == "DoDungeonWithDifficulty"
+			or objectiveType == "DoThisDungeonWithFriends"
+		local dungeonID = exactDungeon and tonumber(arguments[1]) or nil
+		local dungeonDifficulty = 1
+
+		if objectiveType == "DoDungeonWithDifficulty" or objectiveType == "DoThisDungeonWithFriends" then
+			dungeonDifficulty = tonumber(arguments[2]) or 1
+		elseif
+			objectiveType == "DoDungeonWithWorldAndDifficulty"
+			or objectiveType == "DoRandomDungeonWithDifficulty"
+			or objectiveType == "DoRandomDungeonWithDifficultyAndGuild"
+		then
+			dungeonDifficulty = tonumber(arguments[1]) or 1
+		elseif exactDungeon then
+			dungeonDifficulty = tonumber(arguments[2]) or 1
+		end
 
 		return {
 			ID = id,
 			Name = tostring(data.NameTag or data.Name or data.Title or ("Quest " .. tostring(id))),
 			Data = data,
-			ObjectiveType = tostring(objective[1] or "Unknown"),
+			ObjectiveType = objectiveType,
 			Required = tonumber(objective[2]) or 0,
-			Arguments = objective[3],
+			Arguments = arguments,
+			IsDungeonObjective = isDungeonObjective,
+			DungeonID = dungeonID,
+			DungeonDifficulty = dungeonDifficulty,
 			AllowedMobNames = allowedMobNames,
 			Progress = tonumber(progress) or 0,
 			ReadyToClaim = readyToClaim,

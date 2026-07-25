@@ -19,7 +19,7 @@ return function(ctx)
 		ConfigurationSaving = {
 			Enabled = true,
 			FolderName = "WorldZero",
-			FileName = "WorldZeroConfig",
+			FileName = "WorldZeroV1",
 		},
 		Updates = {
 			CheckOnStart = true,

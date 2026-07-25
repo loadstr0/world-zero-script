@@ -57,6 +57,18 @@ return function(ctx)
 		return items
 	end
 
+	local function getInventoryContext()
+		local profile, profileError = Profile.Get()
+		local inventory = profile and profile:FindFirstChild("Inventory")
+		local items = inventory and inventory:FindFirstChild("Items")
+
+		if not inventory or not items then
+			return nil, nil, profileError or "inventory_unavailable"
+		end
+
+		return inventory, items
+	end
+
 	local function callBoolean(module, methodName, item, fallbackName)
 		local method = module and module[methodName]
 
@@ -155,7 +167,8 @@ return function(ctx)
 		local result = {}
 
 		for _, item in ipairs(items:GetChildren()) do
-			local protected = Inventory.IsProtected(item, options.PreserveModified ~= false)
+			local protected = options.ExcludeItems and options.ExcludeItems[item] == true
+				or Inventory.IsProtected(item, options.PreserveModified ~= false)
 
 			if not protected then
 				local descriptor = Inventory.GetDescriptor(item)
@@ -186,7 +199,39 @@ return function(ctx)
 		return result
 	end
 
-	function Inventory.Sell(descriptors, preserveModified)
+	function Inventory.GetCapacity()
+		local inventoryModule, _, moduleError = getModules()
+		local inventory, items, inventoryError = getInventoryContext()
+
+		if not inventoryModule or not inventory or not items then
+			return nil, moduleError or inventoryError
+		end
+
+		local slots = inventory:FindFirstChild("Slots")
+		local capacity = tonumber(slots and slots.Value)
+
+		if not capacity then
+			return nil, "inventory_slots_unavailable"
+		end
+
+		local remainingOk, remaining =
+			pcall(inventoryModule.GetRemainingSpace, inventoryModule, inventory)
+
+		if not remainingOk or tonumber(remaining) == nil then
+			return nil, "inventory_remaining_space_unavailable:" .. tostring(remaining)
+		end
+
+		remaining = math.max(0, tonumber(remaining) or 0)
+
+		return {
+			Capacity = capacity,
+			Used = math.max(0, capacity - remaining),
+			Remaining = remaining,
+			ItemCount = #items:GetChildren(),
+		}
+	end
+
+	function Inventory.Sell(descriptors, preserveModified, excludeItems)
 		if type(descriptors) ~= "table" or #descriptors == 0 then
 			return nil, "no_items_selected"
 		end
@@ -212,7 +257,11 @@ return function(ctx)
 		for _, descriptor in ipairs(descriptors) do
 			local item = descriptor and descriptor.Item
 
-			if typeof(item) == "Instance" and item.Parent == itemsFolder then
+			if
+				typeof(item) == "Instance"
+				and item.Parent == itemsFolder
+				and not (excludeItems and excludeItems[item])
+			then
 				local protected = Inventory.IsProtected(item, preserveModified)
 				local current = Inventory.GetDescriptor(item)
 
@@ -250,11 +299,14 @@ return function(ctx)
 	function Inventory.Describe()
 		local inventoryModule, dropsModule, moduleError = getModules()
 		local items = getItemsFolder()
+		local capacity = Inventory.GetCapacity()
 
 		return {
 			Available = inventoryModule ~= nil and dropsModule ~= nil,
 			Error = moduleError,
 			ItemCount = items and #items:GetChildren() or 0,
+			Capacity = capacity and capacity.Capacity or nil,
+			Remaining = capacity and capacity.Remaining or nil,
 			ProtectsLocked = true,
 			ProtectsFavorited = true,
 			ProtectsModified = true,

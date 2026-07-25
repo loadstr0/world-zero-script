@@ -6,7 +6,7 @@ return function(ctx)
 	local Engine = ctx:Require("FarmingEngine")
 
 	function Missions.Register(runtime)
-		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Automation)
+		local tab = runtime.UI:CreateNavigationTab(runtime.Navigation.Missions)
 		local status = runtime.MissionsAPI.Describe()
 		local questStatus = runtime.QuestsAPI.Describe()
 		local missionList, listError = runtime.MissionsAPI.List()
@@ -41,10 +41,13 @@ return function(ctx)
 		runtime.State:Set("Quests.AutoClaim", true)
 		runtime.State:Set("Quests.RouteToArea", true)
 		runtime.State:Set("Quests.AutoWorldTravel", true)
-		runtime.State:Set("Quests.SearchRange", 500)
+		runtime.State:Set("Quests.AutoDungeonTravel", true)
+		runtime.State:Set("Quests.AutoDungeonFinish", true)
+		runtime.State:Set("Quests.MapWideSearch", true)
+		runtime.State:Set("Quests.SearchRange", 10000)
 
 		runtime.UI:CreateSection(tab, "Tracked quests")
-		runtime.UI:CreateToggle(tab, "QuestAutomationEnabled", {
+		runtime.Controls.QuestsEnabled = runtime.UI:CreateToggle(tab, "QuestAutomationEnabled", {
 			Name = "Enable tracked quest automation",
 			CurrentValue = false,
 			Callback = function(value)
@@ -77,12 +80,36 @@ return function(ctx)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "QuestAutoDungeonTravel", {
+			Name = "Start required main-quest dungeons",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Quests.AutoDungeonTravel", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "QuestAutoDungeonFinish", {
+			Name = "Claim and leave completed quest dungeons",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Quests.AutoDungeonFinish", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "QuestMapWideSearch", {
+			Name = "Search the entire loaded map for quest mobs",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Quests.MapWideSearch", value)
+			end,
+		})
+
 		runtime.UI:CreateSlider(tab, "QuestMobSearchRange", {
-			Name = "Quest mob search range",
-			Range = { 100, 1500 },
-			Increment = 50,
+			Name = "Fallback quest mob search range",
+			Range = { 500, 100000 },
+			Increment = 500,
 			Suffix = " studs",
-			CurrentValue = 500,
+			CurrentValue = 10000,
 			Callback = function(value)
 				runtime.State:Set("Quests.SearchRange", value)
 			end,
@@ -92,7 +119,7 @@ return function(ctx)
 			tab,
 			"Quest routing",
 			questStatus.Available
-					and "Main/world-story quests are always selected before side, daily, weekly, guild, or event quests. Within the same category, current-world and explicitly tracked quests win. Exact KillMob names come from Objective[3]; missing mobs route to QuestLocations[quest.ref], and another linked world can be joined automatically."
+					and "Main/world-story quests are always selected before side, daily, weekly, guild, or event quests. KillMob objectives scan the entire loaded map by default. DoDungeon and DoDungeonWithDifficulty objectives start their exact mission and difficulty, queue Bootstrap, then resume combat after teleport."
 				or ("Shared.Quests unavailable: " .. tostring(questStatus.Error))
 		)
 
@@ -132,6 +159,10 @@ return function(ctx)
 						.. tostring(currentWorldOrder)
 						.. "\nQuest ref: "
 						.. tostring(quest.Reference)
+						.. "\nDungeon/difficulty: "
+						.. tostring(quest.DungeonID)
+						.. "/"
+						.. tostring(quest.DungeonDifficulty or 1)
 						.. "\nRoute error: "
 						.. tostring(quest.LocationError)
 						.. "\nMob names: "
@@ -358,7 +389,15 @@ return function(ctx)
 				return
 			end
 
-			if not runtime.State:Get("Missions.AutoFinishEnabled", false) then
+			local currentWorldOrder = runtime.TeleportAPI.GetCurrentWorldOrder()
+			local quest = runtime.QuestsAPI.GetCurrent(currentWorldOrder)
+			local questDungeonFinish = runtime.State:Get("Quests.Enabled", false)
+				and runtime.State:Get("Quests.AutoDungeonFinish", true)
+				and quest
+				and quest.IsDungeonObjective == true
+			local missionFinish = runtime.State:Get("Missions.AutoFinishEnabled", false)
+
+			if not missionFinish and not questDungeonFinish then
 				return
 			end
 
@@ -369,11 +408,7 @@ return function(ctx)
 				if runtime.State:Get("Missions.AutoClaimReward", true) then
 					task.wait(1)
 
-					if
-						runtime.Stopped
-						or sequence ~= finishSequence
-						or not runtime.State:Get("Missions.AutoFinishEnabled", false)
-					then
+					if runtime.Stopped or sequence ~= finishSequence then
 						return
 					end
 
@@ -396,22 +431,20 @@ return function(ctx)
 					end
 				end
 
-				task.wait(runtime.State:Get("Missions.FinishDelay", 4))
+				task.wait(tonumber(runtime.State:Get("Missions.FinishDelay", 4)) or 4)
 
-				if
-					runtime.Stopped
-					or sequence ~= finishSequence
-					or not runtime.State:Get("Missions.AutoFinishEnabled", false)
-				then
+				if runtime.Stopped or sequence ~= finishSequence then
 					return
 				end
 
-				local action = runtime.State:Get("Missions.FinishAction", "Replay")
+				local action = questDungeonFinish and "Return to world"
+					or runtime.State:Get("Missions.FinishAction", "Replay")
 
 				if action == "Do nothing" then
 					return
 				end
 
+				runtime.TeleportAPI.QueueBootstrap()
 				local ok, actionError = runtime.MissionsAPI.FinishChoice(action == "Replay")
 
 				if not ok then

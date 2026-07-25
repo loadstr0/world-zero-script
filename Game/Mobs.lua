@@ -199,6 +199,7 @@ return function(ctx)
 			or descriptor.Invincible
 			or descriptor.IsHidden
 			or descriptor.Model:FindFirstChild("IgnorePlayerHits")
+			or (options.ExcludedTargets and options.ExcludedTargets[descriptor.Model])
 		then
 			return false
 		end

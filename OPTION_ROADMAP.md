@@ -34,8 +34,9 @@
 - Summoner five-charge Soul banking, anti-waste Harvest, and Greater summon automation
 - Warlord emergency Block, triple Piledriver, defense break, and Yggdrasil automation
 - Filtered Auto Farm with nearest, boss, health, level, elite, and name targeting
+- Map-wide targeting, sticky targets, no-damage timeout, and temporary stalled-target blacklisting
 - Automatic equipped-class rotation through every available special, Primary, and Ultimate
-- Smooth pathfinding approach with sprinting, fence jumps, target-movement refresh, failed-path fallback, and stuck recovery
+- Pathfinding, continuous smooth flight, and instant CFrame movement with flight noclip cleanup
 - Speed-aware ranged kiting and optional automation movement multiplier
 - Barrier-aware Auto Dodge, post-hit follow-up Dodge, low-health retreat, and quick-item healing
 - Exact status handling: skill-only Darkness pause; full Frozen/Shock/Knockdown/Stunned pause
@@ -46,9 +47,14 @@
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
-- Main-quest-first automation with exact mob objectives, cross-world travel, quest-location fallback, and claiming
-- Dropped-item/currency collection and proximity-open reward-chest routing
-- Protected inventory cleanup with preview, tier/level rules, and locked/favorited exclusions
+- Main-quest-first automation with exact mob objectives, unbounded loaded-map scans, cross-world travel, exact quest dungeons, quest-location fallback, and claiming
+- Teleport continuation through centralized `queue_on_teleport`
+- Post-kill dropped-item/currency collection and proximity-open reward-chest routing without stealing live combat targets by default
+- Smart best-potential weapon/offhand/armor upgrades and equipping
+- Capacity-aware protected inventory cleanup with equipped/best-gear preservation
+- Real hubs and active event destinations from live `WorldData`
+- Anti-idle and respawn-safe long-session recovery
+- One-click non-destructive full-farm start/stop
 
 ## High-power combat options
 
@@ -87,10 +93,9 @@ Available now:
 
 Filtered targets now feed the existing class auras, enabling boss-only class rotations without duplicating combat logic.
 
-### Other possible high-power options
+### Other source-dependent high-power options
 
 - Auto farm world filters
-- Automatic quest-linked dungeon selection
 - Boss targeting and phase-aware attacks
 - Mob vacuum only if the game exposes client-authoritative movement
 - Cooldown modification only if server validation permits it

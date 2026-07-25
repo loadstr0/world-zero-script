@@ -5,6 +5,7 @@ return function(ctx)
 	local FEATURE_ORDER = {
 		"Home",
 		"Farming",
+		"Gear",
 		"Missions",
 		"Loot",
 		"Combat",
@@ -70,8 +71,10 @@ return function(ctx)
 			DropsAPI = ctx:Require("DropsAPI"),
 			ChestsAPI = ctx:Require("ChestsAPI"),
 			InventoryAPI = ctx:Require("InventoryAPI"),
+			GearAPI = ctx:Require("GearAPI"),
 			Navigator = ctx:Require("Navigator"),
 			FarmingEngine = ctx:Require("FarmingEngine"),
+			InventoryEngine = ctx:Require("InventoryEngine"),
 			Skills = ctx:Require("Skills"),
 			Assassin = ctx:Require("Assassin"),
 			Archer = ctx:Require("Archer"),
@@ -98,6 +101,7 @@ return function(ctx)
 			ClassRegistry = ctx:Require("ClassRegistry"),
 			Navigation = ctx:Require("Navigation"),
 			UI = ui,
+			Controls = {},
 			Stopped = false,
 		}
 
@@ -175,6 +179,7 @@ return function(ctx)
 		runtime.Stopped = true
 		pcall(runtime.FarmingEngine.Stop, runtime)
 		pcall(runtime.FarmingEngine.ClearSpeedBoost, runtime)
+		pcall(runtime.InventoryEngine.Stop, runtime)
 
 		if runtime.AutomationTargetProvider then
 			pcall(runtime.Actions.ClearTargetProvider, runtime.AutomationTargetProvider)

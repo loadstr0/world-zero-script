@@ -26,7 +26,7 @@ env.WorldZeroBridge = env.WorldZeroBridge
 		ConfigurationSaving = {
 			Enabled = true,
 			FolderName = "WorldZero",
-			FileName = "WorldZeroConfig",
+			FileName = "WorldZeroV1",
 		},
 		Debug = true,
 	}

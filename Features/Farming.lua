@@ -20,6 +20,7 @@ return function(ctx)
 		runtime.State:Set("Farming.Enabled", false)
 		runtime.State:Set("Farming.TargetMode", "Nearest")
 		runtime.State:Set("Farming.TargetRange", 120)
+		runtime.State:Set("Farming.MapWideTargets", false)
 		runtime.State:Set("Farming.BossOnly", false)
 		runtime.State:Set("Farming.EliteOnly", false)
 		runtime.State:Set("Farming.NameFilter", "")
@@ -27,7 +28,13 @@ return function(ctx)
 		runtime.State:Set("Farming.MovementMode", "Pathfinding")
 		runtime.State:Set("Farming.CFrameFlightSpeed", 90)
 		runtime.State:Set("Farming.CFrameZeroVelocity", true)
+		runtime.State:Set("Farming.FlightNoclip", true)
+		runtime.State:Set("Farming.StickyTargets", true)
+		runtime.State:Set("Farming.SkipStalledTargets", true)
+		runtime.State:Set("Farming.NoDamageTimeout", 15)
+		runtime.State:Set("Farming.StalledTargetRetryDelay", 20)
 		runtime.State:Set("Farming.StopDistance", 10)
+		runtime.State:Set("Farming.TargetHeightOffset", 0)
 		runtime.State:Set("Farming.AdaptiveKiting", true)
 		runtime.State:Set("Farming.KiteDistance", 28)
 		runtime.State:Set("Farming.AutoSprint", true)
@@ -67,7 +74,7 @@ return function(ctx)
 		end)
 
 		runtime.UI:CreateSection(tab, "Auto Farm")
-		runtime.UI:CreateToggle(tab, "FarmingEnabled", {
+		runtime.Controls.FarmingEnabled = runtime.UI:CreateToggle(tab, "FarmingEnabled", {
 			Name = "Enable filtered Auto Farm",
 			CurrentValue = false,
 			Callback = function(value)
@@ -131,6 +138,14 @@ return function(ctx)
 			CurrentValue = 120,
 			Callback = function(value)
 				runtime.State:Set("Farming.TargetRange", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingMapWideTargets", {
+			Name = "Search every loaded mob regardless of distance",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Farming.MapWideTargets", value)
 			end,
 		})
 
@@ -207,6 +222,14 @@ return function(ctx)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "FarmingFlightNoclip", {
+			Name = "Disable character collision while flying",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.FlightNoclip", value)
+			end,
+		})
+
 		runtime.UI:CreateParagraph(
 			tab,
 			"Blatant navigation",
@@ -245,6 +268,23 @@ return function(ctx)
 				runtime.State:Set("Farming.StopDistance", value)
 			end,
 		})
+
+		runtime.UI:CreateSlider(tab, "FarmingTargetHeightOffset", {
+			Name = "Combat hover height",
+			Range = { 0, 40 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 0,
+			Callback = function(value)
+				runtime.State:Set("Farming.TargetHeightOffset", value)
+			end,
+		})
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Hover positioning",
+			"Height 0 approaches normally. A higher value keeps the character above the target and works best with ranged classes or a matching attack range."
+		)
 
 		runtime.UI:CreateToggle(tab, "FarmingAdaptiveKiting", {
 			Name = "Adaptive ranged kiting",
@@ -336,6 +376,33 @@ return function(ctx)
 		)
 
 		runtime.UI:CreateSection(tab, "Attack rotation")
+		runtime.UI:CreateToggle(tab, "FarmingStickyTargets", {
+			Name = "Keep each target until it becomes invalid",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.StickyTargets", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingSkipStalledTargets", {
+			Name = "Skip targets that take no damage",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.SkipStalledTargets", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingNoDamageTimeout", {
+			Name = "No-damage target timeout",
+			Range = { 5, 45 },
+			Increment = 1,
+			Suffix = "s",
+			CurrentValue = 15,
+			Callback = function(value)
+				runtime.State:Set("Farming.NoDamageTimeout", value)
+			end,
+		})
+
 		runtime.UI:CreateToggle(tab, "FarmingAutoAttack", {
 			Name = "Attack selected target",
 			CurrentValue = true,

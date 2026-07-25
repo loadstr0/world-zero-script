@@ -46,6 +46,7 @@ World Zero Script/
 |   |-- Energy.lua
 |   |-- Health.lua
 |   |-- Inventory.lua
+|   |-- Gear.lua
 |   |-- Missions.lua
 |   |-- Mobs.lua
 |   |-- Navigator.lua
@@ -83,7 +84,9 @@ World Zero Script/
 |   `-- Rayfield.lua
 |-- Features/
 |   |-- Automation/
-|   |   `-- FarmingEngine.lua
+|   |   |-- FarmingEngine.lua
+|   |   |-- GearEngine.lua
+|   |   `-- InventoryEngine.lua
 |   |-- Classes/
 |   |   |-- Assassin.lua
 |   |   |-- Archer.lua
@@ -109,6 +112,7 @@ World Zero Script/
 |   |   `-- Warlord.lua
 |   |-- Combat.lua
 |   |-- Farming.lua
+|   |-- Gear.lua
 |   |-- Home.lua
 |   |-- Loot.lua
 |   |-- Missions.lua
@@ -131,17 +135,22 @@ Executor-specific globals are centralized in `Core/Executor.lua`. Other modules 
 The verified `Client.Actions` source supports these initial Rayfield controls:
 
 - Filtered Auto Farm with boss, elite, name, health, level, and distance targeting
+- Map-wide target discovery with sticky-target health progress, stalled-target skipping, and retry blacklisting
 - Full equipped-class rotation across every available special attack, Primary, and charged Ultimate
-- Smooth obstacle-aware pathfinding with sprinting, fence jumps, movement-threshold repathing, failed-path fallback, and stuck recovery
+- Pathfinding, continuous smooth flight, or instant CFrame navigation with optional flight noclip and collision restoration
 - Adaptive ranged kiting using live player/mob speed and equipped-class Primary range
 - Barrier-aware Auto Dodge/retreat with post-damage follow-up Dodge
 - Exact catalog-driven responses for Darkness, freezes, Shock, Knockdown, Stunned, Poison, damage-over-time, vulnerability, healing, and Death Mark
 - Freeze Tag teammate rescue using the verified 15-stud thaw condition
-- Dynamic world travel from live `WorldData`
+- Dynamic world, real hub, special destination, and currently active event travel from live `WorldData`
 - Mission selection, matchmaking, free-reward claiming, and replay/return automation
-- Main-quest-first automation with exact kill-mob targeting, cross-world travel, quest-area fallback routing, and reward claiming
-- Coordinated dropped-item/currency collection and spawned reward-chest approach without pausing in-range combat
-- Previewable manual inventory cleanup that always protects locked and favorited items
+- Main-quest-first automation with exact kill-mob targeting, map-wide fallback, cross-world travel, exact quest-dungeon launch, dungeon return, quest-area fallback routing, and reward claiming
+- Central `queue_on_teleport` continuation for world, hub, event, dungeon, and mission-finish travel
+- Coordinated dropped-item/currency collection with post-kill loot windows so collection does not steal movement from a living target by default
+- Maximum-upgrade-potential gear scoring, protected upgrade/equip automation, and spending reserves
+- Capacity-aware inventory supervision with separately armed automatic cleanup that preserves locked, favorited, modified, equipped, and best-potential items
+- Respawn waiting, anti-idle, movement ownership, and error-recovery loops for long sessions
+- One-click safe farming start/stop across farming, main quests, loot, chests, and smart gear
 - Projected regeneration-aware quick-item healing
 - Optional automation-only WalkspeedManager multiplier with capped slow compensation
 - Optional approach, stopping distance, attack range, and selected-slot mode
@@ -191,7 +200,10 @@ The Combat tab reads the live `Shared.Skills` catalog and identifies the equippe
 The visible interface is intentionally smaller than the module tree:
 
 - Home
-- Automation — Farming, Missions, and Loot sections
+- Automation
+- Gear
+- Quests & Missions
+- Loot
 - Combat
 - Travel
 - Player
@@ -236,5 +248,6 @@ The default batch covers the status handlers, settings, gear, remote resolver, m
 ## Configuration and updates
 
 Rayfield automatically saves all flagged controls. The Settings tab reports the active configuration folder/file and can reload saved values.
+The first complete release uses the `WorldZero/WorldZeroV1` save name so older partial-build files do not produce missing-control warnings.
 
 Every fresh execution downloads the latest GitHub modules. The Settings tab also supports manual update checks, configurable polling, and optional automatic runtime reload when `main` changes.

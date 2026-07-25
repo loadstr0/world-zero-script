@@ -16,8 +16,13 @@ return function()
 	local lastQuestClaims = {}
 	local visitedCollectibles = {}
 	local lastWorldTravel = {}
+	local lastDungeonTravel = {}
 	local automationDecisions = {}
 	local lastLoopWarnings = {}
+	local targetLocks = {}
+	local lootWindows = {}
+	local engagementStates = {}
+	local targetBlacklists = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -36,12 +41,38 @@ return function()
 		SwapPerk = true,
 	}
 
-	function Engine.GetOptions(runtime, rangeOverride)
+	local function questUsesGenericCombat(questState)
+		if not questState then
+			return false
+		end
+
+		return questState.IsDungeonObjective == true
+			or questState.ObjectiveType == "LevelUp"
+			or questState.ObjectiveType == "KillAnyMob"
+			or questState.ObjectiveType == "KillMobInWorld"
+			or questState.ObjectiveType == "ItemPickup"
+			or questState.ObjectiveType == "BPXPPickup"
+			or questState.ObjectiveType == "CollectQuestCurrency"
+			or questState.ObjectiveType == "CompleteWorldEvent"
+	end
+
+	local function questNeedsDrops(questState)
+		return questState
+			and (
+				questState.ObjectiveType == "ItemPickup"
+				or questState.ObjectiveType == "BPXPPickup"
+				or questState.ObjectiveType == "CollectQuestCurrency"
+				or questState.ObjectiveType == "WorldEggHunt"
+			)
+	end
+
+	function Engine.GetOptions(runtime, rangeOverride, bypassConfiguredRange)
 		local configuredRange = tonumber(runtime.State:Get("Farming.TargetRange", 120)) or 120
+		local requestedRange = tonumber(rangeOverride) or configuredRange
 
 		return {
 			Mode = runtime.State:Get("Farming.TargetMode", "Nearest"),
-			Range = math.min(tonumber(rangeOverride) or configuredRange, configuredRange),
+			Range = bypassConfiguredRange and requestedRange or math.min(requestedRange, configuredRange),
 			BossOnly = runtime.State:Get("Farming.BossOnly", false),
 			EliteOnly = runtime.State:Get("Farming.EliteOnly", false),
 			NameFilter = runtime.State:Get("Farming.NameFilter", ""),
@@ -67,8 +98,141 @@ return function()
 		return descriptor
 	end
 
-	function Engine.GetTarget(runtime, rangeOverride)
-		local target, descriptorOrError = runtime.MobsAPI.SelectTarget(Engine.GetOptions(runtime, rangeOverride))
+	local function selectTarget(runtime, key, options)
+		local locks = targetLocks[runtime]
+		local blacklist = targetBlacklists[runtime]
+
+		if blacklist then
+			local now = os.clock()
+
+			for target, expiresAt in pairs(blacklist) do
+				if not target.Parent or (tonumber(expiresAt) or 0) <= now then
+					blacklist[target] = nil
+				end
+			end
+
+			options.ExcludedTargets = blacklist
+		end
+
+		if not locks then
+			locks = {}
+			targetLocks[runtime] = locks
+		end
+
+		local locked = locks[key]
+		local lootWindowUntil = tonumber(lootWindows[runtime]) or 0
+
+		if lootWindowUntil > os.clock() then
+			return nil, "post_combat_loot_window"
+		end
+
+		if runtime.State:Get("Farming.StickyTargets", true) and locked then
+			local root = runtime.Game.GetRootPart()
+			local descriptor = root and runtime.MobsAPI.GetDescriptor(locked.Target, root.Position) or nil
+
+			if descriptor and runtime.MobsAPI.IsValidTarget(descriptor, options) then
+				locked.Descriptor = descriptor
+				return locked.Target, descriptor
+			end
+
+			locks[key] = nil
+
+			if
+				runtime.State:Get("Loot.AfterKillSweep", true)
+				and (
+					runtime.State:Get("Loot.DropsEnabled", false)
+					or runtime.State:Get("Loot.ChestsEnabled", false)
+					or runtime.State:Get("Quests.Enabled", false)
+				)
+			then
+				lootWindows[runtime] = os.clock()
+					+ math.max(0, tonumber(runtime.State:Get("Loot.AfterKillSweepDuration", 2.5)) or 2.5)
+				return nil, "post_combat_loot_window"
+			end
+		end
+
+		local target, descriptorOrError = runtime.MobsAPI.SelectTarget(options)
+
+		if target then
+			locks[key] = {
+				Target = target,
+				Descriptor = descriptorOrError,
+			}
+		end
+
+		return target, descriptorOrError
+	end
+
+	local function skipStalledTarget(runtime, target, descriptor)
+		if
+			not runtime.State:Get("Farming.SkipStalledTargets", true)
+			or not target
+			or not descriptor
+			or not descriptor.Health
+		then
+			return false
+		end
+
+		local distance = tonumber(descriptor.Distance) or math.huge
+		local attackRange = tonumber(runtime.State:Get("Farming.AttackRange", 45)) or 45
+		local now = os.clock()
+		local state = engagementStates[runtime]
+		local health = tonumber(descriptor.Health.Current)
+
+		if not state or state.Target ~= target then
+			engagementStates[runtime] = {
+				Target = target,
+				Health = health,
+				LastProgressAt = now,
+			}
+			return false
+		end
+
+		if health and (not state.Health or health < state.Health - 0.001) then
+			state.Health = health
+			state.LastProgressAt = now
+			return false
+		elseif distance > attackRange then
+			state.Health = health
+			state.LastProgressAt = now
+			return false
+		end
+
+		local timeout = math.max(3, tonumber(runtime.State:Get("Farming.NoDamageTimeout", 15)) or 15)
+
+		if now - (tonumber(state.LastProgressAt) or now) < timeout then
+			return false
+		end
+
+		local blacklist = targetBlacklists[runtime]
+
+		if not blacklist then
+			blacklist = setmetatable({}, { __mode = "k" })
+			targetBlacklists[runtime] = blacklist
+		end
+
+		blacklist[target] = now
+			+ math.max(5, tonumber(runtime.State:Get("Farming.StalledTargetRetryDelay", 20)) or 20)
+		engagementStates[runtime] = nil
+
+		local locks = targetLocks[runtime]
+
+		if locks then
+			for key, lock in pairs(locks) do
+				if lock.Target == target then
+					locks[key] = nil
+				end
+			end
+		end
+
+		return true
+	end
+
+	function Engine.GetTarget(runtime, rangeOverride, bypassConfiguredRange)
+		local mapWide = runtime.State:Get("Farming.MapWideTargets", false)
+		local options =
+			Engine.GetOptions(runtime, mapWide and math.huge or rangeOverride, mapWide or bypassConfiguredRange == true)
+		local target, descriptorOrError = selectTarget(runtime, "Farm", options)
 
 		if not target then
 			return nil, descriptorOrError
@@ -93,18 +257,18 @@ return function()
 			return nil, "quest_has_no_mob_target"
 		end
 
-		local target, descriptorOrError = runtime.MobsAPI.SelectTarget({
+		local searchRange = runtime.State:Get("Quests.MapWideSearch", true) and math.huge
+			or (tonumber(runtime.State:Get("Quests.SearchRange", 10000)) or 10000)
+		local options = {
 			Mode = "Nearest",
-			Range = math.min(
-				tonumber(rangeOverride) or math.huge,
-				tonumber(runtime.State:Get("Quests.SearchRange", 500)) or 500
-			),
+			Range = math.min(tonumber(rangeOverride) or math.huge, searchRange),
 			BossOnly = false,
 			EliteOnly = false,
 			NameFilter = table.concat(questState.AllowedMobNames, ","),
 			ExactNames = questState.AllowedMobNames,
 			IncludeOwned = false,
-		})
+		}
+		local target, descriptorOrError = selectTarget(runtime, "Quest:" .. tostring(questState.ID), options)
 
 		if not target then
 			return nil, descriptorOrError
@@ -127,6 +291,10 @@ return function()
 
 			if target and descriptor then
 				return target, descriptor
+			end
+
+			if questUsesGenericCombat(questState) then
+				return Engine.GetTarget(runtime, math.huge, true)
 			end
 		end
 
@@ -313,6 +481,7 @@ return function()
 		options.MovementMode = runtime.State:Get("Farming.MovementMode", "Pathfinding")
 		options.CFrameFlightSpeed = tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 90)) or 90
 		options.ZeroVelocity = runtime.State:Get("Farming.CFrameZeroVelocity", true)
+		options.FlightNoclip = runtime.State:Get("Farming.FlightNoclip", true)
 		return options
 	end
 
@@ -329,6 +498,16 @@ return function()
 
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
 		local stopDistance, canKite = getPreferredDistance(runtime, adapter)
+		local targetPosition = descriptor.Position
+		local root = runtime.Game.GetRootPart()
+		local heightOffset = tonumber(runtime.State:Get("Farming.TargetHeightOffset", 0)) or 0
+
+		if not root then
+			return false
+		elseif heightOffset ~= 0 then
+			targetPosition += Vector3.new(0, heightOffset, 0)
+			distance = (targetPosition - root.Position).Magnitude
+		end
 
 		if canKite and distance < stopDistance - 3 then
 			local playerSpeed = tonumber(runtime.Walkspeed.Get())
@@ -336,7 +515,7 @@ return function()
 
 			if playerSpeed and (not targetSpeed or playerSpeed >= targetSpeed * 0.9) then
 				runtime.Navigator.RetreatFrom(
-					descriptor.Position,
+					targetPosition,
 					math.max(8, stopDistance - distance + 6),
 					addMovementMode(runtime, {
 						Owner = "CombatKite",
@@ -361,7 +540,7 @@ return function()
 		end
 
 		local moved, movementError = runtime.Navigator.MoveTo(
-			descriptor.Position,
+			targetPosition,
 			addMovementMode(runtime, {
 				Owner = "Combat",
 				StopDistance = stopDistance,
@@ -598,11 +777,13 @@ return function()
 		return runtime.Navigator.MoveTo(position, options)
 	end
 
-	local function getCollectible(runtime, hasCombatTarget)
-		local dropsEnabled = runtime.State:Get("Loot.DropsEnabled", false)
+	local function getCollectible(runtime, hasCombatTarget, questState)
+		local dropsEnabled = runtime.State:Get("Loot.DropsEnabled", false) or questNeedsDrops(questState)
 		local chestsEnabled = runtime.State:Get("Loot.ChestsEnabled", false)
 
 		if not dropsEnabled and not chestsEnabled then
+			return nil
+		elseif hasCombatTarget and not runtime.State:Get("Loot.CollectDuringCombat", false) then
 			return nil
 		end
 
@@ -715,24 +896,63 @@ return function()
 		return true
 	end
 
-	local function queueBootstrapAfterTeleport(runtime)
-		if not runtime.Executor.QueueOnTeleport then
-			return false, "queue_on_teleport_unavailable"
-		end
-
-		local bootstrapUrl = runtime.Context.Base
-			.. "Bootstrap.lua?cache="
-			.. tostring(os.time())
-			.. tostring(math.random(1000, 9999))
-		local source = "loadstring(game:HttpGet(" .. string.format("%q", bootstrapUrl) .. "))()"
-		local ok, queueError = pcall(runtime.Executor.QueueOnTeleport, source)
-
-		return ok, ok and nil or "queue_on_teleport_failed:" .. tostring(queueError)
-	end
-
 	local function routeQuest(runtime, questState, currentWorldOrder)
 		if not questState then
 			return false, "no_active_quest"
+		end
+
+		if questState.IsDungeonObjective and runtime.State:Get("Quests.AutoDungeonTravel", true) then
+			local missionID = tonumber(questState.DungeonID)
+			local difficultyID = tonumber(questState.DungeonDifficulty) or 1
+
+			if not missionID then
+				local worldOrder = tonumber(questState.LinkedWorld) or tonumber(currentWorldOrder)
+				local mission, missionError = runtime.MissionsAPI.FindEasiestForWorld(worldOrder, difficultyID)
+
+				if not mission then
+					return false, missionError
+				end
+
+				missionID = mission.ID
+			end
+
+			local currentMission = runtime.MissionsAPI.GetCurrent()
+
+			if currentMission then
+				return false, "quest_dungeon_active"
+			end
+
+			local previous = lastDungeonTravel[runtime]
+			local now = os.clock()
+
+			if previous and previous.MissionID == missionID and now - previous.At < 20 then
+				return true, "dungeon_travel_pending"
+			end
+
+			local traveled, travelError, queued, queueError = runtime.TeleportAPI.ToMission(missionID, difficultyID)
+
+			if not traveled then
+				return false, travelError
+			end
+
+			lastDungeonTravel[runtime] = {
+				MissionID = missionID,
+				At = now,
+			}
+			runtime.UI:Notify(
+				"Quest dungeon travel",
+				"Starting mission "
+					.. tostring(missionID)
+					.. " at difficulty "
+					.. tostring(difficultyID)
+					.. (
+						queued and "; automation is queued to resume."
+						or (". Re-execute after arrival because " .. tostring(queueError))
+					),
+				7,
+				0
+			)
+			return true, "dungeon_travel_requested"
 		end
 
 		if
@@ -754,8 +974,7 @@ return function()
 				return false, worldError
 			end
 
-			local queued, queueError = queueBootstrapAfterTeleport(runtime)
-			local traveled, travelError = runtime.TeleportAPI.ToWorld(world.ID)
+			local traveled, travelError, queued, queueError = runtime.TeleportAPI.ToWorld(world.ID)
 
 			if not traveled then
 				return false, travelError
@@ -779,7 +998,9 @@ return function()
 			return true, "world_travel_requested"
 		end
 
-		if not runtime.State:Get("Quests.RouteToArea", true) then
+		if questState.ObjectiveType == "LevelUp" then
+			return false, "objective_progresses_by_farming"
+		elseif not runtime.State:Get("Quests.RouteToArea", true) then
 			return false, "quest_routing_disabled"
 		elseif not questState.Location then
 			return false, questState.LocationError or "quest_location_unavailable"
@@ -1012,6 +1233,19 @@ return function()
 		task.spawn(function()
 			local loopOk, loopError = xpcall(function()
 				while not runtime.Stopped and activeLoops[runtime] == loopToken and Engine.IsEnabled(runtime) do
+					local humanoid = runtime.Game.GetHumanoid()
+					local root = runtime.Game.GetRootPart()
+
+					if not humanoid or not root or tonumber(humanoid.Health) == nil or humanoid.Health <= 0 then
+						Engine.Stop(runtime)
+						automationDecisions[runtime] = {
+							Waiting = "character_respawn",
+							Navigator = runtime.Navigator.GetState(),
+						}
+						task.wait(0.5)
+						continue
+					end
+
 					local statusState = runtime.Status.GetAutomationState()
 						or {
 							MovementBlocked = false,
@@ -1048,16 +1282,34 @@ return function()
 							local farmTarget = nil
 							local farmDescriptor = nil
 
-							if not questHandled and runtime.State:Get("Farming.Enabled", false) then
-								farmTarget, farmDescriptor = Engine.GetTarget(runtime)
+							local questNeedsGenericCombat = questUsesGenericCombat(questState)
+
+							if
+								not questHandled
+								and (runtime.State:Get("Farming.Enabled", false) or questNeedsGenericCombat)
+							then
+								farmTarget, farmDescriptor = Engine.GetTarget(
+									runtime,
+									questNeedsGenericCombat and math.huge or nil,
+									questNeedsGenericCombat
+								)
 							end
 
 							local target = questTarget or farmTarget
 							local descriptor = questDescriptor or farmDescriptor
 
+							if target and descriptor and skipStalledTarget(runtime, target, descriptor) then
+								target = nil
+								descriptor = nil
+								questTarget = nil
+								questDescriptor = nil
+								farmTarget = nil
+								farmDescriptor = nil
+							end
+
 							local collectible = not retreating
 									and not questHandled
-									and getCollectible(runtime, target ~= nil or questState ~= nil)
+									and getCollectible(runtime, target ~= nil, questState)
 								or nil
 							local collecting, collectionError = collect(runtime, collectible)
 							local routing = false
@@ -1151,6 +1403,11 @@ return function()
 			lastQuestClaims[runtime] = nil
 			visitedCollectibles[runtime] = nil
 			lastWorldTravel[runtime] = nil
+			lastDungeonTravel[runtime] = nil
+			targetLocks[runtime] = nil
+			lootWindows[runtime] = nil
+			engagementStates[runtime] = nil
+			targetBlacklists[runtime] = nil
 			automationDecisions[runtime] = nil
 
 			if runtime.Stopped then
