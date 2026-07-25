@@ -14,7 +14,7 @@ return function(ctx)
 		local selling = false
 
 		runtime.State:Set("Loot.DropsEnabled", false)
-		runtime.State:Set("Loot.ChestsEnabled", false)
+		runtime.State:Set("Loot.ChestsEnabled", true)
 		runtime.State:Set("Loot.CollectionRange", 120)
 		runtime.State:Set("Loot.CombatPriorityRange", 35)
 		runtime.State:Set("Loot.CollectDuringCombat", false)
@@ -49,7 +49,7 @@ return function(ctx)
 
 		runtime.Controls.LootChestsEnabled = runtime.UI:CreateToggle(tab, "LootChestsEnabled", {
 			Name = "Approach spawned reward chests",
-			CurrentValue = false,
+			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Loot.ChestsEnabled", value)
 				Engine.Reconcile(runtime)

@@ -63,7 +63,13 @@ return function(ctx)
 			return getPosition(instance) ~= nil
 		end
 
-		return instance.Parent == workspace
+		local missionObjects = workspace:FindFirstChild("MissionObjects")
+		local chestContainer = workspace:FindFirstChild("Chests")
+		local isKnownSpawnArea = instance.Parent == workspace
+			or (missionObjects and instance:IsDescendantOf(missionObjects))
+			or (chestContainer and instance:IsDescendantOf(chestContainer))
+
+		return isKnownSpawnArea
 			and instance:IsA("Model")
 			and string.find(string.lower(instance.Name), "chest", 1, true) ~= nil
 			and instance.Name ~= "AuraChest"
@@ -111,6 +117,16 @@ return function(ctx)
 
 		for _, child in ipairs(workspace:GetChildren()) do
 			appendCandidate(result, seen, child, root, maximum)
+		end
+
+		for _, containerName in ipairs({ "MissionObjects", "Chests" }) do
+			local container = workspace:FindFirstChild(containerName)
+
+			if container then
+				for _, descendant in ipairs(container:GetDescendants()) do
+					appendCandidate(result, seen, descendant, root, maximum)
+				end
+			end
 		end
 
 		local spawns = workspace:FindFirstChild("ChestSpawns")

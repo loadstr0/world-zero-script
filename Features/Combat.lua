@@ -54,6 +54,19 @@ return function()
 		runtime.State:Set("Combat.AuraRetryInterval", 0.1)
 		runtime.State:Set("Combat.AuraRetargetDelay", 0.15)
 		runtime.State:Set("Combat.AuraFlightSpeed", 120)
+		runtime.State:Set("Combat.BlatantMode", true)
+		runtime.State:Set("Combat.MobFunnel", true)
+		runtime.State:Set("Combat.FunnelMinimumTargets", 3)
+		runtime.State:Set("Combat.FunnelAggroRange", 16)
+		runtime.State:Set("Combat.FunnelTimeout", 6)
+		runtime.State:Set("Combat.AirOrbit", true)
+		runtime.State:Set("Combat.OrbitRadius", 8)
+		runtime.State:Set("Combat.OrbitHeight", 6)
+		runtime.State:Set("Combat.OrbitSpeed", 2.5)
+		runtime.State:Set("Combat.PredictiveDodge", true)
+		runtime.State:Set("Combat.PredictiveDodgeLead", 0.12)
+		runtime.State:Set("Combat.PredictiveDodgeFallback", 0.25)
+		runtime.State:Set("Combat.PrioritizeDungeonChests", true)
 
 		runtime.UI:CreateSection(tab, "Integration status")
 		runtime.UI:CreateParagraph(
@@ -212,6 +225,86 @@ return function()
 			tab,
 			"Aura behavior",
 			"Finds clusters across the full map, flies to each one, and continuously uses normal class skills, AoE attacks, primary attacks, and pet abilities. It does not fabricate server damage at impossible distances."
+		)
+
+		runtime.UI:CreateSection(tab, "Blatant Farming")
+		runtime.UI:CreateToggle(tab, "CombatBlatantMode", {
+			Name = "Blatant OP farming mode",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.BlatantMode", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "CombatMobFunnel", {
+			Name = "Aggro sweep before each wave",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.MobFunnel", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatFunnelTimeout", {
+			Name = "Maximum aggro sweep time",
+			Range = { 2, 12 },
+			Increment = 1,
+			Suffix = "s",
+			CurrentValue = 6,
+			Callback = function(value)
+				runtime.State:Set("Combat.FunnelTimeout", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "CombatAirOrbit", {
+			Name = "Airborne combat orbit",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.AirOrbit", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatOrbitRadius", {
+			Name = "Orbit radius",
+			Range = { 5, 14 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 8,
+			Callback = function(value)
+				runtime.State:Set("Combat.OrbitRadius", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatOrbitHeight", {
+			Name = "Orbit height",
+			Range = { 3, 12 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 6,
+			Callback = function(value)
+				runtime.State:Set("Combat.OrbitHeight", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "CombatPredictiveDodge", {
+			Name = "Learned last-moment dodging",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.PredictiveDodge", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "CombatPrioritizeDungeonChests", {
+			Name = "Always claim dungeon reward chests",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.PrioritizeDungeonChests", value)
+			end,
+		})
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Blatant behavior",
+			"Sweeps the current dungeon wave to pull aggro, attacks the densest stack while orbiting above ground effects, learns attack timing from real hits, and panic-flies away below the survival threshold."
 		)
 
 		runtime.UI:CreateSection(tab, "Primary attack")

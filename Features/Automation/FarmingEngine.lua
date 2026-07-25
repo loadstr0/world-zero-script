@@ -27,6 +27,9 @@ return function()
 	local targetBlacklists = {}
 	local recoveryStates = {}
 	local hazardStates = {}
+	local funnelStates = {}
+	local learnedAttackTimings = {}
+	local dungeonChestStates = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -175,6 +178,7 @@ return function()
 				if
 					runtime.State:Get("Combat.AuraEnabled", true)
 					and runtime.State:Get("Combat.AuraMapSweep", true)
+					and not (runtime.CurrentDungeonState and runtime.CurrentDungeonState.Active)
 				then
 					sweepDuration = math.min(
 						sweepDuration,
@@ -571,9 +575,53 @@ return function()
 		local targetPosition = descriptor.Position
 		local root = runtime.Game.GetRootPart()
 		local heightOffset = tonumber(runtime.State:Get("Farming.TargetHeightOffset", 0)) or 0
+		local finalMovementOverrides = {}
+
+		for key, value in pairs(movementOverrides or {}) do
+			finalMovementOverrides[key] = value
+		end
 
 		if not root then
 			return false, "character_root_unavailable"
+		end
+
+		if
+			runtime.State:Get("Combat.BlatantMode", true)
+			and runtime.State:Get("Combat.AirOrbit", true)
+		then
+			local orbitRadius = math.max(3, tonumber(runtime.State:Get("Combat.OrbitRadius", 8)) or 8)
+			local orbitHeight = math.max(2, tonumber(runtime.State:Get("Combat.OrbitHeight", 6)) or 6)
+			local attackRange = tonumber(runtime.State:Get("Farming.AttackRange", 45)) or 45
+			local maximumReach = attackRange
+			local ok, metadata = adapter and type(adapter.Describe) == "function" and pcall(adapter.Describe)
+
+			if ok and type(metadata) == "table" and type(metadata.Primary) == "table" then
+				maximumReach = math.min(maximumReach, tonumber(metadata.Primary.Range) or maximumReach)
+			end
+
+			local orbitReach = math.max(5, maximumReach - 2)
+			local requestedReach = math.sqrt(orbitRadius * orbitRadius + orbitHeight * orbitHeight)
+
+			if requestedReach > orbitReach then
+				local scale = orbitReach / requestedReach
+				orbitRadius *= scale
+				orbitHeight *= scale
+			end
+
+			local angle = os.clock() * (tonumber(runtime.State:Get("Combat.OrbitSpeed", 2.5)) or 2.5)
+			targetPosition += Vector3.new(
+				math.cos(angle) * orbitRadius,
+				orbitHeight,
+				math.sin(angle) * orbitRadius
+			)
+			distance = (targetPosition - root.Position).Magnitude
+			stopDistance = 1.5
+			canKite = false
+			finalMovementOverrides.MovementMode = "Smooth Flight"
+			finalMovementOverrides.FlightGroundSafety = true
+			finalMovementOverrides.FlightCruiseHeight = orbitHeight
+			finalMovementOverrides.FlightNoclip = true
+			finalMovementOverrides.TargetMoveThreshold = 1
 		elseif heightOffset ~= 0 then
 			targetPosition += Vector3.new(0, heightOffset, 0)
 			distance = (targetPosition - root.Position).Magnitude
@@ -593,7 +641,7 @@ return function()
 						RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
 						StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
 						TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
-					}), movementOverrides)
+					}), finalMovementOverrides)
 				)
 				return true
 			end
@@ -618,7 +666,7 @@ return function()
 				RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
 				StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
 				TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
-			}), movementOverrides)
+			}), finalMovementOverrides)
 		)
 
 		if not moved and movementError == "movement_controller_unavailable" and not movementWarnings[runtime] then
@@ -973,6 +1021,225 @@ return function()
 		return true
 	end
 
+	local function getDungeonRewardChest(runtime, chestState)
+		if
+			not runtime.State:Get("Combat.PrioritizeDungeonChests", true)
+			or not runtime.ChestsAPI
+			or not runtime.CurrentDungeonState
+			or not runtime.CurrentDungeonState.Active
+		then
+			return nil
+		end
+
+		local chests = runtime.ChestsAPI.List(math.huge)
+		local now = os.clock()
+
+		for _, candidate in ipairs(chests or {}) do
+			local ignoredUntil = chestState.Ignored[candidate.Instance]
+
+			if
+				not candidate.IsWorldChest
+				and (not ignoredUntil or ignoredUntil <= now)
+				and runtime.ChestsAPI.IsValid(candidate)
+			then
+				return candidate
+			end
+		end
+
+		return nil
+	end
+
+	local function collectDungeonRewardChest(runtime)
+		local dungeonState = runtime.CurrentDungeonState
+
+		if not dungeonState or not dungeonState.Active then
+			dungeonChestStates[runtime] = nil
+			return false
+		end
+
+		local chestState = dungeonChestStates[runtime]
+
+		if not chestState then
+			chestState = {
+				Ignored = setmetatable({}, { __mode = "k" }),
+			}
+			dungeonChestStates[runtime] = chestState
+		end
+
+		local now = os.clock()
+
+		for instance, ignoredUntil in pairs(chestState.Ignored) do
+			if not instance.Parent or ignoredUntil <= now then
+				chestState.Ignored[instance] = nil
+			end
+		end
+
+		local candidate = getDungeonRewardChest(runtime, chestState)
+
+		if not candidate then
+			chestState.Instance = nil
+			chestState.FirstSeenAt = nil
+			chestState.ArrivedAt = nil
+			return false
+		end
+
+		if chestState.Instance ~= candidate.Instance then
+			chestState.Instance = candidate.Instance
+			chestState.FirstSeenAt = now
+			chestState.ArrivedAt = nil
+		end
+
+		local root = runtime.Game.GetRootPart()
+
+		if not root then
+			return true, "reward_chest_character_unavailable", candidate
+		end
+
+		candidate.Distance = (candidate.Position - root.Position).Magnitude
+		local moved, movementError = moveToPoint(runtime, candidate.Position, 3, "DungeonRewardChest", {
+			MovementMode = "Smooth Flight",
+			CFrameFlightSpeed = math.max(
+				90,
+				tonumber(runtime.State:Get("Combat.AuraFlightSpeed", 120)) or 120
+			),
+			FlightCruiseHeight = 6,
+			FlightGroundSafety = true,
+			FlightNoclip = true,
+			TargetMoveThreshold = 2,
+		})
+
+		if candidate.Distance <= 5 then
+			chestState.ArrivedAt = chestState.ArrivedAt or now
+
+			if now - chestState.ArrivedAt >= 10 then
+				-- A decorative or already-open chest must not deadlock the dungeon.
+				chestState.Ignored[candidate.Instance] = now + 15
+				chestState.Instance = nil
+				chestState.FirstSeenAt = nil
+				chestState.ArrivedAt = nil
+				return false, "reward_chest_open_timeout", candidate
+			end
+
+			return true, "waiting_for_reward_chest_to_open", candidate
+		end
+
+		return true, moved and "approaching_reward_chest" or movementError, candidate
+	end
+
+	local function handleMobFunnel(runtime, dungeonState)
+		if
+			not runtime.State:Get("Combat.BlatantMode", true)
+			or not runtime.State:Get("Combat.MobFunnel", true)
+			or not dungeonState
+			or not dungeonState.Active
+			or dungeonState.Phase ~= "Combat"
+		then
+			funnelStates[runtime] = nil
+			return false
+		end
+
+		local root = runtime.Game.GetRootPart()
+
+		if not root then
+			return false
+		end
+
+		local descriptors = runtime.MobsAPI.GetMatching({
+			Range = math.huge,
+			IncludeOwned = false,
+			OriginPosition = root.Position,
+		}) or {}
+		local minimumTargets =
+			math.max(2, tonumber(runtime.State:Get("Combat.FunnelMinimumTargets", 3)) or 3)
+
+		if #descriptors < minimumTargets then
+			funnelStates[runtime] = nil
+			return false
+		end
+
+		local state = funnelStates[runtime]
+		local now = os.clock()
+
+		if state and state.Completed then
+			local hasNewTarget = false
+
+			for _, descriptor in ipairs(descriptors) do
+				if not state.Known[descriptor.Model] then
+					hasNewTarget = true
+					break
+				end
+			end
+
+			if not hasNewTarget then
+				return false
+			end
+
+			state = nil
+		end
+
+		if not state then
+			state = {
+				StartedAt = now,
+				Known = setmetatable({}, { __mode = "k" }),
+				Visited = setmetatable({}, { __mode = "k" }),
+			}
+			funnelStates[runtime] = state
+		end
+
+		local aggroRange = math.max(6, tonumber(runtime.State:Get("Combat.FunnelAggroRange", 16)) or 16)
+		local selected = nil
+
+		for _, descriptor in ipairs(descriptors) do
+			state.Known[descriptor.Model] = true
+
+			if (tonumber(descriptor.Distance) or math.huge) <= aggroRange then
+				state.Visited[descriptor.Model] = true
+			elseif
+				not state.Visited[descriptor.Model]
+				and (
+					not selected
+					or (tonumber(descriptor.Distance) or math.huge)
+						< (tonumber(selected.Distance) or math.huge)
+				)
+			then
+				selected = descriptor
+			end
+		end
+
+		local timeout = math.max(2, tonumber(runtime.State:Get("Combat.FunnelTimeout", 6)) or 6)
+
+		if not selected or now - state.StartedAt >= timeout then
+			state.Completed = true
+			state.CompletedAt = now
+			return false, selected and "mob_funnel_timeout" or "mob_funnel_complete"
+		end
+
+		local targetPosition = selected.Position + Vector3.new(0, 4, 0)
+		local moved, movementError = moveToPoint(
+			runtime,
+			targetPosition,
+			math.max(4, aggroRange - 3),
+			"MobFunnel",
+			{
+				MovementMode = "Smooth Flight",
+				CFrameFlightSpeed = math.max(
+					90,
+					tonumber(runtime.State:Get("Combat.AuraFlightSpeed", 120)) or 120
+				),
+				FlightCruiseHeight = 4,
+				FlightGroundSafety = false,
+				FlightNoclip = true,
+				TargetMoveThreshold = 3,
+			}
+		)
+
+		if moved and (tonumber(selected.Distance) or math.huge) <= aggroRange + 4 then
+			state.Visited[selected.Model] = true
+		end
+
+		return true, moved and "sweeping_mob_aggro" or movementError, selected
+	end
+
 	local function claimQuest(runtime, questState)
 		if not questState or not questState.ReadyToClaim then
 			return false
@@ -1280,6 +1547,7 @@ return function()
 			and damage
 			and os.clock() - (tonumber(damage.At) or 0) <= reactionWindow
 		local attackStates = dodgeAttackStates[runtime]
+		local now = os.clock()
 
 		if not attackStates then
 			attackStates = setmetatable({}, { __mode = "k" })
@@ -1288,15 +1556,79 @@ return function()
 
 		local activeAttacks = setmetatable({}, { __mode = "k" })
 		local attacking = nil
+		local predictive = runtime.State:Get("Combat.BlatantMode", true)
+			and runtime.State:Get("Combat.PredictiveDodge", true)
+		local lead = math.max(0, tonumber(runtime.State:Get("Combat.PredictiveDodgeLead", 0.12)) or 0.12)
+		local fallback =
+			math.max(0.05, tonumber(runtime.State:Get("Combat.PredictiveDodgeFallback", 0.25)) or 0.25)
+		local newDamage = damagedRecently and lastDodgedDamage[runtime] ~= damage.At
+
+		local function damageCameFrom(model)
+			local attacker = damage and damage.Attacker
+
+			if typeof(attacker) ~= "Instance" or typeof(model) ~= "Instance" then
+				return false
+			elseif attacker == model then
+				return true
+			end
+
+			local ok, matches = pcall(function()
+				return attacker:IsDescendantOf(model) or model:IsDescendantOf(attacker)
+			end)
+
+			return ok and matches == true
+		end
 
 		for _, candidate in ipairs(threat and threat.Attacking or {}) do
 			local model = candidate.Model
 			local name = tostring(candidate.CurrentAttack or "")
 
 			if model and name ~= "" then
-				activeAttacks[model] = name
+				local record = attackStates[model]
 
-				if not attacking and attackStates[model] ~= name then
+				if type(record) ~= "table" or record.Name ~= name then
+					record = {
+						Name = name,
+						StartedAt = now,
+						Dodged = false,
+					}
+					attackStates[model] = record
+				end
+
+				record.Key = tostring(candidate.Type or candidate.ModelName or "Mob") .. "|" .. name
+				activeAttacks[model] = record
+
+				if
+					newDamage
+					and damageCameFrom(model)
+					and record.LastLearnedDamageAt ~= damage.At
+				then
+					local sample = (tonumber(damage.At) or now) - (tonumber(record.StartedAt) or now)
+
+					if sample >= 0.05 and sample <= 3 then
+						local previous = tonumber(learnedAttackTimings[record.Key])
+						learnedAttackTimings[record.Key] = previous and previous * 0.7 + sample * 0.3 or sample
+						record.LastLearnedDamageAt = damage.At
+					end
+				end
+
+				local learnedDelay = tonumber(learnedAttackTimings[record.Key]) or fallback
+				local triggerDelay = math.max(0.03, learnedDelay - lead)
+				local ready = not record.Dodged
+					and (
+						not predictive
+						or now - (tonumber(record.StartedAt) or now) >= triggerDelay
+						or (newDamage and damageCameFrom(model))
+					)
+
+				if
+					ready
+					and (
+						not attacking
+						or (tonumber(candidate.Distance) or math.huge)
+							< (tonumber(attacking.Distance) or math.huge)
+					)
+				then
 					attacking = candidate
 				end
 			end
@@ -1310,7 +1642,6 @@ return function()
 
 		local attackName = attacking and tostring(attacking.CurrentAttack or "") or ""
 		local newAttack = attacking and attackName ~= ""
-		local newDamage = damagedRecently and lastDodgedDamage[runtime] ~= damage.At
 
 		if
 			not runtime.State:Get("Farming.AutoDodge", true)
@@ -1324,7 +1655,11 @@ return function()
 		local lastAttempt = lastDodgeAttempts[runtime] or 0
 		local minimumInterval = tonumber(runtime.State:Get("Farming.DodgeMinimumInterval", 0.85)) or 0.85
 
-		if os.clock() - lastAttempt < minimumInterval then
+		if runtime.State:Get("Combat.BlatantMode", true) then
+			minimumInterval = math.min(minimumInterval, 0.45)
+		end
+
+		if now - lastAttempt < minimumInterval then
 			return false
 		end
 
@@ -1332,9 +1667,13 @@ return function()
 			return false
 		end
 
-		lastDodgeAttempts[runtime] = os.clock()
+		lastDodgeAttempts[runtime] = now
 		if newAttack then
-			attackStates[attacking.Model] = attackName
+			local record = attackStates[attacking.Model]
+
+			if type(record) == "table" then
+				record.Dodged = true
+			end
 		end
 		if newDamage then
 			lastDodgedDamage[runtime] = damage.At
@@ -1777,6 +2116,50 @@ return function()
 						local rescuing = not retreating and rescueFrozenTeammate(runtime)
 
 						if not rescuing then
+							local claimingDungeonChest = false
+							local dungeonChestStatus = nil
+							local dungeonChest = nil
+
+							if not retreating and not hazardHolding then
+								claimingDungeonChest, dungeonChestStatus, dungeonChest =
+									collectDungeonRewardChest(runtime)
+							end
+
+							if claimingDungeonChest then
+								automationDecisions[runtime] = {
+									Dungeon = dungeonState,
+									DungeonRewardChest = dungeonChest,
+									Collecting = true,
+									CollectionError = dungeonChestStatus,
+									Retreating = false,
+									HazardHolding = false,
+									Navigator = runtime.Navigator.GetState(),
+								}
+								task.wait(0.05)
+								continue
+							end
+
+							local funneling, funnelStatus, funnelTarget = false, nil, nil
+
+							if not retreating and not hazardHolding then
+								funneling, funnelStatus, funnelTarget =
+									handleMobFunnel(runtime, dungeonState)
+							end
+
+							if funneling then
+								automationDecisions[runtime] = {
+									Dungeon = dungeonState,
+									FunnelTarget = funnelTarget,
+									Funneling = true,
+									RouteError = funnelStatus,
+									Retreating = false,
+									HazardHolding = false,
+									Navigator = runtime.Navigator.GetState(),
+								}
+								task.wait(0.05)
+								continue
+							end
+
 							local questState = nil
 							local currentWorldOrder = nil
 							if runtime.State:Get("Quests.Enabled", false) and runtime.QuestsAPI then
@@ -1918,6 +2301,7 @@ return function()
 											and dungeonState.Active
 											and rootPart
 											and typeof(descriptor.Position) == "Vector3"
+											and not runtime.State:Get("Combat.BlatantMode", true)
 											and (
 												rootPart.Position.Y < 10
 												or descriptor.Position.Y < 10
@@ -1960,6 +2344,7 @@ return function()
 								Approaching = approaching,
 								ApproachError = approachError,
 								AttackAttempted = attackAttempted,
+								Funneling = false,
 								AuraEnabled = runtime.State:Get("Combat.AuraEnabled", true),
 								AuraClusterCount = type(descriptor) == "table"
 										and tonumber(descriptor.ClusterCount)
@@ -2035,6 +2420,8 @@ return function()
 			targetBlacklists[runtime] = nil
 			recoveryStates[runtime] = nil
 			hazardStates[runtime] = nil
+			funnelStates[runtime] = nil
+			dungeonChestStates[runtime] = nil
 			automationDecisions[runtime] = nil
 
 			if runtime.Stopped then
