@@ -341,12 +341,17 @@ return function(ctx)
 		local guide = getProgressionGuide(root, step.Part)
 
 		if guide then
+			local guideMode = step.Kind == "DungeonRoom"
+					and math.abs(root.Position.Y - guide.Y) >= 15
+					and "Smooth Flight"
+				or "Pathfinding"
+
 			return {
 				Kind = "DungeonPath",
 				Name = step.Name .. " corridor",
 				Position = guide,
 				StopDistance = 2,
-				MovementMode = "Pathfinding",
+				MovementMode = guideMode,
 				FlightGroundSafety = false,
 				FlightCruiseHeight = 4,
 				FlightNoclip = true,
