@@ -498,7 +498,15 @@ return function()
 		return options
 	end
 
-	local function approachTarget(runtime, descriptor)
+	local function addOverrides(options, overrides)
+		for key, value in pairs(overrides or {}) do
+			options[key] = value
+		end
+
+		return options
+	end
+
+	local function approachTarget(runtime, descriptor, movementOverrides)
 		local distance = tonumber(descriptor and descriptor.Distance)
 
 		if
@@ -530,13 +538,13 @@ return function()
 				runtime.Navigator.RetreatFrom(
 					targetPosition,
 					math.max(8, stopDistance - distance + 6),
-					addMovementMode(runtime, {
+					addOverrides(addMovementMode(runtime, {
 						Owner = "CombatKite",
 						AutoJump = runtime.State:Get("Farming.AutoJump", true),
 						RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
 						StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
 						TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
-					})
+					}), movementOverrides)
 				)
 				return true
 			end
@@ -554,14 +562,14 @@ return function()
 
 		local moved, movementError = runtime.Navigator.MoveTo(
 			targetPosition,
-			addMovementMode(runtime, {
+			addOverrides(addMovementMode(runtime, {
 				Owner = "Combat",
 				StopDistance = stopDistance,
 				AutoJump = runtime.State:Get("Farming.AutoJump", true),
 				RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
 				StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
 				TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
-			})
+			}), movementOverrides)
 		)
 
 		if not moved and movementError == "movement_controller_unavailable" and not movementWarnings[runtime] then
@@ -1530,7 +1538,23 @@ return function()
 
 							if target and descriptor then
 								if not retreating and not collecting and not routing then
-									approachTarget(runtime, descriptor)
+									local rootPart = runtime.Game.GetRootPart()
+									local undergroundMovement = dungeonState
+											and dungeonState.Active
+											and rootPart
+											and typeof(descriptor.Position) == "Vector3"
+											and (
+												rootPart.Position.Y < 10
+												or descriptor.Position.Y < 10
+											)
+											and {
+												FlightGroundSafety = false,
+												FlightCruiseHeight = 6,
+												FlightNoclip = true,
+											}
+										or nil
+
+									approachTarget(runtime, descriptor, undergroundMovement)
 								end
 
 								if
