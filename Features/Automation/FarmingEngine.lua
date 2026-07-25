@@ -17,6 +17,7 @@ return function()
 	local visitedCollectibles = {}
 	local lastWorldTravel = {}
 	local automationDecisions = {}
+	local lastLoopWarnings = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -36,7 +37,7 @@ return function()
 	}
 
 	function Engine.GetOptions(runtime, rangeOverride)
-		local configuredRange = runtime.State:Get("Farming.TargetRange", 120)
+		local configuredRange = tonumber(runtime.State:Get("Farming.TargetRange", 120)) or 120
 
 		return {
 			Mode = runtime.State:Get("Farming.TargetMode", "Nearest"),
@@ -48,8 +49,38 @@ return function()
 		}
 	end
 
+	local function refreshDescriptor(runtime, target, descriptor)
+		if typeof(target) ~= "Instance" or type(descriptor) ~= "table" then
+			return nil, "invalid_target_descriptor"
+		end
+
+		local root = runtime.Game.GetRootPart()
+		local targetPart = runtime.MobsAPI.GetTargetPart(target)
+		local position = targetPart and targetPart.Position or descriptor.Position
+
+		if not root or typeof(position) ~= "Vector3" then
+			return nil, "target_position_unavailable"
+		end
+
+		descriptor.Position = position
+		descriptor.Distance = (position - root.Position).Magnitude
+		return descriptor
+	end
+
 	function Engine.GetTarget(runtime, rangeOverride)
-		return runtime.MobsAPI.SelectTarget(Engine.GetOptions(runtime, rangeOverride))
+		local target, descriptorOrError = runtime.MobsAPI.SelectTarget(Engine.GetOptions(runtime, rangeOverride))
+
+		if not target then
+			return nil, descriptorOrError
+		end
+
+		local descriptor, descriptorError = refreshDescriptor(runtime, target, descriptorOrError)
+
+		if not descriptor then
+			return nil, descriptorError
+		end
+
+		return target, descriptor
 	end
 
 	function Engine.GetQuestTarget(runtime, questState, rangeOverride)
@@ -62,15 +93,30 @@ return function()
 			return nil, "quest_has_no_mob_target"
 		end
 
-		return runtime.MobsAPI.SelectTarget({
+		local target, descriptorOrError = runtime.MobsAPI.SelectTarget({
 			Mode = "Nearest",
-			Range = math.min(tonumber(rangeOverride) or math.huge, runtime.State:Get("Quests.SearchRange", 500)),
+			Range = math.min(
+				tonumber(rangeOverride) or math.huge,
+				tonumber(runtime.State:Get("Quests.SearchRange", 500)) or 500
+			),
 			BossOnly = false,
 			EliteOnly = false,
 			NameFilter = table.concat(questState.AllowedMobNames, ","),
 			ExactNames = questState.AllowedMobNames,
 			IncludeOwned = false,
 		})
+
+		if not target then
+			return nil, descriptorOrError
+		end
+
+		local descriptor, descriptorError = refreshDescriptor(runtime, target, descriptorOrError)
+
+		if not descriptor then
+			return nil, descriptorError
+		end
+
+		return target, descriptor
 	end
 
 	function Engine.GetActiveTarget(runtime, rangeOverride)
@@ -145,7 +191,7 @@ return function()
 		local character = runtime.Game.GetCharacter()
 		local boosted = boostedCharacters[runtime]
 		local enabled = runtime.State:Get("Farming.SpeedBoostEnabled", false)
-		local multiplier = runtime.State:Get("Farming.SpeedBoostMultiplier", 1.5)
+		local multiplier = tonumber(runtime.State:Get("Farming.SpeedBoostMultiplier", 1.5)) or 1.5
 		local statusSpeedMultiplier = tonumber(statusState and statusState.WalkspeedMultiplier)
 
 		if
@@ -235,7 +281,7 @@ return function()
 	end
 
 	local function getPreferredDistance(runtime, adapter)
-		local stoppingDistance = runtime.State:Get("Farming.StopDistance", 10)
+		local stoppingDistance = tonumber(runtime.State:Get("Farming.StopDistance", 10)) or 10
 
 		if
 			not runtime.State:Get("Farming.AdaptiveKiting", true)
@@ -256,44 +302,44 @@ return function()
 			return stoppingDistance, false
 		end
 
-		local preferred = math.min(
-			runtime.State:Get("Farming.KiteDistance", 28),
-			primaryRange - 5,
-			runtime.State:Get("Farming.AttackRange", 45) - 3
-		)
+		local kiteDistance = tonumber(runtime.State:Get("Farming.KiteDistance", 28)) or 28
+		local attackRange = tonumber(runtime.State:Get("Farming.AttackRange", 45)) or 45
+		local preferred = math.min(kiteDistance, primaryRange - 5, attackRange - 3)
 
 		return math.max(stoppingDistance, preferred), true
 	end
 
 	local function approachTarget(runtime, descriptor)
-		if not runtime.State:Get("Farming.AutoApproach", true) then
+		local distance = tonumber(descriptor and descriptor.Distance)
+
+		if
+			not runtime.State:Get("Farming.AutoApproach", true)
+			or not distance
+			or typeof(descriptor.Position) ~= "Vector3"
+		then
 			return false
 		end
 
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
 		local stopDistance, canKite = getPreferredDistance(runtime, adapter)
 
-		if canKite and descriptor.Distance < stopDistance - 3 then
-			local playerSpeed = runtime.Walkspeed.Get()
-			local targetSpeed = runtime.Walkspeed.Get(descriptor.Model)
+		if canKite and distance < stopDistance - 3 then
+			local playerSpeed = tonumber(runtime.Walkspeed.Get())
+			local targetSpeed = tonumber(runtime.Walkspeed.Get(descriptor.Model))
 
 			if playerSpeed and (not targetSpeed or playerSpeed >= targetSpeed * 0.9) then
-				runtime.Navigator.RetreatFrom(
-					descriptor.Position,
-					math.max(8, stopDistance - descriptor.Distance + 6),
-					{
-						Owner = "CombatKite",
-						AutoJump = runtime.State:Get("Farming.AutoJump", true),
-						RepathInterval = runtime.State:Get("Farming.RepathInterval", 1.25),
-						StuckTimeout = runtime.State:Get("Farming.StuckTimeout", 1.4),
-						TargetMoveThreshold = runtime.State:Get("Farming.TargetMoveThreshold", 10),
-					}
-				)
+				runtime.Navigator.RetreatFrom(descriptor.Position, math.max(8, stopDistance - distance + 6), {
+					Owner = "CombatKite",
+					AutoJump = runtime.State:Get("Farming.AutoJump", true),
+					RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
+					StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
+					TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
+				})
 				return true
 			end
 		end
 
-		if runtime.State:Get("Farming.AutoSprint", true) and descriptor.Distance > stopDistance + 5 then
+		if runtime.State:Get("Farming.AutoSprint", true) and distance > stopDistance + 5 then
 			if not farmSprinting[runtime] then
 				runtime.Actions.Sprint()
 				farmSprinting[runtime] = true
@@ -307,9 +353,9 @@ return function()
 			Owner = "Combat",
 			StopDistance = stopDistance,
 			AutoJump = runtime.State:Get("Farming.AutoJump", true),
-			RepathInterval = runtime.State:Get("Farming.RepathInterval", 1.25),
-			StuckTimeout = runtime.State:Get("Farming.StuckTimeout", 1.4),
-			TargetMoveThreshold = runtime.State:Get("Farming.TargetMoveThreshold", 10),
+			RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
+			StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
+			TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
 		})
 
 		if not moved and movementError == "movement_controller_unavailable" and not movementWarnings[runtime] then
@@ -377,7 +423,7 @@ return function()
 
 		local attempts = lastSlotAttempts[runtime] or {}
 		lastSlotAttempts[runtime] = attempts
-		local retryInterval = runtime.State:Get("Farming.SkillRetryInterval", 0.6)
+		local retryInterval = tonumber(runtime.State:Get("Farming.SkillRetryInterval", 0.6)) or 0.6
 
 		if attempts[slot] and os.clock() - attempts[slot] < retryInterval then
 			return false
@@ -410,9 +456,13 @@ return function()
 	end
 
 	local function useFarmAttack(runtime, target, descriptor)
+		local distance = tonumber(descriptor and descriptor.Distance)
+		local attackRange = tonumber(runtime.State:Get("Farming.AttackRange", 45)) or 45
+
 		if
 			not runtime.State:Get("Farming.AutoAttack", true)
-			or descriptor.Distance > runtime.State:Get("Farming.AttackRange", 45)
+			or not distance
+			or distance > attackRange
 			or runtime.Actions.IsBusy() == true
 		then
 			return false
@@ -429,7 +479,7 @@ return function()
 		end
 
 		if runtime.State:Get("Combat.AutoAim", true) then
-			runtime.Actions.AimAtTarget(target, runtime.State:Get("Combat.AimDuration", 0.2))
+			runtime.Actions.AimAtTarget(target, tonumber(runtime.State:Get("Combat.AimDuration", 0.2)) or 0.2)
 		end
 
 		local mode = runtime.State:Get("Farming.RotationMode", "Full Rotation")
@@ -465,7 +515,7 @@ return function()
 		local health = runtime.Health.GetState()
 
 		if health then
-			return health.Ratio
+			return tonumber(health.Ratio) or 1
 		end
 
 		local humanoid = runtime.Game.GetHumanoid()
@@ -481,10 +531,12 @@ return function()
 		local health = runtime.Health.GetState()
 
 		if health then
+			local healthRatio = tonumber(health.Ratio) or 1
+
 			return {
-				HealthRatio = health.Ratio,
-				ProtectionRatio = health.ProtectionRatio or health.Ratio,
-				Barrier = health.Barrier or 0,
+				HealthRatio = healthRatio,
+				ProtectionRatio = tonumber(health.ProtectionRatio) or healthRatio,
+				Barrier = tonumber(health.Barrier) or 0,
 			}
 		end
 
@@ -500,9 +552,9 @@ return function()
 	local function getNavigationOptions(runtime)
 		return {
 			AutoJump = runtime.State:Get("Farming.AutoJump", true),
-			RepathInterval = runtime.State:Get("Farming.RepathInterval", 1.25),
-			StuckTimeout = runtime.State:Get("Farming.StuckTimeout", 1.4),
-			TargetMoveThreshold = runtime.State:Get("Farming.TargetMoveThreshold", 10),
+			RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
+			StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
+			TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
 		}
 	end
 
@@ -513,6 +565,7 @@ return function()
 			return false, "invalid_target_position"
 		end
 
+		stopDistance = tonumber(stopDistance) or 0
 		local root = runtime.Game.GetRootPart()
 		local distance = root and (root.Position - position).Magnitude or 0
 
@@ -539,10 +592,10 @@ return function()
 			return nil
 		end
 
-		local range = runtime.State:Get("Loot.CollectionRange", 120)
+		local range = tonumber(runtime.State:Get("Loot.CollectionRange", 120)) or 120
 
 		if hasCombatTarget then
-			range = math.min(range, runtime.State:Get("Loot.CombatPriorityRange", 35))
+			range = math.min(range, tonumber(runtime.State:Get("Loot.CombatPriorityRange", 35)) or 35)
 		end
 
 		local visited = visitedCollectibles[runtime]
@@ -555,7 +608,7 @@ return function()
 		local now = os.clock()
 
 		for instance, expiresAt in pairs(visited) do
-			if not instance.Parent or expiresAt <= now then
+			if not instance.Parent or (tonumber(expiresAt) or 0) <= now then
 				visited[instance] = nil
 			end
 		end
@@ -580,7 +633,9 @@ return function()
 		end
 
 		if drop and chest then
-			return drop.Distance <= chest.Distance and drop or chest
+			local dropDistance = tonumber(drop.Distance) or math.huge
+			local chestDistance = tonumber(chest.Distance) or math.huge
+			return dropDistance <= chestDistance and drop or chest
 		end
 
 		return drop or chest
@@ -605,7 +660,7 @@ return function()
 			return false, movementError
 		end
 
-		if candidate.Kind == "Chest" and candidate.Distance <= stopDistance + 1 then
+		if candidate.Kind == "Chest" and (tonumber(candidate.Distance) or math.huge) <= stopDistance + 1 then
 			local visited = visitedCollectibles[runtime] or {}
 			visitedCollectibles[runtime] = visited
 			visited[candidate.Instance] = os.clock() + 8
@@ -716,25 +771,25 @@ return function()
 			return false, questState.LocationError or "quest_location_unavailable"
 		end
 
-		local stopDistance = math.min(25, math.max(10, questState.Location.Range or 15))
+		local locationRange = tonumber(questState.Location.Range) or 15
+		local stopDistance = math.min(25, math.max(10, locationRange))
 
 		return moveToPoint(runtime, questState.Location.Position, stopDistance, "Quest")
 	end
 
 	local function dodgeThreat(runtime, adapter, threat, healthRatio, statusState)
 		local damage = recentDamage[runtime]
+		local reactionWindow = tonumber(runtime.State:Get("Farming.DamageReactionWindow", 1.25)) or 1.25
+		local dodgeThreshold = (tonumber(runtime.State:Get("Farming.DodgeHealthThreshold", 70)) or 70) / 100
 		local damagedRecently = runtime.State:Get("Farming.DodgeAfterDamage", true)
 			and damage
-			and os.clock() - damage.At <= runtime.State:Get("Farming.DamageReactionWindow", 1.25)
+			and os.clock() - (tonumber(damage.At) or 0) <= reactionWindow
 
 		if
 			not runtime.State:Get("Farming.AutoDodge", true)
 			or (statusState and statusState.SkillsBlocked)
-			or ((not threat or threat.Count <= 0) and not damagedRecently)
-			or ((not threat or threat.AttackingCount <= 0) and healthRatio > runtime.State:Get(
-				"Farming.DodgeHealthThreshold",
-				70
-			) / 100 and not damagedRecently)
+			or ((not threat or (tonumber(threat.Count) or 0) <= 0) and not damagedRecently)
+			or ((not threat or (tonumber(threat.AttackingCount) or 0) <= 0) and (tonumber(healthRatio) or 1) > dodgeThreshold and not damagedRecently)
 			or runtime.Actions.IsBusy() == true
 		then
 			return false
@@ -762,10 +817,11 @@ return function()
 	end
 
 	local function useEmergencyHeal(runtime, healthRatio, statusState)
-		local threshold = runtime.State:Get("Farming.HealItemHealthThreshold", 40)
+		healthRatio = tonumber(healthRatio) or 1
+		local threshold = tonumber(runtime.State:Get("Farming.HealItemHealthThreshold", 40)) or 40
 
 		if runtime.State:Get("Farming.DebuffSurvival", true) and statusState and statusState.HasDamageOverTime then
-			threshold = math.max(threshold, runtime.State:Get("Farming.DebuffSafetyThreshold", 60))
+			threshold = math.max(threshold, tonumber(runtime.State:Get("Farming.DebuffSafetyThreshold", 60)) or 60)
 		end
 
 		if
@@ -778,7 +834,11 @@ return function()
 
 		if statusState and statusState.HasHealingOverTime then
 			local projectedRatio = healthRatio
-				+ math.max(0, statusState.HealingPerSecond - statusState.DamagePerSecond) * 2
+				+ math.max(
+						0,
+						(tonumber(statusState.HealingPerSecond) or 0) - (tonumber(statusState.DamagePerSecond) or 0)
+					)
+					* 2
 
 			if projectedRatio > threshold / 100 then
 				return false
@@ -791,7 +851,7 @@ return function()
 			return false
 		end
 
-		local retryInterval = runtime.State:Get("Farming.HealItemRetryInterval", 5)
+		local retryInterval = tonumber(runtime.State:Get("Farming.HealItemRetryInterval", 5)) or 5
 		local lastAttempt = lastHealAttempts[runtime] or 0
 
 		if os.clock() - lastAttempt < retryInterval then
@@ -804,19 +864,20 @@ return function()
 	end
 
 	local function handleDefense(runtime, statusState)
-		local threat = runtime.MobsAPI.GetThreatState(runtime.State:Get("Farming.ThreatRadius", 25))
+		local threat = runtime.MobsAPI.GetThreatState(tonumber(runtime.State:Get("Farming.ThreatRadius", 25)) or 25)
 		local survival = Engine.GetSurvivalState(runtime)
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
 		useEmergencyHeal(runtime, survival.HealthRatio, statusState)
 		dodgeThreat(runtime, adapter, threat, survival.ProtectionRatio, statusState)
-		local retreatThreshold = runtime.State:Get("Farming.RetreatHealthThreshold", 30)
+		local retreatThreshold = tonumber(runtime.State:Get("Farming.RetreatHealthThreshold", 30)) or 30
 
 		if
 			runtime.State:Get("Farming.DebuffSurvival", true)
 			and statusState
 			and (statusState.HasDamageOverTime or statusState.HasDefenseDebuff)
 		then
-			retreatThreshold = math.max(retreatThreshold, runtime.State:Get("Farming.DebuffSafetyThreshold", 60))
+			retreatThreshold =
+				math.max(retreatThreshold, tonumber(runtime.State:Get("Farming.DebuffSafetyThreshold", 60)) or 60)
 		end
 
 		if
@@ -824,13 +885,13 @@ return function()
 			and threat
 			and threat.Nearest
 			and not (statusState and statusState.MovementBlocked)
-			and survival.ProtectionRatio <= retreatThreshold / 100
+			and (tonumber(survival.ProtectionRatio) or 1) <= retreatThreshold / 100
 		then
 			local retreatOptions = getNavigationOptions(runtime)
 			retreatOptions.Owner = "EmergencyRetreat"
 			runtime.Navigator.RetreatFrom(
 				threat.Nearest.Position,
-				runtime.State:Get("Farming.RetreatDistance", 35),
+				tonumber(runtime.State:Get("Farming.RetreatDistance", 35)) or 35,
 				retreatOptions
 			)
 			return true
@@ -867,7 +928,7 @@ return function()
 		end
 
 		local nearest = nil
-		local nearestDistance = runtime.State:Get("Farming.FreezeTagRescueRange", 120)
+		local nearestDistance = tonumber(runtime.State:Get("Farming.FreezeTagRescueRange", 120)) or 120
 		local localPlayer = runtime.Game.GetLocalPlayer()
 
 		for _, player in ipairs(runtime.Context.Services.Players:GetPlayers()) do
@@ -905,14 +966,14 @@ return function()
 			return false
 		end
 
-		if teammate.Distance >= 12 then
+		if (tonumber(teammate.Distance) or math.huge) >= 12 then
 			local moved = runtime.Navigator.MoveTo(teammate.Position, {
 				Owner = "Rescue",
 				StopDistance = 10,
 				AutoJump = runtime.State:Get("Farming.AutoJump", true),
 				RepathInterval = 0.5,
-				StuckTimeout = runtime.State:Get("Farming.StuckTimeout", 1.4),
-				TargetMoveThreshold = runtime.State:Get("Farming.TargetMoveThreshold", 10),
+				StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
+				TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
 			})
 
 			return moved == true
@@ -1022,22 +1083,34 @@ return function()
 						end
 					end
 
-					task.wait(runtime.State:Get("Farming.UpdateInterval", 0.2))
+					local updateInterval = tonumber(runtime.State:Get("Farming.UpdateInterval", 0.2)) or 0.2
+					task.wait(math.max(0.03, updateInterval))
 				end
 			end, function(runError)
 				return tostring(runError)
 			end)
 
 			if not loopOk and not runtime.Stopped then
-				pcall(function()
-					runtime.UI:Notify(
-						"Automation recovered",
-						"The movement loop stopped after an error and will restart if automation is still enabled: "
-							.. tostring(loopError),
-						7,
-						0
-					)
-				end)
+				local now = os.clock()
+				local previous = lastLoopWarnings[runtime]
+				local shouldNotify = not previous or previous.Message ~= loopError or now - previous.At >= 15
+
+				lastLoopWarnings[runtime] = {
+					Message = loopError,
+					At = now,
+				}
+
+				if shouldNotify then
+					pcall(function()
+						runtime.UI:Notify(
+							"Automation recovered",
+							"The movement loop stopped after an error and will restart if automation is still enabled: "
+								.. tostring(loopError),
+							7,
+							0
+						)
+					end)
+				end
 			end
 
 			Engine.Stop(runtime)
@@ -1062,6 +1135,10 @@ return function()
 			visitedCollectibles[runtime] = nil
 			lastWorldTravel[runtime] = nil
 			automationDecisions[runtime] = nil
+
+			if runtime.Stopped then
+				lastLoopWarnings[runtime] = nil
+			end
 
 			if not runtime.Stopped and Engine.IsEnabled(runtime) then
 				if targetProvider then
