@@ -1792,6 +1792,8 @@ return function()
 							local collecting, collectionError = collect(runtime, collectible)
 							local routing = false
 							local routeError = nil
+							local approaching = false
+							local attackAttempted = false
 
 							if
 								not collecting
@@ -1838,7 +1840,7 @@ return function()
 											}
 										or nil
 
-									approachTarget(runtime, descriptor, undergroundMovement)
+									approaching = approachTarget(runtime, descriptor, undergroundMovement) == true
 								end
 
 								if
@@ -1847,7 +1849,7 @@ return function()
 									and not routing
 									and not statusState.SkillsBlocked
 								then
-									useFarmAttack(runtime, target, descriptor)
+									attackAttempted = useFarmAttack(runtime, target, descriptor) == true
 								end
 							elseif not retreating and not collecting and not routing and not questHandled then
 								Engine.Stop(runtime)
@@ -1862,6 +1864,8 @@ return function()
 								Collecting = collecting == true,
 								CollectionError = collectionError,
 								Routing = routing == true,
+								Approaching = approaching,
+								AttackAttempted = attackAttempted,
 								Retreating = retreating == true,
 								HazardHolding = hazardHolding == true,
 								RouteError = routeError,
