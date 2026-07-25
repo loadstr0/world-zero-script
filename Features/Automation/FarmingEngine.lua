@@ -1021,6 +1021,9 @@ return function()
 	local function routeDungeon(runtime, dungeonState)
 		if not dungeonState or not dungeonState.Active then
 			return false, "dungeon_not_active"
+		elseif dungeonState.Phase == "Rewards" then
+			runtime.Navigator.Stop()
+			return true, "dungeon_rewards"
 		elseif dungeonState.MissionOver then
 			runtime.Navigator.Stop()
 			return true, dungeonState.MissionSucceeded and "dungeon_completed" or "dungeon_failed"

@@ -4,6 +4,20 @@ return function(ctx)
 	local Missions = ctx:Require("MissionsAPI")
 	local Mobs = ctx:Require("MobsAPI")
 	local Health = ctx:Require("Health")
+	local Players = ctx.Services.Players
+
+	local function rewardScreenVisible()
+		local player = Players.LocalPlayer
+		local playerGui = player and player:FindFirstChildOfClass("PlayerGui")
+		local screen = playerGui and playerGui:FindFirstChild("MissionRewards")
+
+		if not screen or (screen:IsA("ScreenGui") and not screen.Enabled) then
+			return false
+		end
+
+		local content = screen:FindFirstChild("MissionRewards")
+		return content == nil or not content:IsA("GuiObject") or content.Visible
+	end
 
 	local function getPart(instance)
 		if not instance then
@@ -78,7 +92,9 @@ return function(ctx)
 		local started = missionState.Started or mobCount > 0
 		local phase = "WaitingForStart"
 
-		if missionState.MissionOver then
+		if rewardScreenVisible() then
+			phase = "Rewards"
+		elseif missionState.MissionOver then
 			phase = missionState.MissionSucceeded and "Completed" or "Failed"
 		elseif mobCount > 0 then
 			phase = "Combat"

@@ -443,12 +443,18 @@ return function(ctx)
 						return
 					end
 
-					local reward, rewardError = runtime.MissionsAPI.ClaimFreeReward()
+					local rewards, rewardError = runtime.MissionsAPI.ClaimAvailableRewards(3)
 
-					if reward then
+					if rewards then
+						local names = {}
+
+						for _, reward in ipairs(rewards) do
+							table.insert(names, tostring(reward.Count) .. "x " .. tostring(reward.Name))
+						end
+
 						runtime.UI:Notify(
 							"Mission reward",
-							tostring(reward.Count) .. "x " .. tostring(reward.Name) .. " claimed.",
+							table.concat(names, ", ") .. " claimed.",
 							5,
 							0
 						)

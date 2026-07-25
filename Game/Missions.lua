@@ -352,6 +352,30 @@ return function(ctx)
 		}
 	end
 
+	function Missions.ClaimAvailableRewards(maximum)
+		local rewards = {}
+		local limit = math.clamp(tonumber(maximum) or 3, 1, 5)
+		local lastError = nil
+
+		for _ = 1, limit do
+			local reward, rewardError = Missions.ClaimFreeReward()
+
+			if not reward then
+				lastError = rewardError
+				break
+			end
+
+			table.insert(rewards, reward)
+			task.wait(0.2)
+		end
+
+		if #rewards == 0 then
+			return nil, lastError or "no_free_reward_available"
+		end
+
+		return rewards, lastError
+	end
+
 	function Missions.FinishChoice(replay)
 		local module, resolveError = resolve()
 
