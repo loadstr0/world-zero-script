@@ -346,6 +346,7 @@ return function(ctx)
 				Name = step.Name .. " corridor",
 				Position = guide,
 				StopDistance = 2,
+				MovementMode = "Pathfinding",
 				FlightGroundSafety = false,
 				FlightCruiseHeight = 4,
 				FlightNoclip = true,

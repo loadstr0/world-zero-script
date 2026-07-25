@@ -1191,6 +1191,7 @@ return function()
 					progressionRoute.StopDistance,
 					"DungeonStageRoute",
 					{
+						MovementMode = progressionRoute.MovementMode,
 						FlightGroundSafety = progressionRoute.FlightGroundSafety,
 						FlightCruiseHeight = progressionRoute.FlightCruiseHeight,
 						FlightNoclip = progressionRoute.FlightNoclip,
