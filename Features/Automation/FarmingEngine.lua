@@ -1736,8 +1736,16 @@ return function()
 								)
 							end
 
-							local target = questTarget or farmTarget
-							local descriptor = questDescriptor or farmDescriptor
+							local target = nil
+							local descriptor = nil
+
+							if questTarget then
+								target = questTarget
+								descriptor = questDescriptor
+							elseif farmTarget then
+								target = farmTarget
+								descriptor = farmDescriptor
+							end
 							local questCombatRoute = nil
 							local dungeonCombatRoute = nil
 
