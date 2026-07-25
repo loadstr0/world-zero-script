@@ -2,7 +2,9 @@
 -- Public entry point for loadstr0/world-zero-script.
 
 local env = getgenv()
-local BOOT_SAFETY_HEIGHT = 120
+-- Tower enemies can retain targets beyond 125 studs, so the initialization hold
+-- must sit well outside ordinary aggro and projectile ranges.
+local BOOT_SAFETY_HEIGHT = 2500
 
 local function beginBootSafety()
 	local previous = env.WorldZeroBootSafety

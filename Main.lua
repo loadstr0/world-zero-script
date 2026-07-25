@@ -122,17 +122,13 @@ return function(ctx)
 
 		if root and root.Parent then
 			pcall(function()
-				if
-					not automationEnabled
-					and safety.Character == root.Parent
-					and safety.OriginalCFrame
-				then
+				if safety.Character == root.Parent and safety.OriginalCFrame then
 					root.CFrame = safety.OriginalCFrame
 				end
 
 				root.AssemblyLinearVelocity = Vector3.zero
 				root.AssemblyAngularVelocity = Vector3.zero
-				root.Anchored = automationEnabled and false or safety.OriginalAnchored == true
+				root.Anchored = safety.OriginalAnchored == true
 			end)
 		end
 
