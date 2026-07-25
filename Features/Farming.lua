@@ -76,8 +76,8 @@ return function(ctx)
 		runtime.State:Set("Farming.DodgeHealthThreshold", 70)
 		runtime.State:Set("Farming.EmergencyRetreat", true)
 		runtime.State:Set("Farming.AggressiveSurvival", true)
-		runtime.State:Set("Farming.RetreatHealthThreshold", 65)
-		runtime.State:Set("Farming.RetreatDistance", 55)
+		runtime.State:Set("Farming.RetreatHealthThreshold", 75)
+		runtime.State:Set("Farming.RetreatDistance", 65)
 		runtime.State:Set("Farming.AirRecovery", true)
 		runtime.State:Set("Farming.AirRecoveryHeight", 45)
 		runtime.State:Set("Farming.RecoveryResumeThreshold", 95)
@@ -711,7 +711,7 @@ return function(ctx)
 		})
 
 		runtime.UI:CreateToggle(tab, "FarmingAggressiveSurvival", {
-			Name = "Aggressive survival (65% minimum)",
+			Name = "Aggressive survival (75% minimum)",
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Farming.AggressiveSurvival", value)
@@ -723,7 +723,7 @@ return function(ctx)
 			Range = { 5, 80 },
 			Increment = 5,
 			Suffix = "%",
-			CurrentValue = 65,
+			CurrentValue = 75,
 			Callback = function(value)
 				runtime.State:Set("Farming.RetreatHealthThreshold", value)
 			end,
@@ -734,7 +734,7 @@ return function(ctx)
 			Range = { 10, 80 },
 			Increment = 5,
 			Suffix = " studs",
-			CurrentValue = 55,
+			CurrentValue = 65,
 			Callback = function(value)
 				runtime.State:Set("Farming.RetreatDistance", value)
 			end,

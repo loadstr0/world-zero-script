@@ -1533,7 +1533,7 @@ return function()
 		local retreatThreshold = tonumber(runtime.State:Get("Farming.RetreatHealthThreshold", 30)) or 30
 
 		if runtime.State:Get("Farming.AggressiveSurvival", true) then
-			retreatThreshold = math.max(retreatThreshold, 65)
+			retreatThreshold = math.max(retreatThreshold, 75)
 		end
 
 		if
@@ -1590,7 +1590,7 @@ return function()
 				local useAirRecovery = runtime.State:Get("Farming.AirRecovery", true)
 
 				if runtime.State:Get("Farming.AggressiveSurvival", true) then
-					distance = math.max(distance, 55)
+					distance = math.max(distance, 65)
 				end
 
 				local requestedHeight = useAirRecovery
