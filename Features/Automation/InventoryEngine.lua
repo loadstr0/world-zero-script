@@ -182,15 +182,20 @@ return function()
 			getProtectedGear(runtime)
 		)
 
-		setStatus(runtime, {
+		local cleanupStatus = {
 			Action = gold and "Sold safe items" or "Sell failed",
 			Sold = gold and soldOrError or 0,
 			Gold = gold,
 			SmartCandidates = candidateSummary and candidateSummary.Smart or 0,
 			Remaining = capacity.Remaining,
 			Capacity = capacity.Capacity,
-			Error = gold and nil or soldOrError,
-		})
+		}
+
+		if gold == nil then
+			cleanupStatus.Error = soldOrError
+		end
+
+		setStatus(runtime, cleanupStatus)
 
 		return gold ~= nil, gold and "inventory_cleanup_requested" or soldOrError
 	end
