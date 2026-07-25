@@ -1349,7 +1349,7 @@ return function()
 					<= (tonumber(runtime.State:Get("Farming.HazardMaximumHold", 15)) or 15)
 			then
 				runtime.Navigator.Stop()
-				return true
+				return false, true
 			end
 
 			hazardStates[runtime] = nil
@@ -1391,7 +1391,7 @@ return function()
 		end
 
 		if typeof(position) ~= "Vector3" then
-			return true
+			return true, false
 		end
 
 		runtime.Navigator.MoveTo(position, {
@@ -1404,7 +1404,7 @@ return function()
 			FlightCruiseHeight = 8,
 			FlightGroundClearance = 3,
 		})
-		return true
+		return true, false
 	end
 
 	local function useEmergencyHeal(runtime, healthRatio, statusState)
@@ -1458,11 +1458,11 @@ return function()
 		local threat = runtime.MobsAPI.GetThreatState(tonumber(runtime.State:Get("Farming.ThreatRadius", 25)) or 25)
 		local survival = Engine.GetSurvivalState(runtime)
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
-		local escapingHazard = escapeFloorHazard(runtime, adapter, statusState)
+		local escapingHazard, holdingHazard = escapeFloorHazard(runtime, adapter, statusState)
 		useEmergencyHeal(runtime, survival.HealthRatio, statusState)
 
 		if escapingHazard then
-			return true
+			return true, false
 		end
 
 		dodgeThreat(runtime, adapter, threat, survival.ProtectionRatio, statusState)
@@ -1501,7 +1501,7 @@ return function()
 			local root = runtime.Game.GetRootPart()
 
 			if not root then
-				return true
+				return true, false
 			end
 
 			if not recovery or recovery.Character ~= root.Parent then
@@ -1545,14 +1545,14 @@ return function()
 			end
 
 			runtime.Navigator.MoveTo(recovery.Position, retreatOptions)
-			return true
+			return true, false
 		end
 
 		if recovery then
 			recoveryStates[runtime] = nil
 		end
 
-		return false
+		return false, holdingHazard == true
 	end
 
 	local function updateFatalStatusWarning(runtime, statusState)
@@ -1687,7 +1687,7 @@ return function()
 					updateSpeedBoost(runtime, statusState)
 					updateDamageListener(runtime)
 					updateFatalStatusWarning(runtime, statusState)
-					local retreating = handleDefense(runtime, statusState, dungeonState)
+					local retreating, hazardHolding = handleDefense(runtime, statusState, dungeonState)
 
 					if statusState.MovementBlocked then
 						runtime.Navigator.Stop()
@@ -1785,6 +1785,7 @@ return function()
 							local combatRoute = questCombatRoute or dungeonCombatRoute
 							local collectible = not combatRoute
 									and not retreating
+									and not hazardHolding
 									and not questHandled
 									and getCollectible(runtime, target ~= nil, questState)
 								or nil
@@ -1795,6 +1796,7 @@ return function()
 							if
 								not collecting
 								and not retreating
+								and not hazardHolding
 								and not questHandled
 							then
 								if combatRoute then
@@ -1818,7 +1820,7 @@ return function()
 							end
 
 							if target and descriptor then
-								if not retreating and not collecting and not routing then
+								if not retreating and not hazardHolding and not collecting and not routing then
 									local rootPart = runtime.Game.GetRootPart()
 									local undergroundMovement = dungeonState
 											and dungeonState.Active
@@ -1860,6 +1862,8 @@ return function()
 								Collecting = collecting == true,
 								CollectionError = collectionError,
 								Routing = routing == true,
+								Retreating = retreating == true,
+								HazardHolding = hazardHolding == true,
 								RouteError = routeError,
 								DungeonCombatRoute = dungeonCombatRoute,
 								QuestCombatRoute = questCombatRoute,
