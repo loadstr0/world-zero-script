@@ -250,6 +250,14 @@ return function(ctx)
 			if candidate.IsBoss ~= current.IsBoss then
 				return candidate.IsBoss
 			end
+		elseif mode == "Crowd Priority" then
+			if candidate.ClusterCount ~= current.ClusterCount then
+				return (candidate.ClusterCount or 1) > (current.ClusterCount or 1)
+			end
+
+			if candidate.IsBoss ~= current.IsBoss then
+				return candidate.IsBoss
+			end
 		end
 
 		return (candidate.Distance or math.huge) < (current.Distance or math.huge)
@@ -272,12 +280,35 @@ return function(ctx)
 		local selected = nil
 		local mode = options.Mode or "Nearest"
 		local selectionOrigin = typeof(options.OriginPosition) == "Vector3" and options.OriginPosition or root.Position
+		local candidates = {}
 
 		for _, mob in pairs(all) do
 			local descriptor = getDescriptorSafely(mob, selectionOrigin)
 
-			if Mobs.IsValidTarget(descriptor, options) and isBetter(descriptor, selected, mode) then
-				selected = descriptor
+			if Mobs.IsValidTarget(descriptor, options) then
+				table.insert(candidates, descriptor)
+			end
+		end
+
+		if mode == "Crowd Priority" then
+			local clusterRadius = math.max(1, tonumber(options.ClusterRadius) or 24)
+
+			for _, candidate in ipairs(candidates) do
+				local clusterCount = 0
+
+				for _, nearby in ipairs(candidates) do
+					if (candidate.Position - nearby.Position).Magnitude <= clusterRadius then
+						clusterCount = clusterCount + 1
+					end
+				end
+
+				candidate.ClusterCount = clusterCount
+			end
+		end
+
+		for _, candidate in ipairs(candidates) do
+			if isBetter(candidate, selected, mode) then
+				selected = candidate
 			end
 		end
 

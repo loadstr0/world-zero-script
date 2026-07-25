@@ -48,6 +48,9 @@ return function()
 		runtime.State:Set("Combat.AimDuration", 0.2)
 		runtime.State:Set("Combat.AutoAim", true)
 		runtime.State:Set("Combat.MinimumTargets", 1)
+		runtime.State:Set("Combat.AuraEnabled", true)
+		runtime.State:Set("Combat.AuraClusterRadius", 24)
+		runtime.State:Set("Combat.AuraRetryInterval", 0.1)
 
 		runtime.UI:CreateSection(tab, "Integration status")
 		runtime.UI:CreateParagraph(
@@ -140,6 +143,43 @@ return function()
 				runtime.State:Set("Combat.AutoAim", value)
 			end,
 		})
+
+		runtime.UI:CreateSection(tab, "Combat Aura")
+		runtime.UI:CreateToggle(tab, "CombatAuraEnabled", {
+			Name = "OP combat aura",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.AuraEnabled", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatAuraClusterRadius", {
+			Name = "Aura cluster radius",
+			Range = { 10, 60 },
+			Increment = 2,
+			Suffix = " studs",
+			CurrentValue = 24,
+			Callback = function(value)
+				runtime.State:Set("Combat.AuraClusterRadius", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatAuraRetryInterval", {
+			Name = "Aura action spacing",
+			Range = { 0.05, 0.5 },
+			Increment = 0.05,
+			Suffix = "s",
+			CurrentValue = 0.1,
+			Callback = function(value)
+				runtime.State:Set("Combat.AuraRetryInterval", value)
+			end,
+		})
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Aura behavior",
+			"Prioritizes the densest nearby enemy cluster and continuously uses normal class skills, AoE attacks, primary attacks, and pet abilities. It does not fabricate server damage."
+		)
 
 		runtime.UI:CreateSection(tab, "Primary attack")
 		runtime.UI:CreateButton(tab, {

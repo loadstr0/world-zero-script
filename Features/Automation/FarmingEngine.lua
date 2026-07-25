@@ -90,15 +90,17 @@ return function()
 	function Engine.GetOptions(runtime, rangeOverride, bypassConfiguredRange, originPosition)
 		local configuredRange = tonumber(runtime.State:Get("Farming.TargetRange", 500)) or 500
 		local requestedRange = tonumber(rangeOverride) or configuredRange
+		local auraEnabled = runtime.State:Get("Combat.AuraEnabled", true)
 
 		return {
-			Mode = runtime.State:Get("Farming.TargetMode", "Nearest"),
+			Mode = auraEnabled and "Crowd Priority" or runtime.State:Get("Farming.TargetMode", "Nearest"),
 			Range = bypassConfiguredRange and requestedRange or math.min(requestedRange, configuredRange),
 			BossOnly = runtime.State:Get("Farming.BossOnly", false),
 			EliteOnly = runtime.State:Get("Farming.EliteOnly", false),
 			NameFilter = runtime.State:Get("Farming.NameFilter", ""),
 			IncludeOwned = false,
 			OriginPosition = originPosition,
+			ClusterRadius = tonumber(runtime.State:Get("Combat.AuraClusterRadius", 24)) or 24,
 		}
 	end
 
@@ -667,6 +669,13 @@ return function()
 		local attempts = lastSlotAttempts[runtime] or {}
 		lastSlotAttempts[runtime] = attempts
 		local retryInterval = tonumber(runtime.State:Get("Farming.SkillRetryInterval", 0.2)) or 0.2
+
+		if runtime.State:Get("Combat.AuraEnabled", true) then
+			retryInterval = math.min(
+				retryInterval,
+				tonumber(runtime.State:Get("Combat.AuraRetryInterval", 0.1)) or 0.1
+			)
+		end
 
 		if attempts[slot] and os.clock() - attempts[slot] < retryInterval then
 			return false
@@ -1924,6 +1933,10 @@ return function()
 								Approaching = approaching,
 								ApproachError = approachError,
 								AttackAttempted = attackAttempted,
+								AuraEnabled = runtime.State:Get("Combat.AuraEnabled", true),
+								AuraClusterCount = type(descriptor) == "table"
+										and tonumber(descriptor.ClusterCount)
+									or nil,
 								Retreating = retreating == true,
 								HazardHolding = hazardHolding == true,
 								RouteError = routeError,
