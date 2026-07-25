@@ -66,6 +66,9 @@ return function(ctx)
 		runtime.State:Set("Farming.EmergencyRetreat", true)
 		runtime.State:Set("Farming.RetreatHealthThreshold", 30)
 		runtime.State:Set("Farming.RetreatDistance", 35)
+		runtime.State:Set("Farming.AirRecovery", true)
+		runtime.State:Set("Farming.AirRecoveryHeight", 70)
+		runtime.State:Set("Farming.RecoveryResumeThreshold", 85)
 		runtime.State:Set("Farming.AutoHealItem", false)
 		runtime.State:Set("Farming.HealItemName", "")
 		runtime.State:Set("Farming.HealItemHealthThreshold", 40)
@@ -617,6 +620,36 @@ return function(ctx)
 			CurrentValue = 35,
 			Callback = function(value)
 				runtime.State:Set("Farming.RetreatDistance", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingAirRecovery", {
+			Name = "Fly out of reach to recover",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.AirRecovery", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingAirRecoveryHeight", {
+			Name = "Air recovery height",
+			Range = { 25, 150 },
+			Increment = 5,
+			Suffix = " studs",
+			CurrentValue = 70,
+			Callback = function(value)
+				runtime.State:Set("Farming.AirRecoveryHeight", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingRecoveryResumeThreshold", {
+			Name = "Resume fighting after healing",
+			Range = { 40, 100 },
+			Increment = 5,
+			Suffix = "%",
+			CurrentValue = 85,
+			Callback = function(value)
+				runtime.State:Set("Farming.RecoveryResumeThreshold", value)
 			end,
 		})
 

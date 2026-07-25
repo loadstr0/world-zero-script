@@ -39,7 +39,7 @@
 - Boss-only Blade Dance targeting with corrected live energy-folder readiness
 - Pathfinding, terrain-clamped ascent/cruise/descent flight, and instant CFrame movement with flight noclip cleanup
 - Speed-aware ranged kiting and optional automation movement multiplier
-- Barrier-aware Auto Dodge, post-hit follow-up Dodge, low-health retreat, and quick-item healing
+- Barrier-aware Auto Dodge, post-hit follow-up Dodge, persistent airborne low-health recovery, and quick-item healing
 - Exact status handling: skill-only Darkness pause; full Frozen/Shock/Knockdown/Stunned pause
 - DoT/vulnerability safety thresholds, Poison heal suppression, and regeneration projection
 - Optional capped compensation for non-zero status slows
@@ -72,7 +72,7 @@ Available controls:
 - Boss-only, elite-only, and comma-separated mob-name filters
 - Pathfinding approach, sprinting, obstacle jumps, stopping distance, and stuck recovery
 - Primary-range and live-Walkspeed-aware kiting
-- Incoming/post-damage Dodge, barrier/debuff-aware retreat thresholds, and projected-healing-aware quick items
+- Incoming/post-damage Dodge, barrier/debuff-aware airborne recovery thresholds, and projected-healing-aware quick items
 
 Swordmaster behavior, server hitbox validation, and `Shared.Mobs` client targeting are verified. The direct `AttackTarget` remote is explicitly flagged as autofarming, and invalid damage identifiers are recorded as Kill Aura before a delayed kick. Those trap paths remain deliberately unexposed; farming uses normal class skill execution.
 

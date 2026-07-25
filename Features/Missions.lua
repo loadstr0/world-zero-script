@@ -47,6 +47,7 @@ return function(ctx)
 		runtime.State:Set("Quests.SearchRange", 10000)
 		runtime.State:Set("Dungeons.AutoStart", true)
 		runtime.State:Set("Dungeons.AutoProgression", true)
+		runtime.State:Set("Dungeons.AutoTowerProgression", true)
 		runtime.State:Set("Dungeons.DefensePriority", true)
 		runtime.State:Set("Dungeons.HoldDefense", true)
 
@@ -241,6 +242,13 @@ return function(ctx)
 				runtime.State:Set("Dungeons.AutoProgression", value)
 			end,
 		})
+		runtime.UI:CreateToggle(tab, "DungeonAutoTowerProgression", {
+			Name = "Advance Celestial Tower floors automatically",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Dungeons.AutoTowerProgression", value)
+			end,
+		})
 		runtime.UI:CreateToggle(tab, "DungeonDefensePriority", {
 			Name = "Protect damaged defense objectives first",
 			CurrentValue = true,
@@ -258,7 +266,7 @@ return function(ctx)
 		runtime.UI:CreateParagraph(
 			tab,
 			"Dungeon supervisor",
-			"Mission start colliders, traversal triggers, checkpoints, wave gaps, protected objects, mob waves, mission completion, rewards, and return travel are handled as separate dungeon phases."
+			"Mission start colliders, traversal triggers, checkpoints, wave gaps, protected objects, mob waves, mission completion, rewards, and return travel are handled as separate dungeon phases. Celestial Tower arena gates and next-floor portals are read from the live floor controller."
 		)
 
 		runtime.UI:CreateSection(tab, "Manual dungeon selection")

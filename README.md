@@ -55,6 +55,7 @@ World Zero Script/
 |   |-- Status.lua
 |   |-- Skills.lua
 |   |-- Teleport.lua
+|   |-- Towers.lua
 |   |-- Walkspeed.lua
 |   `-- Classes/
 |       |-- Assassin.lua
@@ -140,11 +141,11 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Dual Wielder boss-only Blade Dance policy with live `EnergyProperties` readiness
 - Pathfinding, terrain-safe ascent/cruise/descent flight, or instant CFrame navigation with optional flight noclip and collision restoration
 - Adaptive ranged kiting using live player/mob speed and equipped-class Primary range
-- Barrier-aware Auto Dodge/retreat with post-damage follow-up Dodge
+- Barrier-aware Auto Dodge with post-damage follow-up Dodge and persistent airborne low-health recovery
 - Exact catalog-driven responses for Darkness, freezes, Shock, Knockdown, Stunned, Poison, damage-over-time, vulnerability, healing, and Death Mark
 - Freeze Tag teammate rescue using the verified 15-stud thaw condition
 - Dynamic world, real hub, special destination, and currently active event travel from live `WorldData`
-- Mission selection, matchmaking, stage-aware traversal/checkpoint routing, free-reward claiming, and replay/return automation
+- Mission selection, matchmaking, stage-aware traversal/checkpoint routing, Celestial Tower arena/portal progression, free-reward claiming, and replay/return automation
 - Main-quest-first automation with exact kill-mob targeting, map-wide fallback, cross-world travel, exact quest-dungeon launch, dungeon return, quest-area fallback routing, and reward claiming
 - Central `queue_on_teleport` continuation for world, hub, event, dungeon, and mission-finish travel
 - Coordinated dropped-item/currency collection with post-kill loot windows so collection does not steal movement from a living target by default
@@ -250,7 +251,7 @@ The default batch covers the status handlers, settings, gear, remote resolver, m
 
 `DevBridge/WorldZeroBridge.cmd` is a local command-line application for sending isolated diagnostic Luau jobs through Project Real's filesystem IPC. It captures prints, warnings, returned values, errors, tracebacks, and client metadata, then archives JSON results inside `DevBridge/results/`.
 
-Built-in probes include runtime status, quest-dungeon routing, inventory-model inspection, and a read-only smart-selling preview. See `DevBridge/README.md` for commands and safety details.
+Built-in probes include runtime status, quest-dungeon routing, Celestial Tower floor/controller inspection, inventory-model inspection, and a read-only smart-selling preview. See `DevBridge/README.md` for commands and safety details.
 
 ## Configuration and updates
 

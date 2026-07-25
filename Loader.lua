@@ -27,6 +27,7 @@ local MODULES = {
 	{ Key = "QuestsAPI", Path = "Game/Quests" },
 	{ Key = "TeleportAPI", Path = "Game/Teleport" },
 	{ Key = "MobsAPI", Path = "Game/Mobs" },
+	{ Key = "TowersAPI", Path = "Game/Towers" },
 	{ Key = "DungeonsAPI", Path = "Game/Dungeons" },
 	{ Key = "DropsAPI", Path = "Game/Drops" },
 	{ Key = "ChestsAPI", Path = "Game/Chests" },

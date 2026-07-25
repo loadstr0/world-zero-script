@@ -37,6 +37,9 @@ Built-in probes:
 - `smart-sell-preview` calculates the exact protected cleanup candidates without selling anything.
 - `dungeon2-stage` lists live traversal triggers, checkpoints, and their route distances without moving the character.
 - `dualwielder-ultimate` explains every Blade Dance readiness gate without activating the skill.
+- `celestial-tower` reads mission 39, replicated floor/objective state, live mobs, arena mechanics, and visible UI without requiring the hub runtime.
+- `celestial-floor` maps the active Celestial Tower room, arena-entry parts, next-floor portal, and replicated Tower scripts.
+- `celestial-export` exports only mission 39 and `Shared.Towers` controller sources for local diagnosis.
 - `option-health` audits every major integration and automation engine in one result.
 
 Useful options:

@@ -3,6 +3,7 @@ return function(ctx)
 
 	local Missions = ctx:Require("MissionsAPI")
 	local Mobs = ctx:Require("MobsAPI")
+	local Towers = ctx:Require("TowersAPI")
 	local Health = ctx:Require("Health")
 	local Players = ctx.Services.Players
 	local progressionSession = nil
@@ -218,6 +219,7 @@ return function(ctx)
 			mobCount = mobCount + 1
 		end
 
+		local towerState = Towers.GetState(missionState, mobCount)
 		local started = missionState.Started or mobCount > 0
 		local phase = "WaitingForStart"
 
@@ -227,6 +229,8 @@ return function(ctx)
 			phase = missionState.MissionSucceeded and "Completed" or "Failed"
 		elseif mobCount > 0 then
 			phase = "Combat"
+		elseif towerState.Active then
+			phase = towerState.Phase
 		elseif not started and startTrigger then
 			phase = "WaitingForStart"
 		elseif progression and #protectedObjects == 0 then
@@ -240,6 +244,8 @@ return function(ctx)
 		local defense = protectedObjects[1]
 		local fallback = missionObjects and missionObjects:FindFirstChild("Spawn", true)
 		local fallbackPart = getPart(fallback)
+		local towerEntry = towerState.Active and towerState.EntryTrigger or nil
+		local towerProgression = towerState.Active and towerState.Portal or nil
 
 		return {
 			Active = true,
@@ -253,17 +259,31 @@ return function(ctx)
 			RemainingTime = missionState.RemainingTime,
 			Difficulty = missionState.Difficulty,
 			MissionObjects = missionObjects,
-			StartTrigger = startTrigger,
-			StartPosition = getPart(startTrigger) and getPart(startTrigger).Position or nil,
+			StartTrigger = towerEntry or startTrigger,
+			StartPosition = towerState.Active and towerState.EntryPosition
+				or (getPart(startTrigger) and getPart(startTrigger).Position or nil),
 			MobCount = mobCount,
+			Tower = towerState,
+			TowerFloor = towerState.Floor,
+			TowerObjective = towerState.Objective,
+			IsCelestialTower = towerState.IsCelestialTower == true,
 			ProtectedObjects = protectedObjects,
 			PriorityDefense = defense,
 			PriorityOrigin = defense and defense.Position or nil,
-			HoldPosition = defense and defense.Position or (fallbackPart and fallbackPart.Position or nil),
-			ProgressionTarget = progression and progression.Part or nil,
-			ProgressionName = progression and progression.Name or nil,
-			ProgressionPosition = progression and progression.Position or nil,
-			ProgressionDistance = progression and progression.Distance or nil,
+			HoldPosition = towerState.Active and towerState.HoldPosition
+				or (defense and defense.Position or (fallbackPart and fallbackPart.Position or nil)),
+			ProgressionTarget = towerProgression or (progression and progression.Part or nil),
+			ProgressionName = towerState.Active and (
+				phase == "TowerAdvance" and "NextFloorPortal"
+				or (phase == "TowerEnter" and "ArenaGate" or towerState.ArenaName)
+			)
+				or (progression and progression.Name or nil),
+			ProgressionPosition = towerState.Active and (
+				phase == "TowerAdvance" and towerState.PortalPosition or towerState.EntryPosition
+			)
+				or (progression and progression.Position or nil),
+			ProgressionDistance = towerState.Active and towerState.EntryDistance
+				or (progression and progression.Distance or nil),
 			ProgressionTargetCount = #progressionTargets,
 		}
 	end
@@ -281,6 +301,9 @@ return function(ctx)
 			HasStartTrigger = state.StartPosition ~= nil,
 			ProgressionName = state.ProgressionName,
 			ProgressionTargetCount = state.ProgressionTargetCount,
+			IsCelestialTower = state.IsCelestialTower,
+			TowerFloor = state.TowerFloor,
+			TowerObjective = state.TowerObjective,
 			Error = state.Error,
 		}
 	end

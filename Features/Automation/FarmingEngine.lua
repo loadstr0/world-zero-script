@@ -23,6 +23,7 @@ return function()
 	local lootWindows = {}
 	local engagementStates = {}
 	local targetBlacklists = {}
+	local recoveryStates = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -1051,11 +1052,29 @@ return function()
 		then
 			return moveToPoint(runtime, dungeonState.StartPosition, 0, "DungeonStart")
 		elseif
+			dungeonState.Phase == "TowerEnter"
+			and runtime.State:Get("Dungeons.AutoTowerProgression", true)
+			and dungeonState.StartPosition
+		then
+			return moveToPoint(runtime, dungeonState.StartPosition, 0, "TowerEntry")
+		elseif
+			dungeonState.Phase == "TowerAdvance"
+			and runtime.State:Get("Dungeons.AutoTowerProgression", true)
+			and dungeonState.ProgressionPosition
+		then
+			return moveToPoint(runtime, dungeonState.ProgressionPosition, 0, "TowerPortal")
+		elseif
 			dungeonState.Phase == "Progression"
 			and runtime.State:Get("Dungeons.AutoProgression", true)
 			and dungeonState.ProgressionPosition
 		then
 			return moveToPoint(runtime, dungeonState.ProgressionPosition, 0, "DungeonProgression")
+		elseif
+			dungeonState.Phase == "TowerWaiting"
+			and runtime.State:Get("Dungeons.HoldDefense", true)
+			and dungeonState.HoldPosition
+		then
+			return moveToPoint(runtime, dungeonState.HoldPosition, 8, "TowerWaiting")
 		elseif
 			dungeonState.Phase == "BetweenWaves"
 			and runtime.State:Get("Dungeons.HoldDefense", true)
@@ -1173,21 +1192,75 @@ return function()
 				math.max(retreatThreshold, tonumber(runtime.State:Get("Farming.DebuffSafetyThreshold", 60)) or 60)
 		end
 
+		local recovery = recoveryStates[runtime]
+		local resumeThreshold = math.max(
+			retreatThreshold,
+			tonumber(runtime.State:Get("Farming.RecoveryResumeThreshold", 85)) or 85
+		) / 100
+		local currentRatio = math.min(
+			tonumber(survival.HealthRatio) or 1,
+			tonumber(survival.ProtectionRatio) or 1
+		)
+
+		if recovery and currentRatio >= resumeThreshold then
+			recoveryStates[runtime] = nil
+			recovery = nil
+		end
+
 		if
 			runtime.State:Get("Farming.EmergencyRetreat", true)
-			and threat
-			and threat.Nearest
+			and (recovery or (threat and threat.Nearest))
 			and not (statusState and statusState.MovementBlocked)
-			and (tonumber(survival.ProtectionRatio) or 1) <= retreatThreshold / 100
+			and (recovery or currentRatio <= retreatThreshold / 100)
 		then
+			local root = runtime.Game.GetRootPart()
+
+			if not root then
+				return true
+			end
+
+			if not recovery or recovery.Character ~= root.Parent then
+				local threatPosition = threat
+					and threat.Nearest
+					and threat.Nearest.Position
+					or (root.Position - root.CFrame.LookVector * 10)
+				local offset = root.Position - threatPosition
+				local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+				local direction = flatOffset.Magnitude > 0
+						and flatOffset.Unit
+					or Vector3.new(0, 0, 1)
+				local distance = tonumber(runtime.State:Get("Farming.RetreatDistance", 35)) or 35
+				local height = runtime.State:Get("Farming.AirRecovery", true)
+						and (tonumber(runtime.State:Get("Farming.AirRecoveryHeight", 70)) or 70)
+					or 0
+
+				recovery = {
+					Character = root.Parent,
+					Position = root.Position
+						+ direction * distance
+						+ Vector3.new(0, height, 0),
+					StartedAt = os.clock(),
+				}
+				recoveryStates[runtime] = recovery
+			end
+
 			local retreatOptions = getNavigationOptions(runtime)
-			retreatOptions.Owner = "EmergencyRetreat"
-			runtime.Navigator.RetreatFrom(
-				threat.Nearest.Position,
-				tonumber(runtime.State:Get("Farming.RetreatDistance", 35)) or 35,
-				retreatOptions
-			)
+			retreatOptions.Owner = "EmergencyRecovery"
+			retreatOptions.StopDistance = 2
+
+			if runtime.State:Get("Farming.AirRecovery", true) then
+				retreatOptions.MovementMode = "Smooth Flight"
+				retreatOptions.FlightNoclip = true
+				retreatOptions.FlightGroundSafety = true
+				retreatOptions.FlightCruiseHeight = 8
+			end
+
+			runtime.Navigator.MoveTo(recovery.Position, retreatOptions)
 			return true
+		end
+
+		if recovery then
+			recoveryStates[runtime] = nil
 		end
 
 		return false
@@ -1409,7 +1482,12 @@ return function()
 									approachTarget(runtime, descriptor)
 								end
 
-								if not statusState.SkillsBlocked then
+								if
+									not retreating
+									and not collecting
+									and not routing
+									and not statusState.SkillsBlocked
+								then
 									useFarmAttack(runtime, target, descriptor)
 								end
 							elseif not retreating and not collecting and not routing and not questHandled then
@@ -1488,6 +1566,7 @@ return function()
 			lootWindows[runtime] = nil
 			engagementStates[runtime] = nil
 			targetBlacklists[runtime] = nil
+			recoveryStates[runtime] = nil
 			automationDecisions[runtime] = nil
 
 			if runtime.Stopped then
