@@ -358,7 +358,9 @@ return function(ctx)
 			Name = step.Name,
 			Position = step.Part.Position,
 			StopDistance = step.StopDistance,
-			MovementMode = "Pathfinding",
+			MovementMode = step.Kind == "DungeonRoom"
+					and "Smooth Flight"
+				or "Pathfinding",
 			FlightGroundSafety = false,
 			FlightCruiseHeight = 6,
 			FlightNoclip = true,
