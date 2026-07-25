@@ -1039,6 +1039,7 @@ return function()
 
 			if
 				not candidate.IsWorldChest
+				and not chestState.Processed[candidate.Instance]
 				and (not ignoredUntil or ignoredUntil <= now)
 				and runtime.ChestsAPI.IsValid(candidate)
 			then
@@ -1062,11 +1063,45 @@ return function()
 		if not chestState then
 			chestState = {
 				Ignored = setmetatable({}, { __mode = "k" }),
+				Processed = setmetatable({}, { __mode = "k" }),
+				OpenedCount = 0,
 			}
 			dungeonChestStates[runtime] = chestState
 		end
 
 		local now = os.clock()
+		local batchKey = table.concat({
+			tostring(dungeonState.MissionID or "mission"),
+			tostring(dungeonState.TowerFloor or dungeonState.ProgressionName or "run"),
+		}, ":")
+
+		if chestState.BatchKey ~= batchKey then
+			chestState.BatchKey = batchKey
+			chestState.Ignored = setmetatable({}, { __mode = "k" })
+			chestState.Processed = setmetatable({}, { __mode = "k" })
+			chestState.OpenedCount = 0
+			chestState.Instance = nil
+			chestState.FirstSeenAt = nil
+			chestState.ArrivedAt = nil
+		end
+
+		if not chestState.PassChecked then
+			chestState.PassChecked = true
+			chestState.HasExtraChestPass = false
+
+			pcall(function()
+				chestState.HasExtraChestPass = game:GetService("MarketplaceService"):UserOwnsGamePassAsync(
+					game:GetService("Players").LocalPlayer.UserId,
+					8136250
+				) == true
+			end)
+		end
+
+		local maximumChests = chestState.HasExtraChestPass and 3 or 2
+
+		if (tonumber(chestState.OpenedCount) or 0) >= maximumChests then
+			return false, "reward_chest_limit_reached"
+		end
 
 		for instance, ignoredUntil in pairs(chestState.Ignored) do
 			if not instance.Parent or ignoredUntil <= now then
@@ -1111,13 +1146,15 @@ return function()
 		if candidate.Distance <= 5 then
 			chestState.ArrivedAt = chestState.ArrivedAt or now
 
-			if now - chestState.ArrivedAt >= 10 then
-				-- A decorative or already-open chest must not deadlock the dungeon.
-				chestState.Ignored[candidate.Instance] = now + 15
+			if now - chestState.ArrivedAt >= 1.5 then
+				-- Proximity opens the chest immediately; its visual model remains for about ten seconds.
+				chestState.Processed[candidate.Instance] = true
+				chestState.Ignored[candidate.Instance] = now + 20
+				chestState.OpenedCount = (tonumber(chestState.OpenedCount) or 0) + 1
 				chestState.Instance = nil
 				chestState.FirstSeenAt = nil
 				chestState.ArrivedAt = nil
-				return false, "reward_chest_open_timeout", candidate
+				return true, "reward_chest_opened", candidate
 			end
 
 			return true, "waiting_for_reward_chest_to_open", candidate

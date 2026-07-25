@@ -33,6 +33,47 @@ return function(ctx)
 		runtime.State:Set("Loot.AutoSellBatchSize", 5)
 		runtime.State:Set("Loot.AutoSellInterval", 5)
 		runtime.State:Set("Loot.AutoSellModifiedDominated", true)
+		runtime.State:Set("Loot.AutoCloseRewardReveal", true)
+
+		local lootReceivedController = nil
+
+		local function closeRewardReveal()
+			if type(lootReceivedController) ~= "table" then
+				local replicatedStorage = game:GetService("ReplicatedStorage")
+				local client = replicatedStorage:FindFirstChild("Client")
+				local gui = client and client:FindFirstChild("Gui")
+				local scripts = gui and gui:FindFirstChild("GuiScripts")
+				local moduleScript = scripts and scripts:FindFirstChild("LootReceived")
+
+				if not moduleScript or not moduleScript:IsA("ModuleScript") then
+					return false
+				end
+
+				local ok, controller = pcall(require, moduleScript)
+
+				if not ok or type(controller) ~= "table" then
+					return false
+				end
+
+				lootReceivedController = controller
+			end
+
+			if type(lootReceivedController._Close) ~= "function" then
+				return false
+			end
+
+			return pcall(lootReceivedController._Close, lootReceivedController)
+		end
+
+		task.spawn(function()
+			while not runtime.Stopped do
+				if runtime.State:Get("Loot.AutoCloseRewardReveal", true) then
+					closeRewardReveal()
+				end
+
+				task.wait(0.15)
+			end
+		end)
 
 		runtime.Janitor:Add(function()
 			InventoryEngine.Stop(runtime)
@@ -54,6 +95,14 @@ return function(ctx)
 			Callback = function(value)
 				runtime.State:Set("Loot.ChestsEnabled", value)
 				Engine.Reconcile(runtime)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "LootAutoCloseRewardReveal", {
+			Name = "Close chest item reveal automatically",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Loot.AutoCloseRewardReveal", value)
 			end,
 		})
 
