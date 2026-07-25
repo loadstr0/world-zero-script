@@ -26,7 +26,7 @@ return function(ctx)
 		runtime.State:Set("Farming.NameFilter", "")
 		runtime.State:Set("Farming.AutoApproach", true)
 		runtime.State:Set("Farming.MovementMode", "Smooth Flight")
-		runtime.State:Set("Farming.CFrameFlightSpeed", 500)
+		runtime.State:Set("Farming.CFrameFlightSpeed", 90)
 		runtime.State:Set("Farming.CFrameZeroVelocity", true)
 		runtime.State:Set("Farming.FlightNoclip", true)
 		runtime.State:Set("Farming.FlightGroundSafety", true)
@@ -211,10 +211,10 @@ return function(ctx)
 
 		runtime.UI:CreateSlider(tab, "FarmingCFrameFlightSpeed", {
 			Name = "Smooth-flight speed",
-			Range = { 20, 500 },
+			Range = { 20, 90 },
 			Increment = 10,
 			Suffix = " studs/s",
-			CurrentValue = 500,
+			CurrentValue = 90,
 			Callback = function(value)
 				runtime.State:Set("Farming.CFrameFlightSpeed", value)
 			end,

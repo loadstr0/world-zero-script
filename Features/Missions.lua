@@ -306,6 +306,14 @@ return function(ctx)
 			)
 		end
 
+		task.defer(function()
+			task.wait(1)
+
+			if not runtime.Stopped then
+				runtime.MissionsAPI.RepairCamera()
+			end
+		end)
+
 		runtime.UI:CreateSection(tab, "Manual dungeon selection")
 		runtime.UI:CreateParagraph(
 			tab,

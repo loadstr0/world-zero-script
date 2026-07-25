@@ -486,7 +486,10 @@ return function()
 
 	local function addMovementMode(runtime, options)
 		options.MovementMode = runtime.State:Get("Farming.MovementMode", "Smooth Flight")
-		options.CFrameFlightSpeed = tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 500)) or 500
+		options.CFrameFlightSpeed = math.min(
+			90,
+			tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 90)) or 90
+		)
 		options.ZeroVelocity = runtime.State:Get("Farming.CFrameZeroVelocity", true)
 		options.FlightNoclip = runtime.State:Get("Farming.FlightNoclip", true)
 		options.FlightGroundSafety = runtime.State:Get("Farming.FlightGroundSafety", true)
@@ -775,7 +778,7 @@ return function()
 		})
 	end
 
-	local function moveToPoint(runtime, position, stopDistance, owner)
+	local function moveToPoint(runtime, position, stopDistance, owner, overrides)
 		if not runtime.State:Get("Farming.AutoApproach", true) then
 			return false, "auto_approach_disabled"
 		elseif typeof(position) ~= "Vector3" then
@@ -798,6 +801,11 @@ return function()
 		local options = getNavigationOptions(runtime)
 		options.StopDistance = stopDistance
 		options.Owner = owner or "Automation"
+
+		for key, value in pairs(overrides or {}) do
+			options[key] = value
+		end
+
 		return runtime.Navigator.MoveTo(position, options)
 	end
 
@@ -1460,6 +1468,7 @@ return function()
 
 							local target = questTarget or farmTarget
 							local descriptor = questDescriptor or farmDescriptor
+							local dungeonCombatRoute = nil
 
 							if target and descriptor and skipStalledTarget(runtime, target, descriptor) then
 								target = nil
@@ -1470,7 +1479,24 @@ return function()
 								farmDescriptor = nil
 							end
 
-							local collectible = not retreating
+							if
+								target
+								and descriptor
+								and dungeonState
+								and dungeonState.Active
+								and runtime.DungeonsAPI
+								and runtime.State:Get("Dungeons.AutoProgression", true)
+							then
+								local routeOk, resolvedRoute =
+									pcall(runtime.DungeonsAPI.GetCombatRoute, dungeonState, descriptor)
+
+								if routeOk then
+									dungeonCombatRoute = resolvedRoute
+								end
+							end
+
+							local collectible = not dungeonCombatRoute
+									and not retreating
 									and not questHandled
 									and getCollectible(runtime, target ~= nil, questState)
 								or nil
@@ -1482,11 +1508,22 @@ return function()
 								not collecting
 								and not retreating
 								and not questHandled
-								and not target
 							then
-								if dungeonState and dungeonState.Active then
+								if dungeonCombatRoute then
+									routing, routeError = moveToPoint(
+										runtime,
+										dungeonCombatRoute.Position,
+										dungeonCombatRoute.StopDistance,
+										"DungeonInteriorRoute",
+										{
+											FlightGroundSafety = dungeonCombatRoute.FlightGroundSafety,
+											FlightCruiseHeight = dungeonCombatRoute.FlightCruiseHeight,
+											FlightNoclip = dungeonCombatRoute.FlightNoclip,
+										}
+									)
+								elseif not target and dungeonState and dungeonState.Active then
 									routing, routeError = routeDungeon(runtime, dungeonState)
-								elseif questState and not questTarget then
+								elseif not target and questState and not questTarget then
 									routing, routeError = routeQuest(runtime, questState, currentWorldOrder)
 								end
 							end
@@ -1518,6 +1555,7 @@ return function()
 								CollectionError = collectionError,
 								Routing = routing == true,
 								RouteError = routeError,
+								DungeonCombatRoute = dungeonCombatRoute,
 								CurrentWorldOrder = currentWorldOrder,
 								Navigator = runtime.Navigator.GetState(),
 							}

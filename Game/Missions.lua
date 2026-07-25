@@ -5,6 +5,7 @@ return function(ctx)
 	local Profile = ctx:Require("Profile")
 	local Players = ctx.Services.Players
 	local cachedModule = nil
+	local cachedCamera = nil
 
 	local function resolve()
 		if type(cachedModule) == "table" then
@@ -30,6 +31,28 @@ return function(ctx)
 
 	local function getPlayer()
 		return Players.LocalPlayer
+	end
+
+	local function resolveCamera()
+		if type(cachedCamera) == "table" then
+			return cachedCamera
+		end
+
+		local moduleScript =
+			GameContext.FindReplicated("Client.Camera")
+
+		if not moduleScript or not moduleScript:IsA("ModuleScript") then
+			return nil, "client_camera_not_found"
+		end
+
+		local ok, result = pcall(require, moduleScript)
+
+		if not ok or type(result) ~= "table" then
+			return nil, "client_camera_require_failed"
+		end
+
+		cachedCamera = result
+		return cachedCamera
 	end
 
 	local function callOptional(methodName, ...)
@@ -440,10 +463,80 @@ return function(ctx)
 	end
 
 	function Missions.SkipCutscene()
+		local camera, cameraError = resolveCamera()
+
+		if
+			camera
+			and type(camera.IsCutscene) == "function"
+			and type(camera.SkipCutscene) == "function"
+		then
+			for _ = 1, 10 do
+				local stateOk, isCutscene =
+					pcall(camera.IsCutscene, camera)
+
+				if stateOk and isCutscene then
+					local skipOk, skipError =
+						pcall(camera.SkipCutscene, camera)
+
+					if not skipOk then
+						return false, "camera_cutscene_skip_failed:" .. tostring(skipError)
+					end
+
+					Missions.RepairCamera()
+					return true
+				end
+
+				task.wait(0.05)
+			end
+		end
+
 		local skipped, skipError = callOptional("SkippedCutscene")
 
 		if skipped == nil and skipError then
-			return false, skipError
+			return false, cameraError or skipError
+		end
+
+		Missions.RepairCamera()
+		return true
+	end
+
+	function Missions.RepairCamera()
+		local player = getPlayer()
+		local character = player and player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local currentCamera = workspace.CurrentCamera
+		local subject = currentCamera and currentCamera.CameraSubject
+
+		if
+			not character
+			or not humanoid
+			or (
+				subject
+				and subject:IsDescendantOf(character)
+				and subject:IsDescendantOf(game)
+			)
+		then
+			return false, "camera_repair_not_needed"
+		end
+
+		local camera = resolveCamera()
+
+		if camera and type(camera.AttachToCharacter) == "function" then
+			pcall(camera.AttachToCharacter, camera, character)
+		end
+
+		subject = currentCamera and currentCamera.CameraSubject
+
+		if
+			currentCamera
+			and (
+				not subject
+				or not subject:IsDescendantOf(character)
+				or not subject:IsDescendantOf(game)
+			)
+		then
+			currentCamera.CameraType = Enum.CameraType.Custom
+			currentCamera.CameraSubject = humanoid
 		end
 
 		return true

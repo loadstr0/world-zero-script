@@ -5,6 +5,7 @@ return function(ctx)
 	local Mobs = ctx:Require("MobsAPI")
 	local Towers = ctx:Require("TowersAPI")
 	local DungeonObjectives = ctx:Require("DungeonObjectivesAPI")
+	local DungeonRoutes = ctx:Require("DungeonRoutesAPI")
 	local Health = ctx:Require("Health")
 	local Players = ctx.Services.Players
 	local progressionSession = nil
@@ -316,6 +317,10 @@ return function(ctx)
 			Target = state and state.ObjectiveTarget,
 			TargetKind = state and state.ObjectiveTargetKind,
 		})
+	end
+
+	function Dungeons.GetCombatRoute(state, descriptor)
+		return DungeonRoutes.GetCombatRoute(state, descriptor)
 	end
 
 	return Dungeons

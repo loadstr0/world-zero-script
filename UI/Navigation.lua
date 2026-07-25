@@ -25,6 +25,11 @@ return function()
 			Title = "Gear",
 			Icon = 0,
 		},
+		Rewards = {
+			Key = "Rewards",
+			Title = "Rewards",
+			Icon = 0,
+		},
 		Combat = {
 			Key = "Combat",
 			Title = "Combat",
