@@ -28,6 +28,7 @@ local MODULES = {
 	{ Key = "QuestsAPI", Path = "Game/Quests" },
 	{ Key = "TeleportAPI", Path = "Game/Teleport" },
 	{ Key = "MobsAPI", Path = "Game/Mobs" },
+	{ Key = "HazardsAPI", Path = "Game/Hazards" },
 	{ Key = "TowersAPI", Path = "Game/Towers" },
 	{ Key = "DungeonObjectivesAPI", Path = "Game/DungeonObjectives" },
 	{ Key = "DungeonRoutesAPI", Path = "Game/DungeonRoutes" },
@@ -258,6 +259,7 @@ local ctx = {
 		HttpService = HttpService,
 		TeleportService = game:GetService("TeleportService"),
 		PathfindingService = game:GetService("PathfindingService"),
+		Workspace = game:GetService("Workspace"),
 	},
 }
 

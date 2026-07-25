@@ -12,6 +12,7 @@ return function(ctx)
 		local statusStatus = runtime.Status.Describe()
 		local walkspeedStatus = runtime.Walkspeed.Describe()
 		local petStatus = runtime.PetsAPI.Describe()
+		local hazardStatus = runtime.HazardsAPI.Describe()
 		local targetProvider = function(range)
 			return Engine.GetActiveTarget(runtime, range)
 		end
@@ -58,6 +59,11 @@ return function(ctx)
 		runtime.State:Set("Farming.SkillRetryInterval", 0.2)
 		runtime.State:Set("Farming.AttackRange", 45)
 		runtime.State:Set("Farming.AutoDodge", true)
+		runtime.State:Set("Farming.ProactiveSpellDodge", true)
+		runtime.State:Set("Farming.HazardUseDodge", true)
+		runtime.State:Set("Farming.HazardEscapeMode", "Instant CFrame")
+		runtime.State:Set("Farming.HazardPadding", 4)
+		runtime.State:Set("Farming.HazardEscapeDistance", 10)
 		runtime.State:Set("Farming.AutoThawFreezeTag", true)
 		runtime.State:Set("Farming.FreezeTagRescueRange", 300)
 		runtime.State:Set("Farming.DebuffSurvival", true)
@@ -540,6 +546,66 @@ return function(ctx)
 		})
 
 		runtime.UI:CreateSection(tab, "Damage avoidance")
+		runtime.UI:CreateParagraph(
+			tab,
+			"Floor-spell detection",
+			hazardStatus.Available
+					and "Enemy radial, rectangular, and cone indicators are read directly from their live size and orientation. If the character is inside one, escaping the marked floor takes priority over attacking, following, or collecting."
+				or "Live floor-indicator detection is unavailable."
+		)
+
+		runtime.UI:CreateToggle(tab, "FarmingProactiveSpellDodge", {
+			Name = "Escape floor spells before impact",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.ProactiveSpellDodge", value)
+			end,
+		})
+
+		runtime.UI:CreateDropdown(tab, "FarmingHazardEscapeMode", {
+			Name = "Floor-spell escape method",
+			Options = {
+				"Instant CFrame",
+				"Smooth Flight",
+				"Pathfinding",
+			},
+			CurrentOption = { "Instant CFrame" },
+			MultipleOptions = false,
+			Callback = function(options)
+				runtime.State:Set("Farming.HazardEscapeMode", options and options[1] or "Instant CFrame")
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingHazardUseDodge", {
+			Name = "Dodge while leaving marked floor",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.HazardUseDodge", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingHazardPadding", {
+			Name = "Extra floor-spell safety margin",
+			Range = { 0, 15 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 4,
+			Callback = function(value)
+				runtime.State:Set("Farming.HazardPadding", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingHazardEscapeDistance", {
+			Name = "Distance beyond marked edge",
+			Range = { 4, 30 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 10,
+			Callback = function(value)
+				runtime.State:Set("Farming.HazardEscapeDistance", value)
+			end,
+		})
+
 		runtime.UI:CreateToggle(tab, "FarmingAutoThawFreezeTag", {
 			Name = "Thaw Freeze Tag teammates",
 			CurrentValue = true,

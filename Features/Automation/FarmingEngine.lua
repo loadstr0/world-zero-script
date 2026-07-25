@@ -24,6 +24,7 @@ return function()
 	local engagementStates = {}
 	local targetBlacklists = {}
 	local recoveryStates = {}
+	local hazardStates = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -1277,6 +1278,78 @@ return function()
 		return true
 	end
 
+	local function escapeFloorHazard(runtime, adapter, statusState)
+		if
+			not runtime.State:Get("Farming.ProactiveSpellDodge", true)
+			or not runtime.HazardsAPI
+			or (statusState and statusState.MovementBlocked)
+		then
+			hazardStates[runtime] = nil
+			return false
+		end
+
+		local root = runtime.Game.GetRootPart()
+
+		if not root then
+			return false
+		end
+
+		local padding = tonumber(runtime.State:Get("Farming.HazardPadding", 4)) or 4
+		local state = runtime.HazardsAPI.GetState(root.Position, padding)
+
+		if not state or (tonumber(state.InsideCount) or 0) <= 0 then
+			hazardStates[runtime] = nil
+			return false
+		end
+
+		local escapeBuffer = tonumber(runtime.State:Get("Farming.HazardEscapeDistance", 10)) or 10
+		local position, escapeError =
+			runtime.HazardsAPI.FindEscape(root.Position, state, padding, escapeBuffer)
+
+		hazardStates[runtime] = {
+			At = os.clock(),
+			Count = state.InsideCount,
+			Name = state.Nearest and state.Nearest.Name or "Floor indicator",
+			Position = position,
+			Error = escapeError,
+		}
+
+		if
+			runtime.State:Get("Farming.HazardUseDodge", true)
+			and not (statusState and statusState.SkillsBlocked)
+			and runtime.Actions.IsBusy() ~= true
+			and runtime.Actions.IsOnCooldown("Dodge") ~= true
+		then
+			local lastAttempt = lastDodgeAttempts[runtime] or 0
+
+			if os.clock() - lastAttempt >= 0.5 then
+				lastDodgeAttempts[runtime] = os.clock()
+
+				if adapter and type(adapter.UseDodge) == "function" then
+					pcall(adapter.UseDodge)
+				else
+					pcall(runtime.Actions.UseSkill, "Dodge")
+				end
+			end
+		end
+
+		if typeof(position) ~= "Vector3" then
+			return true
+		end
+
+		runtime.Navigator.MoveTo(position, {
+			Owner = "FloorHazardEscape",
+			MovementMode = runtime.State:Get("Farming.HazardEscapeMode", "Instant CFrame"),
+			StopDistance = 0,
+			ZeroVelocity = true,
+			FlightNoclip = true,
+			FlightGroundSafety = true,
+			FlightCruiseHeight = 8,
+			FlightGroundClearance = 3,
+		})
+		return true
+	end
+
 	local function useEmergencyHeal(runtime, healthRatio, statusState)
 		healthRatio = tonumber(healthRatio) or 1
 		local threshold = tonumber(runtime.State:Get("Farming.HealItemHealthThreshold", 40)) or 40
@@ -1328,7 +1401,13 @@ return function()
 		local threat = runtime.MobsAPI.GetThreatState(tonumber(runtime.State:Get("Farming.ThreatRadius", 25)) or 25)
 		local survival = Engine.GetSurvivalState(runtime)
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
+		local escapingHazard = escapeFloorHazard(runtime, adapter, statusState)
 		useEmergencyHeal(runtime, survival.HealthRatio, statusState)
+
+		if escapingHazard then
+			return true
+		end
+
 		dodgeThreat(runtime, adapter, threat, survival.ProtectionRatio, statusState)
 		local retreatThreshold = tonumber(runtime.State:Get("Farming.RetreatHealthThreshold", 30)) or 30
 
@@ -1790,6 +1869,7 @@ return function()
 			engagementStates[runtime] = nil
 			targetBlacklists[runtime] = nil
 			recoveryStates[runtime] = nil
+			hazardStates[runtime] = nil
 			automationDecisions[runtime] = nil
 
 			if runtime.Stopped then

@@ -124,6 +124,7 @@ return function(ctx)
 			QuestsAPI = ctx:Require("QuestsAPI"),
 			TeleportAPI = ctx:Require("TeleportAPI"),
 			MobsAPI = ctx:Require("MobsAPI"),
+			HazardsAPI = ctx:Require("HazardsAPI"),
 			TowersAPI = ctx:Require("TowersAPI"),
 			DungeonRoutesAPI = ctx:Require("DungeonRoutesAPI"),
 			DungeonsAPI = ctx:Require("DungeonsAPI"),
