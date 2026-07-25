@@ -331,5 +331,9 @@ return function(ctx)
 		return DungeonRoutes.GetCombatRoute(state, descriptor)
 	end
 
+	function Dungeons.GetProgressionRoute(state)
+		return DungeonRoutes.GetProgressionRoute(state)
+	end
+
 	return Dungeons
 end

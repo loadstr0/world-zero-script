@@ -1182,6 +1182,22 @@ return function()
 			and runtime.State:Get("Dungeons.AutoProgression", true)
 			and dungeonState.ProgressionPosition
 		then
+			local progressionRoute = runtime.DungeonsAPI.GetProgressionRoute(dungeonState)
+
+			if progressionRoute then
+				return moveToPoint(
+					runtime,
+					progressionRoute.Position,
+					progressionRoute.StopDistance,
+					"DungeonStageRoute",
+					{
+						FlightGroundSafety = progressionRoute.FlightGroundSafety,
+						FlightCruiseHeight = progressionRoute.FlightCruiseHeight,
+						FlightNoclip = progressionRoute.FlightNoclip,
+					}
+				)
+			end
+
 			return moveDungeonPoint(dungeonState.ProgressionPosition, 0, "DungeonProgression")
 		elseif
 			dungeonState.Phase == "TowerWaiting"

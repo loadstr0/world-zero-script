@@ -3,6 +3,7 @@ return function(ctx)
 
 	local Players = ctx.Services.Players
 	local Workspace = ctx.Services.Workspace or game:GetService("Workspace")
+	local progressionSession = nil
 
 	local function getPart(instance)
 		if not instance then
@@ -158,6 +159,99 @@ return function(ctx)
 			Name = targetPart.Name,
 			Position = targetPart.Position,
 			StopDistance = 7,
+			FlightGroundSafety = false,
+			FlightCruiseHeight = 6,
+			FlightNoclip = true,
+		}
+	end
+
+	function DungeonRoutes.GetProgressionRoute(dungeonState)
+		local root = getRoot()
+		local missionObjects = dungeonState and dungeonState.MissionObjects
+		local checkpointNumber = dungeonState
+			and string.match(tostring(dungeonState.ProgressionName or ""), "^Checkpoint(%d+)$")
+
+		if
+			not root
+			or not missionObjects
+			or dungeonState.Phase ~= "Progression"
+			or not checkpointNumber
+		then
+			return nil
+		end
+
+		local sessionKey = table.concat({
+			tostring(dungeonState.MissionID),
+			tostring(checkpointNumber),
+		}, ":")
+
+		if
+			not progressionSession
+			or progressionSession.Key ~= sessionKey
+			or progressionSession.Character ~= root.Parent
+		then
+			progressionSession = {
+				Key = sessionKey,
+				Character = root.Parent,
+				Step = 1,
+			}
+		end
+
+		local room = missionObjects:FindFirstChild("Room" .. checkpointNumber .. "Trigger", true)
+		local gateModel = missionObjects:FindFirstChild("Gate" .. checkpointNumber, true)
+		local gate = getPart(gateModel)
+		local checkpoint = getPart(dungeonState.ProgressionTarget)
+			or getPart(missionObjects:FindFirstChild("Checkpoint" .. checkpointNumber, true))
+		local route = {}
+
+		if getPart(room) then
+			table.insert(route, {
+				Kind = "DungeonRoom",
+				Name = room.Name,
+				Part = getPart(room),
+				StopDistance = 14,
+			})
+		end
+
+		if gate then
+			table.insert(route, {
+				Kind = "DungeonGate",
+				Name = gateModel.Name,
+				Part = gate,
+				StopDistance = 10,
+			})
+		end
+
+		if checkpoint then
+			table.insert(route, {
+				Kind = "DungeonCheckpoint",
+				Name = checkpoint.Name,
+				Part = checkpoint,
+				StopDistance = 8,
+			})
+		end
+
+		while progressionSession.Step <= #route do
+			local step = route[progressionSession.Step]
+
+			if (root.Position - step.Part.Position).Magnitude > step.StopDistance + 4 then
+				break
+			end
+
+			progressionSession.Step = progressionSession.Step + 1
+		end
+
+		local step = route[progressionSession.Step]
+
+		if not step then
+			return nil
+		end
+
+		return {
+			Kind = step.Kind,
+			Name = step.Name,
+			Position = step.Part.Position,
+			StopDistance = step.StopDistance,
 			FlightGroundSafety = false,
 			FlightCruiseHeight = 6,
 			FlightNoclip = true,
