@@ -376,6 +376,9 @@ return function(ctx)
 		local objectiveType = tostring(objective[1] or "Unknown")
 		local arguments = type(objective[3]) == "table" and objective[3] or {}
 		local isDungeonObjective = DUNGEON_OBJECTIVES[objectiveType] == true
+		local destinationWorldOrder = objectiveType == "WorldJoin"
+				and tonumber(arguments[1])
+			or nil
 		local exactDungeon = objectiveType == "DoDungeon"
 			or objectiveType == "DoDungeonWithDifficulty"
 			or objectiveType == "DoThisDungeonWithFriends"
@@ -404,6 +407,7 @@ return function(ctx)
 			IsDungeonObjective = isDungeonObjective,
 			DungeonID = dungeonID,
 			DungeonDifficulty = dungeonDifficulty,
+			DestinationWorldOrder = destinationWorldOrder,
 			AllowedMobNames = allowedMobNames,
 			Progress = tonumber(progress) or 0,
 			ReadyToClaim = readyToClaim,

@@ -57,6 +57,23 @@ return function()
 			or questState.ObjectiveType == "CompleteWorldEvent"
 	end
 
+	local function questRequiresRouting(questState)
+		if not questState then
+			return false
+		elseif questState.ObjectiveType == "WorldJoin" then
+			return true
+		elseif
+			questState.ObjectiveType == "KillMob"
+			or questState.ObjectiveType == "LevelUp"
+			or questState.IsDungeonObjective
+			or questUsesGenericCombat(questState)
+		then
+			return false
+		end
+
+		return questState.Location ~= nil
+	end
+
 	local function questNeedsDrops(questState)
 		return questState
 			and (
@@ -941,6 +958,58 @@ return function()
 			return false, "no_active_quest"
 		end
 
+		if questState.ObjectiveType == "WorldJoin" then
+			if not runtime.State:Get("Quests.AutoWorldTravel", true) then
+				return false, "world_travel_disabled"
+			end
+
+			local destinationOrder = tonumber(questState.DestinationWorldOrder)
+				or tonumber(questState.Arguments and questState.Arguments[1])
+
+			if not destinationOrder then
+				return false, "quest_world_destination_unavailable"
+			elseif tonumber(currentWorldOrder) == destinationOrder then
+				runtime.Navigator.Stop()
+				return true, "world_join_progress_pending"
+			end
+
+			local previous = lastWorldTravel[runtime]
+			local now = os.clock()
+
+			if previous and previous.WorldOrder == destinationOrder and now - previous.At < 20 then
+				return true, "world_travel_pending"
+			end
+
+			local world, worldError = runtime.TeleportAPI.FindOpenWorldByOrder(destinationOrder)
+
+			if not world then
+				return false, worldError
+			end
+
+			local traveled, travelError, queued, queueError = runtime.TeleportAPI.ToWorld(world.ID)
+
+			if not traveled then
+				return false, travelError
+			end
+
+			lastWorldTravel[runtime] = {
+				WorldOrder = destinationOrder,
+				At = now,
+			}
+			runtime.UI:Notify(
+				"Story world travel",
+				"Using the teleporter to enter "
+					.. tostring(world.Name)
+					.. (
+						queued and "; automation is queued to resume."
+						or (". Re-execute after arrival because " .. tostring(queueError))
+					),
+				7,
+				0
+			)
+			return true, "world_join_travel_requested"
+		end
+
 		if questState.IsDungeonObjective and runtime.State:Get("Quests.AutoDungeonTravel", true) then
 			local missionID = tonumber(questState.DungeonID)
 			local difficultyID = tonumber(questState.DungeonDifficulty) or 1
@@ -1464,6 +1533,7 @@ return function()
 
 							if
 								not questHandled
+								and not questRequiresRouting(questState)
 								and (runtime.State:Get("Farming.Enabled", false) or unrestrictedCombat)
 							then
 								farmTarget, farmDescriptor = Engine.GetTarget(
