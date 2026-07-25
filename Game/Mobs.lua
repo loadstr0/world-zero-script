@@ -271,9 +271,10 @@ return function(ctx)
 
 		local selected = nil
 		local mode = options.Mode or "Nearest"
+		local selectionOrigin = typeof(options.OriginPosition) == "Vector3" and options.OriginPosition or root.Position
 
 		for _, mob in pairs(all) do
-			local descriptor = getDescriptorSafely(mob, root.Position)
+			local descriptor = getDescriptorSafely(mob, selectionOrigin)
 
 			if Mobs.IsValidTarget(descriptor, options) and isBetter(descriptor, selected, mode) then
 				selected = descriptor
@@ -302,9 +303,10 @@ return function(ctx)
 		end
 
 		local matching = {}
+		local selectionOrigin = typeof(options.OriginPosition) == "Vector3" and options.OriginPosition or root.Position
 
 		for _, mob in pairs(all) do
-			local descriptor = getDescriptorSafely(mob, root.Position)
+			local descriptor = getDescriptorSafely(mob, selectionOrigin)
 
 			if Mobs.IsValidTarget(descriptor, options) then
 				table.insert(matching, descriptor)

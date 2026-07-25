@@ -45,6 +45,9 @@ return function(ctx)
 		runtime.State:Set("Quests.AutoDungeonFinish", true)
 		runtime.State:Set("Quests.MapWideSearch", true)
 		runtime.State:Set("Quests.SearchRange", 10000)
+		runtime.State:Set("Dungeons.AutoStart", true)
+		runtime.State:Set("Dungeons.DefensePriority", true)
+		runtime.State:Set("Dungeons.HoldDefense", true)
 
 		runtime.UI:CreateSection(tab, "Tracked quests")
 		runtime.Controls.QuestsEnabled = runtime.UI:CreateToggle(tab, "QuestAutomationEnabled", {
@@ -218,6 +221,34 @@ return function(ctx)
 		})
 
 		runtime.UI:CreateSection(tab, "Dungeon missions")
+		runtime.UI:CreateToggle(tab, "DungeonAutoStart", {
+			Name = "Enter mission-start triggers automatically",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Dungeons.AutoStart", value)
+			end,
+		})
+		runtime.UI:CreateToggle(tab, "DungeonDefensePriority", {
+			Name = "Protect damaged defense objectives first",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Dungeons.DefensePriority", value)
+			end,
+		})
+		runtime.UI:CreateToggle(tab, "DungeonHoldDefense", {
+			Name = "Hold the defense point between waves",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Dungeons.HoldDefense", value)
+			end,
+		})
+		runtime.UI:CreateParagraph(
+			tab,
+			"Dungeon supervisor",
+			"Mission start colliders, wave gaps, protected objects, mob waves, mission completion, rewards, and return travel are handled as separate dungeon phases."
+		)
+
+		runtime.UI:CreateSection(tab, "Manual dungeon selection")
 		runtime.UI:CreateParagraph(
 			tab,
 			"Verified mission integration",

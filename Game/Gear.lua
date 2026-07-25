@@ -403,7 +403,17 @@ return function(ctx)
 			return false, "equip_request_failed:" .. tostring(equipError)
 		end
 
-		return true
+		local deadline = os.clock() + 2
+
+		repeat
+			if item.Parent == slot then
+				return true
+			end
+
+			task.wait(0.05)
+		until os.clock() >= deadline or not item.Parent
+
+		return false, "equip_not_confirmed"
 	end
 
 	function Gear.Describe()

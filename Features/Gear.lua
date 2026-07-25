@@ -33,7 +33,7 @@ return function(ctx)
 		runtime.State:Set("Gear.AutoArmor", true)
 		runtime.State:Set("Gear.AutoUpgrade", false)
 		runtime.State:Set("Gear.AutoEquip", true)
-		runtime.State:Set("Gear.EquipOnlyMaxed", true)
+		runtime.State:Set("Gear.EquipOnlyMaxed", false)
 		runtime.State:Set("Gear.UpgradeMode", "Gold attempts")
 		runtime.State:Set("Gear.GoldReserve", 0)
 		runtime.State:Set("Gear.CrystalReserve", 0)
@@ -130,7 +130,7 @@ return function(ctx)
 
 		runtime.UI:CreateToggle(tab, "GearEquipOnlyMaxed", {
 			Name = "Wait until candidate is fully upgraded",
-			CurrentValue = true,
+			CurrentValue = false,
 			Callback = function(value)
 				runtime.State:Set("Gear.EquipOnlyMaxed", value)
 			end,

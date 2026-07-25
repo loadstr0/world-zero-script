@@ -105,6 +105,24 @@ return function()
 				if better then
 					local autoUpgrade = runtime.State:Get("Gear.AutoUpgrade", false)
 					local upgradeInfo = runtime.GearAPI.GetUpgradeInfo(best.Item)
+					local isNewItem = best.Item ~= (current and current.Item)
+					local waitUntilMaxed = runtime.State:Get("Gear.EquipOnlyMaxed", false)
+
+					if
+						isNewItem
+						and runtime.State:Get("Gear.AutoEquip", true)
+						and not waitUntilMaxed
+					then
+						local equipped, equipError = runtime.GearAPI.Equip(best.Item, slotName)
+
+						setStatus(runtime, {
+							Action = equipped and "Equip confirmed" or "Equip failed",
+							Slot = slotName,
+							Item = best.Name,
+							Error = equipError,
+						})
+						return equipped, equipError
+					end
 
 					if autoUpgrade and upgradeInfo and not upgradeInfo.IsMaxed then
 						local runtimeAttempts, count = getAttempts(runtime, best.Item)
@@ -151,10 +169,10 @@ return function()
 					end
 
 					if
-						best.Item ~= (current and current.Item)
+						isNewItem
 						and runtime.State:Get("Gear.AutoEquip", true)
 						and (
-							not runtime.State:Get("Gear.EquipOnlyMaxed", true)
+							not waitUntilMaxed
 							or not upgradeInfo
 							or upgradeInfo.IsMaxed
 						)

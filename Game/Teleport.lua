@@ -5,6 +5,7 @@ return function(ctx)
 	local Profile = ctx:Require("Profile")
 	local Executor = ctx:Require("Executor")
 	local Players = ctx.Services.Players
+	local HttpService = ctx.Services.HttpService
 	local cachedModule = nil
 
 	local function resolve()
@@ -41,7 +42,27 @@ return function(ctx)
 			.. "Bootstrap.lua?cache="
 			.. tostring(os.time())
 			.. tostring(math.random(1000, 9999))
-		local source = "loadstring(game:HttpGet(" .. string.format("%q", bootstrapUrl) .. "))()"
+		local resumeState = {}
+		local runtime = ctx.ActiveRuntime
+
+		for key, value in pairs(runtime and runtime.State and runtime.State.Values or {}) do
+			local valueType = type(value)
+
+			if type(key) == "string" and (valueType == "boolean" or valueType == "number" or valueType == "string") then
+				resumeState[key] = value
+			end
+		end
+
+		local encodedResume = HttpService:JSONEncode({
+			Version = 1,
+			QueuedAt = os.time(),
+			State = resumeState,
+		})
+		local source = "getgenv().WorldZeroTeleportResume = "
+			.. string.format("%q", encodedResume)
+			.. "\nloadstring(game:HttpGet("
+			.. string.format("%q", bootstrapUrl)
+			.. "))()"
 		local ok, queueError = pcall(Executor.QueueOnTeleport, source)
 
 		if not ok then

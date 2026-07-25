@@ -14,6 +14,60 @@ return function(ctx)
 		"Settings",
 	}
 
+	local TELEPORT_RESUME_CONTROLS = {
+		FarmingEnabled = "Farming.Enabled",
+		QuestsEnabled = "Quests.Enabled",
+		LootDropsEnabled = "Loot.DropsEnabled",
+		LootChestsEnabled = "Loot.ChestsEnabled",
+		GearEnabled = "Gear.Enabled",
+	}
+
+	local function restoreTeleportState(runtime, Logger)
+		local env = getgenv()
+		local encoded = env.WorldZeroTeleportResume
+
+		if type(encoded) ~= "string" or encoded == "" then
+			return false
+		end
+
+		local decodedOk, payload = pcall(ctx.Services.HttpService.JSONDecode, ctx.Services.HttpService, encoded)
+
+		if not decodedOk or type(payload) ~= "table" or type(payload.State) ~= "table" then
+			Logger.warn("Teleport resume payload was invalid:", payload)
+			return false
+		end
+
+		env.WorldZeroTeleportResume = nil
+
+		for key, value in pairs(payload.State) do
+			local valueType = type(value)
+
+			if type(key) == "string" and (valueType == "boolean" or valueType == "number" or valueType == "string") then
+				runtime.State:Set(key, value)
+			end
+		end
+
+		for controlName, stateKey in pairs(TELEPORT_RESUME_CONTROLS) do
+			local control = runtime.Controls[controlName]
+			local value = payload.State[stateKey]
+
+			if control and type(control.Set) == "function" and type(value) == "boolean" then
+				pcall(control.Set, control, value)
+			end
+		end
+
+		pcall(runtime.FarmingEngine.Reconcile, runtime)
+		pcall(runtime.GearEngine.Reconcile, runtime)
+		pcall(runtime.InventoryEngine.Reconcile, runtime)
+
+		runtime.TeleportResume = {
+			QueuedAt = tonumber(payload.QueuedAt),
+			Version = tonumber(payload.Version),
+		}
+		Logger.info("Restored automation state after teleport.")
+		return true
+	end
+
 	local function formatRegistrationError(registerError)
 		local message = tostring(registerError)
 
@@ -68,12 +122,14 @@ return function(ctx)
 			QuestsAPI = ctx:Require("QuestsAPI"),
 			TeleportAPI = ctx:Require("TeleportAPI"),
 			MobsAPI = ctx:Require("MobsAPI"),
+			DungeonsAPI = ctx:Require("DungeonsAPI"),
 			DropsAPI = ctx:Require("DropsAPI"),
 			ChestsAPI = ctx:Require("ChestsAPI"),
 			InventoryAPI = ctx:Require("InventoryAPI"),
 			GearAPI = ctx:Require("GearAPI"),
 			Navigator = ctx:Require("Navigator"),
 			FarmingEngine = ctx:Require("FarmingEngine"),
+			GearEngine = ctx:Require("GearEngine"),
 			InventoryEngine = ctx:Require("InventoryEngine"),
 			Skills = ctx:Require("Skills"),
 			Assassin = ctx:Require("Assassin"),
@@ -161,7 +217,11 @@ return function(ctx)
 		end
 
 		ui:LoadConfiguration()
+		local resumedAfterTeleport = restoreTeleportState(runtime, Logger)
 		ui:Notify("World Zero", "Modular interface loaded.", 4, "circle-check")
+		if resumedAfterTeleport then
+			ui:Notify("Automation resumed", "Farming state was restored after teleport.", 5, 0)
+		end
 		Logger.info("Started in PlaceId", game.PlaceId)
 		Logger.info("=========== INITIALIZATION END ===========")
 		print("")
@@ -179,6 +239,7 @@ return function(ctx)
 		runtime.Stopped = true
 		pcall(runtime.FarmingEngine.Stop, runtime)
 		pcall(runtime.FarmingEngine.ClearSpeedBoost, runtime)
+		pcall(runtime.GearEngine.Stop, runtime)
 		pcall(runtime.InventoryEngine.Stop, runtime)
 
 		if runtime.AutomationTargetProvider then

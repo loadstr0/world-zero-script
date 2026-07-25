@@ -32,6 +32,28 @@ return function(ctx)
 		return Players.LocalPlayer
 	end
 
+	local function callOptional(methodName, ...)
+		local module, resolveError = resolve()
+
+		if not module then
+			return nil, resolveError
+		end
+
+		local method = module[methodName]
+
+		if type(method) ~= "function" then
+			return nil, "missions_missing_" .. string.lower(methodName)
+		end
+
+		local packed = table.pack(pcall(method, module, ...))
+
+		if not packed[1] then
+			return nil, "mission_call_failed_" .. string.lower(methodName) .. ":" .. tostring(packed[2])
+		end
+
+		return table.unpack(packed, 2, packed.n)
+	end
+
 	function Missions.List()
 		local module, resolveError = resolve()
 
@@ -214,6 +236,37 @@ return function(ctx)
 		end
 
 		return mission
+	end
+
+	function Missions.GetRuntimeState()
+		local mission, missionError = Missions.GetCurrent()
+
+		if not mission then
+			return {
+				Active = false,
+				Error = missionError,
+			}
+		end
+
+		local started = callOptional("HasStarted")
+		local missionOver, missionSucceeded = callOptional("MissionIsOver")
+		local lives = callOptional("GetLives")
+		local remainingTime = callOptional("GetRemainingDungeonTime")
+		local checkpoint = callOptional("GetCheckpoint")
+		local difficulty = callOptional("GetDifficulty")
+
+		return {
+			Active = true,
+			Mission = mission,
+			MissionID = tonumber(mission.ID),
+			Started = started == true,
+			MissionOver = missionOver == true,
+			MissionSucceeded = missionSucceeded == true,
+			Lives = tonumber(lives),
+			RemainingTime = tonumber(remainingTime),
+			Checkpoint = checkpoint,
+			Difficulty = tonumber(difficulty),
+		}
 	end
 
 	function Missions.Queue(missionId, difficultyId)

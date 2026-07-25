@@ -27,6 +27,14 @@ Run a short expression:
 .\DevBridge\WorldZeroBridge.cmd eval "print(game.PlaceId); return game.PlaceId"
 ```
 
+Built-in probes:
+
+- `runtime-status` checks initialization, enabled supervisors, navigation, dungeon phase, and teleport restoration.
+- `quest-dungeon` lists real story candidates and verifies quest-to-mission routing.
+- `dungeon-runtime` scans mission state, protected objects, start triggers, workspace mechanics, and objective UI.
+- `gear-runtime` compares maximum-potential gear against equipped items and explains upgrade/equip gates.
+- `option-health` audits every major integration and automation engine in one result.
+
 Useful options:
 
 - `--instance ID` targets one attached Real instance.

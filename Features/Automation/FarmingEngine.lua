@@ -66,7 +66,7 @@ return function()
 			)
 	end
 
-	function Engine.GetOptions(runtime, rangeOverride, bypassConfiguredRange)
+	function Engine.GetOptions(runtime, rangeOverride, bypassConfiguredRange, originPosition)
 		local configuredRange = tonumber(runtime.State:Get("Farming.TargetRange", 120)) or 120
 		local requestedRange = tonumber(rangeOverride) or configuredRange
 
@@ -77,6 +77,7 @@ return function()
 			EliteOnly = runtime.State:Get("Farming.EliteOnly", false),
 			NameFilter = runtime.State:Get("Farming.NameFilter", ""),
 			IncludeOwned = false,
+			OriginPosition = originPosition,
 		}
 	end
 
@@ -228,10 +229,15 @@ return function()
 		return true
 	end
 
-	function Engine.GetTarget(runtime, rangeOverride, bypassConfiguredRange)
+	function Engine.GetTarget(runtime, rangeOverride, bypassConfiguredRange, originPosition)
 		local mapWide = runtime.State:Get("Farming.MapWideTargets", false)
 		local options =
-			Engine.GetOptions(runtime, mapWide and math.huge or rangeOverride, mapWide or bypassConfiguredRange == true)
+			Engine.GetOptions(
+				runtime,
+				mapWide and math.huge or rangeOverride,
+				mapWide or bypassConfiguredRange == true,
+				originPosition
+			)
 		local target, descriptorOrError = selectTarget(runtime, "Farm", options)
 
 		if not target then
@@ -1012,6 +1018,32 @@ return function()
 		return moveToPoint(runtime, questState.Location.Position, stopDistance, "Quest")
 	end
 
+	local function routeDungeon(runtime, dungeonState)
+		if not dungeonState or not dungeonState.Active then
+			return false, "dungeon_not_active"
+		elseif dungeonState.MissionOver then
+			runtime.Navigator.Stop()
+			return true, dungeonState.MissionSucceeded and "dungeon_completed" or "dungeon_failed"
+		elseif
+			dungeonState.Phase == "WaitingForStart"
+			and runtime.State:Get("Dungeons.AutoStart", true)
+			and dungeonState.StartPosition
+		then
+			return moveToPoint(runtime, dungeonState.StartPosition, 0, "DungeonStart")
+		elseif
+			dungeonState.Phase == "BetweenWaves"
+			and runtime.State:Get("Dungeons.HoldDefense", true)
+			and dungeonState.HoldPosition
+		then
+			return moveToPoint(runtime, dungeonState.HoldPosition, 10, "DungeonDefense")
+		elseif dungeonState.Phase == "BetweenWaves" then
+			runtime.Navigator.Stop()
+			return true, "dungeon_waiting_for_wave"
+		end
+
+		return false, "dungeon_mechanic_unresolved:" .. tostring(dungeonState.Phase)
+	end
+
 	local function dodgeThreat(runtime, adapter, threat, healthRatio, statusState)
 		local damage = recentDamage[runtime]
 		local reactionWindow = tonumber(runtime.State:Get("Farming.DamageReactionWindow", 1.25)) or 1.25
@@ -1265,6 +1297,16 @@ return function()
 						if not rescuing then
 							local questState = nil
 							local currentWorldOrder = nil
+							local dungeonState = nil
+
+							if runtime.DungeonsAPI then
+								local dungeonOk, resolvedDungeonState =
+									pcall(runtime.DungeonsAPI.GetState)
+
+								if dungeonOk then
+									dungeonState = resolvedDungeonState
+								end
+							end
 
 							if runtime.State:Get("Quests.Enabled", false) and runtime.QuestsAPI then
 								currentWorldOrder = runtime.TeleportAPI.GetCurrentWorldOrder()
@@ -1283,6 +1325,11 @@ return function()
 							local farmDescriptor = nil
 
 							local questNeedsGenericCombat = questUsesGenericCombat(questState)
+							local dungeonOrigin = dungeonState
+								and dungeonState.Active
+								and runtime.State:Get("Dungeons.DefensePriority", true)
+								and dungeonState.PriorityOrigin
+								or nil
 
 							if
 								not questHandled
@@ -1291,7 +1338,8 @@ return function()
 								farmTarget, farmDescriptor = Engine.GetTarget(
 									runtime,
 									questNeedsGenericCombat and math.huge or nil,
-									questNeedsGenericCombat
+									questNeedsGenericCombat,
+									dungeonOrigin
 								)
 							end
 
@@ -1319,10 +1367,13 @@ return function()
 								not collecting
 								and not retreating
 								and not questHandled
-								and questState
-								and not questTarget
+								and not target
 							then
-								routing, routeError = routeQuest(runtime, questState, currentWorldOrder)
+								if dungeonState and dungeonState.Active then
+									routing, routeError = routeDungeon(runtime, dungeonState)
+								elseif questState and not questTarget then
+									routing, routeError = routeQuest(runtime, questState, currentWorldOrder)
+								end
 							end
 
 							if target and descriptor then
@@ -1339,6 +1390,7 @@ return function()
 
 							automationDecisions[runtime] = {
 								Quest = questState,
+								Dungeon = dungeonState,
 								QuestTarget = questDescriptor,
 								FarmTarget = farmDescriptor,
 								Collectible = collectible,
