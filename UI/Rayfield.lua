@@ -5,6 +5,27 @@ return function(ctx)
 	local Logger = ctx:Require("Logger")
 	local Executor = ctx:Require("Executor")
 
+	local function destroyStaleRayfieldWindows(config)
+		if Executor.Has("SetThreadIdentity") then
+			local runtimeConfig = config.Runtime or {}
+			pcall(Executor.EnsureThreadIdentity, runtimeConfig.ThreadIdentity)
+		end
+
+		pcall(function()
+			local coreGui = game:GetService("CoreGui")
+			local robloxGui = coreGui:FindFirstChild("RobloxGui")
+
+			for _, child in ipairs(robloxGui and robloxGui:GetChildren() or {}) do
+				if
+					child:IsA("ScreenGui")
+					and (child.Name == "Rayfield" or child.Name == "Rayfield-Old")
+				then
+					child:Destroy()
+				end
+			end
+		end)
+	end
+
 	local function prepareUIThread(self)
 		if not Executor.Has("SetThreadIdentity") then
 			return
@@ -31,6 +52,7 @@ return function(ctx)
 	end
 
 	function RayfieldUI.new(config)
+		destroyStaleRayfieldWindows(config)
 		local source = game:HttpGet(config.RayfieldUrl)
 		local chunk, compileError = loadstring(source)
 
