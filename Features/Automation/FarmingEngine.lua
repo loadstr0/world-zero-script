@@ -1064,6 +1064,20 @@ return function()
 		then
 			return moveToPoint(runtime, dungeonState.ProgressionPosition, 0, "TowerPortal")
 		elseif
+			dungeonState.Phase == "Objective"
+			and runtime.State:Get("Dungeons.AutoProgression", true)
+			and dungeonState.ProgressionPosition
+		then
+			local activated, activationStatus =
+				runtime.DungeonsAPI.ActivateObjective(dungeonState)
+
+			if activated then
+				runtime.Navigator.Stop()
+				return true, activationStatus
+			end
+
+			return moveToPoint(runtime, dungeonState.ProgressionPosition, 0, "DungeonObjective")
+		elseif
 			dungeonState.Phase == "Progression"
 			and runtime.State:Get("Dungeons.AutoProgression", true)
 			and dungeonState.ProgressionPosition

@@ -4,6 +4,7 @@ return function(ctx)
 	local Missions = ctx:Require("MissionsAPI")
 	local Mobs = ctx:Require("MobsAPI")
 	local Towers = ctx:Require("TowersAPI")
+	local DungeonObjectives = ctx:Require("DungeonObjectivesAPI")
 	local Health = ctx:Require("Health")
 	local Players = ctx.Services.Players
 	local progressionSession = nil
@@ -175,25 +176,7 @@ return function(ctx)
 
 		local target = candidates[1]
 
-		if target and target.VisitedAt then
-			table.clear(progressionEnteredAt)
-			table.clear(progressionVisited)
-
-			for _, candidate in ipairs(candidates) do
-				candidate.VisitedAt = nil
-			end
-
-			table.sort(candidates, function(a, b)
-				if a.Distance ~= b.Distance then
-					return a.Distance < b.Distance
-				end
-
-				return a.Name < b.Name
-			end)
-			target = candidates[1]
-		end
-
-		return target, candidates
+		return target and not target.VisitedAt and target or nil, candidates
 	end
 
 	function Dungeons.GetState()
@@ -220,6 +203,7 @@ return function(ctx)
 		end
 
 		local towerState = Towers.GetState(missionState, mobCount)
+		local objectiveState = DungeonObjectives.GetState(missionState, missionObjects)
 		local started = missionState.Started or mobCount > 0
 		local phase = "WaitingForStart"
 
@@ -231,6 +215,8 @@ return function(ctx)
 			phase = "Combat"
 		elseif towerState.Active then
 			phase = towerState.Phase
+		elseif objectiveState.Active then
+			phase = "Objective"
 		elseif not started and startTrigger then
 			phase = "WaitingForStart"
 		elseif progression and #protectedObjects == 0 then
@@ -246,6 +232,7 @@ return function(ctx)
 		local fallbackPart = getPart(fallback)
 		local towerEntry = towerState.Active and towerState.EntryTrigger or nil
 		local towerProgression = towerState.Active and towerState.Portal or nil
+		local objectiveTarget = objectiveState.Active and objectiveState.Target or nil
 
 		return {
 			Active = true,
@@ -267,22 +254,33 @@ return function(ctx)
 			TowerFloor = towerState.Floor,
 			TowerObjective = towerState.Objective,
 			IsCelestialTower = towerState.IsCelestialTower == true,
+			Objective = objectiveState.Objective,
+			ObjectiveMechanic = objectiveState.Mechanic,
+			ObjectiveTarget = objectiveTarget,
+			ObjectiveTargetName = objectiveState.TargetName,
+			ObjectiveTargetKind = objectiveState.TargetKind,
+			ObjectiveTargetCount = objectiveState.TargetCount,
 			ProtectedObjects = protectedObjects,
 			PriorityDefense = defense,
 			PriorityOrigin = defense and defense.Position or nil,
 			HoldPosition = towerState.Active and towerState.HoldPosition
 				or (defense and defense.Position or (fallbackPart and fallbackPart.Position or nil)),
-			ProgressionTarget = towerProgression or (progression and progression.Part or nil),
+			ProgressionTarget = towerProgression
+				or objectiveTarget
+				or (progression and progression.Part or nil),
 			ProgressionName = towerState.Active and (
 				phase == "TowerAdvance" and "NextFloorPortal"
-				or (phase == "TowerEnter" and "ArenaGate" or towerState.ArenaName)
+					or (phase == "TowerEnter" and "ArenaGate" or towerState.ArenaName)
 			)
+				or (objectiveState.Active and objectiveState.TargetName)
 				or (progression and progression.Name or nil),
 			ProgressionPosition = towerState.Active and (
 				phase == "TowerAdvance" and towerState.PortalPosition or towerState.EntryPosition
 			)
+				or (objectiveState.Active and objectiveState.TargetPosition)
 				or (progression and progression.Position or nil),
 			ProgressionDistance = towerState.Active and towerState.EntryDistance
+				or (objectiveState.Active and objectiveState.TargetDistance)
 				or (progression and progression.Distance or nil),
 			ProgressionTargetCount = #progressionTargets,
 		}
@@ -304,8 +302,20 @@ return function(ctx)
 			IsCelestialTower = state.IsCelestialTower,
 			TowerFloor = state.TowerFloor,
 			TowerObjective = state.TowerObjective,
+			Objective = state.Objective,
+			ObjectiveMechanic = state.ObjectiveMechanic,
+			ObjectiveTargetName = state.ObjectiveTargetName,
+			ObjectiveTargetCount = state.ObjectiveTargetCount,
 			Error = state.Error,
 		}
+	end
+
+	function Dungeons.ActivateObjective(state)
+		return DungeonObjectives.Activate({
+			Active = state and state.Phase == "Objective",
+			Target = state and state.ObjectiveTarget,
+			TargetKind = state and state.ObjectiveTargetKind,
+		})
 	end
 
 	return Dungeons
