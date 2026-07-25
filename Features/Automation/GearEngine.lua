@@ -36,6 +36,15 @@ return function()
 		return ((bestScore - currentScore) / currentScore) * 100
 	end
 
+	local function currentStrength(descriptor)
+		return descriptor
+				and (
+					tonumber(descriptor.EffectiveCurrentScore)
+					or tonumber(descriptor.CurrentScore)
+				)
+			or 0
+	end
+
 	local function setStatus(runtime, state)
 		state.At = os.clock()
 		statuses[runtime] = state
@@ -131,11 +140,19 @@ return function()
 					local upgradeInfo = runtime.GearAPI.GetUpgradeInfo(best.Item)
 					local isNewItem = best.Item ~= (current and current.Item)
 					local waitUntilMaxed = runtime.State:Get("Gear.EquipOnlyMaxed", false)
+					local keepStrongerEquipped =
+						runtime.State:Get("Gear.KeepStrongerEquippedUntilReady", true)
+					local currentlyStronger = not current
+						or currentStrength(best) > currentStrength(current) + 0.001
+					local mayEquipCandidate = replacingReserved
+						or not keepStrongerEquipped
+						or currentlyStronger
 
 					if
 						isNewItem
 						and runtime.State:Get("Gear.AutoEquip", true)
 						and not waitUntilMaxed
+						and mayEquipCandidate
 					then
 						local equipped, equipError =
 							runtime.GearAPI.Equip(best.Item, slotName, loadoutOptions)
@@ -197,6 +214,7 @@ return function()
 					if
 						isNewItem
 						and runtime.State:Get("Gear.AutoEquip", true)
+						and mayEquipCandidate
 						and (
 							not waitUntilMaxed
 							or not upgradeInfo
@@ -213,6 +231,20 @@ return function()
 							Error = equipError,
 						})
 						return equipped, equipError
+					end
+
+					if isNewItem and keepStrongerEquipped and not currentlyStronger then
+						setStatus(runtime, {
+							Action = "Keeping stronger equipped gear",
+							Slot = slotName,
+							Item = best.Name,
+							Error = autoUpgrade and "candidate_waiting_for_upgrade"
+								or "candidate_currently_weaker",
+							CandidateCurrentScore = currentStrength(best),
+							EquippedCurrentScore = currentStrength(current),
+						})
+						return false, autoUpgrade and "candidate_waiting_for_upgrade"
+							or "candidate_currently_weaker"
 					end
 				end
 			end

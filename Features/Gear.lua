@@ -54,6 +54,7 @@ return function(ctx)
 		runtime.State:Set("Gear.AutoUpgrade", false)
 		runtime.State:Set("Gear.AutoEquip", true)
 		runtime.State:Set("Gear.EquipOnlyMaxed", false)
+		runtime.State:Set("Gear.KeepStrongerEquippedUntilReady", true)
 		runtime.State:Set("Gear.UpgradeMode", "Gold attempts")
 		runtime.State:Set("Gear.GoldReserve", 0)
 		runtime.State:Set("Gear.CrystalReserve", 0)
@@ -164,10 +165,18 @@ return function(ctx)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "GearKeepStrongerEquippedUntilReady", {
+			Name = "Keep stronger gear equipped until upgrade catches up",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Gear.KeepStrongerEquippedUntilReady", value)
+			end,
+		})
+
 		runtime.UI:CreateParagraph(
 			tab,
 			"Spending safety",
-			"Automatic upgrading is off by default. Gold mode retries the game's normal chance-based upgrade and can spend repeatedly. Guaranteed mode uses 20 crystals per remaining upgrade level. Reserves and a per-item attempt cap are always enforced."
+			"Maximum potential chooses which item receives upgrades, while current effective stats decide what stays equipped. A weaker candidate is upgraded from inventory and only replaces the old item after its real combat score catches up. Gold and crystal reserves, trade reserves, and the per-item attempt cap remain enforced."
 		)
 
 		runtime.UI:CreateSlider(tab, "GearGoldReserve", {
