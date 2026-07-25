@@ -309,6 +309,13 @@ return function()
 		return math.max(stoppingDistance, preferred), true
 	end
 
+	local function addMovementMode(runtime, options)
+		options.MovementMode = runtime.State:Get("Farming.MovementMode", "Pathfinding")
+		options.CFrameStepDistance = tonumber(runtime.State:Get("Farming.CFrameStepDistance", 18)) or 18
+		options.ZeroVelocity = runtime.State:Get("Farming.CFrameZeroVelocity", true)
+		return options
+	end
+
 	local function approachTarget(runtime, descriptor)
 		local distance = tonumber(descriptor and descriptor.Distance)
 
@@ -328,13 +335,17 @@ return function()
 			local targetSpeed = tonumber(runtime.Walkspeed.Get(descriptor.Model))
 
 			if playerSpeed and (not targetSpeed or playerSpeed >= targetSpeed * 0.9) then
-				runtime.Navigator.RetreatFrom(descriptor.Position, math.max(8, stopDistance - distance + 6), {
-					Owner = "CombatKite",
-					AutoJump = runtime.State:Get("Farming.AutoJump", true),
-					RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
-					StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
-					TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
-				})
+				runtime.Navigator.RetreatFrom(
+					descriptor.Position,
+					math.max(8, stopDistance - distance + 6),
+					addMovementMode(runtime, {
+						Owner = "CombatKite",
+						AutoJump = runtime.State:Get("Farming.AutoJump", true),
+						RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
+						StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
+						TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
+					})
+				)
 				return true
 			end
 		end
@@ -349,14 +360,17 @@ return function()
 			farmSprinting[runtime] = nil
 		end
 
-		local moved, movementError = runtime.Navigator.MoveTo(descriptor.Position, {
-			Owner = "Combat",
-			StopDistance = stopDistance,
-			AutoJump = runtime.State:Get("Farming.AutoJump", true),
-			RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
-			StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
-			TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
-		})
+		local moved, movementError = runtime.Navigator.MoveTo(
+			descriptor.Position,
+			addMovementMode(runtime, {
+				Owner = "Combat",
+				StopDistance = stopDistance,
+				AutoJump = runtime.State:Get("Farming.AutoJump", true),
+				RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
+				StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
+				TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
+			})
+		)
 
 		if not moved and movementError == "movement_controller_unavailable" and not movementWarnings[runtime] then
 			movementWarnings[runtime] = true
@@ -550,12 +564,12 @@ return function()
 	end
 
 	local function getNavigationOptions(runtime)
-		return {
+		return addMovementMode(runtime, {
 			AutoJump = runtime.State:Get("Farming.AutoJump", true),
 			RepathInterval = tonumber(runtime.State:Get("Farming.RepathInterval", 1.25)) or 1.25,
 			StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
 			TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
-		}
+		})
 	end
 
 	local function moveToPoint(runtime, position, stopDistance, owner)
@@ -967,14 +981,17 @@ return function()
 		end
 
 		if (tonumber(teammate.Distance) or math.huge) >= 12 then
-			local moved = runtime.Navigator.MoveTo(teammate.Position, {
-				Owner = "Rescue",
-				StopDistance = 10,
-				AutoJump = runtime.State:Get("Farming.AutoJump", true),
-				RepathInterval = 0.5,
-				StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
-				TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
-			})
+			local moved = runtime.Navigator.MoveTo(
+				teammate.Position,
+				addMovementMode(runtime, {
+					Owner = "Rescue",
+					StopDistance = 10,
+					AutoJump = runtime.State:Get("Farming.AutoJump", true),
+					RepathInterval = 0.5,
+					StuckTimeout = tonumber(runtime.State:Get("Farming.StuckTimeout", 1.4)) or 1.4,
+					TargetMoveThreshold = tonumber(runtime.State:Get("Farming.TargetMoveThreshold", 10)) or 10,
+				})
+			)
 
 			return moved == true
 		else

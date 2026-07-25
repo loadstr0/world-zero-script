@@ -24,6 +24,9 @@ return function(ctx)
 		runtime.State:Set("Farming.EliteOnly", false)
 		runtime.State:Set("Farming.NameFilter", "")
 		runtime.State:Set("Farming.AutoApproach", true)
+		runtime.State:Set("Farming.MovementMode", "Pathfinding")
+		runtime.State:Set("Farming.CFrameStepDistance", 18)
+		runtime.State:Set("Farming.CFrameZeroVelocity", true)
 		runtime.State:Set("Farming.StopDistance", 10)
 		runtime.State:Set("Farming.AdaptiveKiting", true)
 		runtime.State:Set("Farming.KiteDistance", 28)
@@ -157,9 +160,9 @@ return function(ctx)
 			end,
 		})
 
-		runtime.UI:CreateSection(tab, "Movement and attacks")
+		runtime.UI:CreateSection(tab, "Movement mode")
 		runtime.UI:CreateToggle(tab, "FarmingAutoApproach", {
-			Name = "Pathfind toward selected target",
+			Name = "Move toward automation target",
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Farming.AutoApproach", value)
@@ -169,6 +172,48 @@ return function(ctx)
 				end
 			end,
 		})
+
+		runtime.UI:CreateDropdown(tab, "FarmingMovementMode", {
+			Name = "Navigation method",
+			Options = {
+				"Pathfinding",
+				"CFrame Step",
+				"Instant CFrame",
+			},
+			CurrentOption = { "Pathfinding" },
+			MultipleOptions = false,
+			Callback = function(options)
+				runtime.State:Set("Farming.MovementMode", options and options[1] or "Pathfinding")
+				runtime.Navigator.Stop()
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingCFrameStepDistance", {
+			Name = "CFrame step distance",
+			Range = { 2, 100 },
+			Increment = 1,
+			Suffix = " studs/tick",
+			CurrentValue = 18,
+			Callback = function(value)
+				runtime.State:Set("Farming.CFrameStepDistance", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingCFrameZeroVelocity", {
+			Name = "Cancel momentum after CFrame movement",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.CFrameZeroVelocity", value)
+			end,
+		})
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Blatant navigation",
+			"CFrame Step moves directly through the route in configurable jumps. Instant CFrame moves to the requested stopping distance in one update. Both bypass pathfinding and can be corrected by the server."
+		)
+
+		runtime.UI:CreateSection(tab, "Pathfinding controls")
 
 		runtime.UI:CreateToggle(tab, "FarmingAutoJump", {
 			Name = "Jump over path obstacles",
@@ -290,6 +335,7 @@ return function(ctx)
 			"This uses the same client WalkspeedManager API as status effects and can counter non-zero slows up to the 3x cap. Frozen, Shock, and other zero-speed roots remain blocked. The server can still correct movement, so it is optional."
 		)
 
+		runtime.UI:CreateSection(tab, "Attack rotation")
 		runtime.UI:CreateToggle(tab, "FarmingAutoAttack", {
 			Name = "Attack selected target",
 			CurrentValue = true,
@@ -640,8 +686,7 @@ return function(ctx)
 
 				runtime.UI:Notify(
 					"Mob scan",
-					matching
-							and (tostring(#matching) .. " valid mob(s) match the current filters.")
+					matching and (tostring(#matching) .. " valid mob(s) match the current filters.")
 						or ("Scan failed: " .. tostring(matchingError)),
 					5,
 					0

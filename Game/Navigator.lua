@@ -18,6 +18,7 @@ return function(ctx)
 	local lastMoveAt = 0
 	local pathFailed = false
 	local currentOwner = nil
+	local currentMode = "Pathfinding"
 
 	local function numberOption(value, fallback, minimum)
 		local numeric = tonumber(value) or fallback
@@ -60,6 +61,62 @@ return function(ctx)
 
 	local function getMovementParts()
 		return GameContext.GetHumanoid(), GameContext.GetRootPart()
+	end
+
+	local function normalizeMode(value)
+		if value == "CFrame Step" or value == "Instant CFrame" then
+			return value
+		end
+
+		return "Pathfinding"
+	end
+
+	local function moveWithCFrame(root, targetPosition, stopDistance, mode, options)
+		local offset = targetPosition - root.Position
+		local distance = offset.Magnitude
+
+		if distance <= stopDistance then
+			lastStatus = "in_range"
+			return true, lastStatus
+		end
+
+		local travelDistance = math.max(0, distance - stopDistance)
+
+		if mode == "CFrame Step" then
+			travelDistance = math.min(travelDistance, numberOption(options.CFrameStepDistance, 18, 1))
+		end
+
+		local nextPosition = root.Position + offset.Unit * travelDistance
+		local lookDirection = targetPosition - nextPosition
+		local nextCFrame
+
+		if lookDirection.Magnitude > 0.001 then
+			nextCFrame = CFrame.lookAt(nextPosition, targetPosition)
+		else
+			nextCFrame = CFrame.new(nextPosition) * root.CFrame.Rotation
+		end
+
+		local moved, moveError = pcall(function()
+			root.CFrame = nextCFrame
+
+			if options.ZeroVelocity ~= false then
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+			end
+		end)
+
+		if not moved then
+			lastStatus = "cframe_failed"
+			return false, "cframe_move_failed:" .. tostring(moveError)
+		end
+
+		destination = targetPosition
+		lastProgressPosition = nextPosition
+		lastProgressAt = os.clock()
+		lastMovePosition = nextPosition
+		lastMoveAt = os.clock()
+		lastStatus = mode == "Instant CFrame" and "instant_cframe" or "cframe_step"
+		return true, lastStatus
 	end
 
 	local function jump(humanoid)
@@ -177,10 +234,12 @@ return function(ctx)
 		end
 
 		local requestedOwner = tostring(options.Owner or "Default")
+		local requestedMode = normalizeMode(options.MovementMode)
 
-		if currentOwner ~= requestedOwner then
+		if currentOwner ~= requestedOwner or currentMode ~= requestedMode then
 			clearPath()
 			currentOwner = requestedOwner
+			currentMode = requestedMode
 			lastMovePosition = nil
 			lastProgressPosition = root.Position
 			lastProgressAt = os.clock()
@@ -188,6 +247,13 @@ return function(ctx)
 
 		local stopDistance = numberOption(options.StopDistance, 0, 0)
 		local distance = (root.Position - targetPosition).Magnitude
+
+		if requestedMode ~= "Pathfinding" then
+			clearPath()
+			currentOwner = requestedOwner
+			currentMode = requestedMode
+			return moveWithCFrame(root, targetPosition, stopDistance, requestedMode, options)
+		end
 
 		if distance <= stopDistance then
 			if lastStatus ~= "in_range" then
@@ -274,6 +340,7 @@ return function(ctx)
 		clearPath()
 		lastMovePosition = nil
 		currentOwner = nil
+		currentMode = "Pathfinding"
 		lastStatus = "idle"
 	end
 
@@ -284,6 +351,7 @@ return function(ctx)
 			WaypointCount = #waypoints,
 			Destination = destination,
 			Owner = currentOwner,
+			Mode = currentMode,
 			PathFailed = pathFailed,
 			LastMoveAge = lastMoveAt > 0 and os.clock() - lastMoveAt or nil,
 		}
@@ -293,6 +361,8 @@ return function(ctx)
 		return {
 			Available = PathfindingService ~= nil,
 			UsesPathfinding = true,
+			SupportsCFrameStep = true,
+			SupportsInstantCFrame = true,
 			CanJump = true,
 			HasStuckRecovery = true,
 		}
