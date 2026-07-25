@@ -67,7 +67,7 @@ return function()
 	end
 
 	function Engine.GetOptions(runtime, rangeOverride, bypassConfiguredRange, originPosition)
-		local configuredRange = tonumber(runtime.State:Get("Farming.TargetRange", 120)) or 120
+		local configuredRange = tonumber(runtime.State:Get("Farming.TargetRange", 500)) or 500
 		local requestedRange = tonumber(rangeOverride) or configuredRange
 
 		return {
@@ -199,7 +199,7 @@ return function()
 			return false
 		end
 
-		local timeout = math.max(3, tonumber(runtime.State:Get("Farming.NoDamageTimeout", 15)) or 15)
+		local timeout = math.max(3, tonumber(runtime.State:Get("Farming.NoDamageTimeout", 5)) or 5)
 
 		if now - (tonumber(state.LastProgressAt) or now) < timeout then
 			return false
@@ -213,7 +213,7 @@ return function()
 		end
 
 		blacklist[target] = now
-			+ math.max(5, tonumber(runtime.State:Get("Farming.StalledTargetRetryDelay", 20)) or 20)
+			+ math.max(5, tonumber(runtime.State:Get("Farming.StalledTargetRetryDelay", 5)) or 5)
 		engagementStates[runtime] = nil
 
 		local locks = targetLocks[runtime]
@@ -230,7 +230,7 @@ return function()
 	end
 
 	function Engine.GetTarget(runtime, rangeOverride, bypassConfiguredRange, originPosition)
-		local mapWide = runtime.State:Get("Farming.MapWideTargets", false)
+		local mapWide = runtime.State:Get("Farming.MapWideTargets", true)
 		local options =
 			Engine.GetOptions(
 				runtime,
@@ -364,8 +364,8 @@ return function()
 	local function updateSpeedBoost(runtime, statusState)
 		local character = runtime.Game.GetCharacter()
 		local boosted = boostedCharacters[runtime]
-		local enabled = runtime.State:Get("Farming.SpeedBoostEnabled", false)
-		local multiplier = tonumber(runtime.State:Get("Farming.SpeedBoostMultiplier", 1.5)) or 1.5
+		local enabled = runtime.State:Get("Farming.SpeedBoostEnabled", true)
+		local multiplier = tonumber(runtime.State:Get("Farming.SpeedBoostMultiplier", 3)) or 3
 		local statusSpeedMultiplier = tonumber(statusState and statusState.WalkspeedMultiplier)
 
 		if
@@ -484,8 +484,8 @@ return function()
 	end
 
 	local function addMovementMode(runtime, options)
-		options.MovementMode = runtime.State:Get("Farming.MovementMode", "Pathfinding")
-		options.CFrameFlightSpeed = tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 90)) or 90
+		options.MovementMode = runtime.State:Get("Farming.MovementMode", "Smooth Flight")
+		options.CFrameFlightSpeed = tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 500)) or 500
 		options.ZeroVelocity = runtime.State:Get("Farming.CFrameZeroVelocity", true)
 		options.FlightNoclip = runtime.State:Get("Farming.FlightNoclip", true)
 		return options
@@ -622,7 +622,7 @@ return function()
 
 		local attempts = lastSlotAttempts[runtime] or {}
 		lastSlotAttempts[runtime] = attempts
-		local retryInterval = tonumber(runtime.State:Get("Farming.SkillRetryInterval", 0.6)) or 0.6
+		local retryInterval = tonumber(runtime.State:Get("Farming.SkillRetryInterval", 0.2)) or 0.2
 
 		if attempts[slot] and os.clock() - attempts[slot] < retryInterval then
 			return false
@@ -1195,7 +1195,7 @@ return function()
 		end
 
 		local nearest = nil
-		local nearestDistance = tonumber(runtime.State:Get("Farming.FreezeTagRescueRange", 120)) or 120
+		local nearestDistance = tonumber(runtime.State:Get("Farming.FreezeTagRescueRange", 300)) or 300
 		local localPlayer = runtime.Game.GetLocalPlayer()
 
 		for _, player in ipairs(runtime.Context.Services.Players:GetPlayers()) do
@@ -1325,6 +1325,8 @@ return function()
 							local farmDescriptor = nil
 
 							local questNeedsGenericCombat = questUsesGenericCombat(questState)
+							local dungeonNeedsGenericCombat = dungeonState and dungeonState.Active == true
+							local unrestrictedCombat = questNeedsGenericCombat or dungeonNeedsGenericCombat
 							local dungeonOrigin = dungeonState
 								and dungeonState.Active
 								and runtime.State:Get("Dungeons.DefensePriority", true)
@@ -1333,12 +1335,12 @@ return function()
 
 							if
 								not questHandled
-								and (runtime.State:Get("Farming.Enabled", false) or questNeedsGenericCombat)
+								and (runtime.State:Get("Farming.Enabled", false) or unrestrictedCombat)
 							then
 								farmTarget, farmDescriptor = Engine.GetTarget(
 									runtime,
-									questNeedsGenericCombat and math.huge or nil,
-									questNeedsGenericCombat,
+									unrestrictedCombat and math.huge or nil,
+									unrestrictedCombat,
 									dungeonOrigin
 								)
 							end
@@ -1404,7 +1406,7 @@ return function()
 						end
 					end
 
-					local updateInterval = tonumber(runtime.State:Get("Farming.UpdateInterval", 0.2)) or 0.2
+					local updateInterval = tonumber(runtime.State:Get("Farming.UpdateInterval", 0.1)) or 0.1
 					task.wait(math.max(0.03, updateInterval))
 				end
 			end, function(runError)

@@ -19,27 +19,27 @@ return function(ctx)
 
 		runtime.State:Set("Farming.Enabled", false)
 		runtime.State:Set("Farming.TargetMode", "Nearest")
-		runtime.State:Set("Farming.TargetRange", 120)
-		runtime.State:Set("Farming.MapWideTargets", false)
+		runtime.State:Set("Farming.TargetRange", 500)
+		runtime.State:Set("Farming.MapWideTargets", true)
 		runtime.State:Set("Farming.BossOnly", false)
 		runtime.State:Set("Farming.EliteOnly", false)
 		runtime.State:Set("Farming.NameFilter", "")
 		runtime.State:Set("Farming.AutoApproach", true)
-		runtime.State:Set("Farming.MovementMode", "Pathfinding")
-		runtime.State:Set("Farming.CFrameFlightSpeed", 90)
+		runtime.State:Set("Farming.MovementMode", "Smooth Flight")
+		runtime.State:Set("Farming.CFrameFlightSpeed", 500)
 		runtime.State:Set("Farming.CFrameZeroVelocity", true)
 		runtime.State:Set("Farming.FlightNoclip", true)
 		runtime.State:Set("Farming.StickyTargets", true)
 		runtime.State:Set("Farming.SkipStalledTargets", true)
-		runtime.State:Set("Farming.NoDamageTimeout", 15)
-		runtime.State:Set("Farming.StalledTargetRetryDelay", 20)
+		runtime.State:Set("Farming.NoDamageTimeout", 5)
+		runtime.State:Set("Farming.StalledTargetRetryDelay", 5)
 		runtime.State:Set("Farming.StopDistance", 10)
 		runtime.State:Set("Farming.TargetHeightOffset", 0)
 		runtime.State:Set("Farming.AdaptiveKiting", true)
 		runtime.State:Set("Farming.KiteDistance", 28)
 		runtime.State:Set("Farming.AutoSprint", true)
-		runtime.State:Set("Farming.SpeedBoostEnabled", false)
-		runtime.State:Set("Farming.SpeedBoostMultiplier", 1.5)
+		runtime.State:Set("Farming.SpeedBoostEnabled", true)
+		runtime.State:Set("Farming.SpeedBoostMultiplier", 3)
 		runtime.State:Set("Farming.SpeedBoostCounterSlows", true)
 		runtime.State:Set("Farming.AutoJump", true)
 		runtime.State:Set("Farming.RepathInterval", 1.25)
@@ -49,11 +49,11 @@ return function(ctx)
 		runtime.State:Set("Farming.RotationMode", "Full Rotation")
 		runtime.State:Set("Farming.AttackSlot", "Primary")
 		runtime.State:Set("Farming.UseUltimate", true)
-		runtime.State:Set("Farming.SkillRetryInterval", 0.6)
+		runtime.State:Set("Farming.SkillRetryInterval", 0.2)
 		runtime.State:Set("Farming.AttackRange", 45)
 		runtime.State:Set("Farming.AutoDodge", true)
 		runtime.State:Set("Farming.AutoThawFreezeTag", true)
-		runtime.State:Set("Farming.FreezeTagRescueRange", 120)
+		runtime.State:Set("Farming.FreezeTagRescueRange", 300)
 		runtime.State:Set("Farming.DebuffSurvival", true)
 		runtime.State:Set("Farming.DebuffSafetyThreshold", 60)
 		runtime.State:Set("Farming.DodgeAfterDamage", true)
@@ -67,7 +67,7 @@ return function(ctx)
 		runtime.State:Set("Farming.HealItemName", "")
 		runtime.State:Set("Farming.HealItemHealthThreshold", 40)
 		runtime.State:Set("Farming.HealItemRetryInterval", 5)
-		runtime.State:Set("Farming.UpdateInterval", 0.2)
+		runtime.State:Set("Farming.UpdateInterval", 0.1)
 
 		runtime.Janitor:Add(function()
 			runtime.Actions.ClearTargetProvider(targetProvider)
@@ -135,7 +135,7 @@ return function(ctx)
 			Range = { 10, 500 },
 			Increment = 5,
 			Suffix = " studs",
-			CurrentValue = 120,
+			CurrentValue = 500,
 			Callback = function(value)
 				runtime.State:Set("Farming.TargetRange", value)
 			end,
@@ -143,7 +143,7 @@ return function(ctx)
 
 		runtime.UI:CreateToggle(tab, "FarmingMapWideTargets", {
 			Name = "Search every loaded mob regardless of distance",
-			CurrentValue = false,
+			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Farming.MapWideTargets", value)
 			end,
@@ -191,14 +191,14 @@ return function(ctx)
 		runtime.UI:CreateDropdown(tab, "FarmingMovementMode", {
 			Name = "Navigation method",
 			Options = {
-				"Pathfinding",
 				"Smooth Flight",
 				"Instant CFrame",
+				"Pathfinding",
 			},
-			CurrentOption = { "Pathfinding" },
+			CurrentOption = { "Smooth Flight" },
 			MultipleOptions = false,
 			Callback = function(options)
-				runtime.State:Set("Farming.MovementMode", options and options[1] or "Pathfinding")
+				runtime.State:Set("Farming.MovementMode", options and options[1] or "Smooth Flight")
 				runtime.Navigator.Stop()
 			end,
 		})
@@ -208,7 +208,7 @@ return function(ctx)
 			Range = { 20, 500 },
 			Increment = 10,
 			Suffix = " studs/s",
-			CurrentValue = 90,
+			CurrentValue = 500,
 			Callback = function(value)
 				runtime.State:Set("Farming.CFrameFlightSpeed", value)
 			end,
@@ -340,7 +340,7 @@ return function(ctx)
 
 		runtime.UI:CreateToggle(tab, "FarmingSpeedBoostEnabled", {
 			Name = "Enable automation speed boost",
-			CurrentValue = false,
+			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Farming.SpeedBoostEnabled", value)
 
@@ -355,7 +355,7 @@ return function(ctx)
 			Range = { 1, 3 },
 			Increment = 0.1,
 			Suffix = "x",
-			CurrentValue = 1.5,
+			CurrentValue = 3,
 			Callback = function(value)
 				runtime.State:Set("Farming.SpeedBoostMultiplier", value)
 			end,
@@ -397,7 +397,7 @@ return function(ctx)
 			Range = { 5, 45 },
 			Increment = 1,
 			Suffix = "s",
-			CurrentValue = 15,
+			CurrentValue = 5,
 			Callback = function(value)
 				runtime.State:Set("Farming.NoDamageTimeout", value)
 			end,
@@ -455,7 +455,7 @@ return function(ctx)
 			Range = { 0.2, 2 },
 			Increment = 0.1,
 			Suffix = "s",
-			CurrentValue = 0.6,
+			CurrentValue = 0.2,
 			Callback = function(value)
 				runtime.State:Set("Farming.SkillRetryInterval", value)
 			end,
@@ -486,7 +486,7 @@ return function(ctx)
 			Range = { 20, 300 },
 			Increment = 10,
 			Suffix = " studs",
-			CurrentValue = 120,
+			CurrentValue = 300,
 			Callback = function(value)
 				runtime.State:Set("Farming.FreezeTagRescueRange", value)
 			end,
@@ -642,7 +642,7 @@ return function(ctx)
 			Range = { 0.1, 1 },
 			Increment = 0.05,
 			Suffix = "s",
-			CurrentValue = 0.2,
+			CurrentValue = 0.1,
 			Callback = function(value)
 				runtime.State:Set("Farming.UpdateInterval", value)
 			end,
