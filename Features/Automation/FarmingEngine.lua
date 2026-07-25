@@ -1122,6 +1122,21 @@ return function()
 	end
 
 	local function routeDungeon(runtime, dungeonState)
+		local function moveDungeonPoint(position, stopDistance, owner)
+			local root = runtime.Game.GetRootPart()
+			local overrides = root
+					and typeof(position) == "Vector3"
+					and root.Position.Y - position.Y >= 18
+					and {
+						FlightGroundSafety = false,
+						FlightCruiseHeight = 6,
+						FlightNoclip = true,
+					}
+				or nil
+
+			return moveToPoint(runtime, position, stopDistance, owner, overrides)
+		end
+
 		if not dungeonState or not dungeonState.Active then
 			return false, "dungeon_not_active"
 		elseif dungeonState.Phase == "Rewards" then
@@ -1135,19 +1150,19 @@ return function()
 			and runtime.State:Get("Dungeons.AutoStart", true)
 			and dungeonState.StartPosition
 		then
-			return moveToPoint(runtime, dungeonState.StartPosition, 0, "DungeonStart")
+			return moveDungeonPoint(dungeonState.StartPosition, 0, "DungeonStart")
 		elseif
 			dungeonState.Phase == "TowerEnter"
 			and runtime.State:Get("Dungeons.AutoTowerProgression", true)
 			and dungeonState.StartPosition
 		then
-			return moveToPoint(runtime, dungeonState.StartPosition, 0, "TowerEntry")
+			return moveDungeonPoint(dungeonState.StartPosition, 0, "TowerEntry")
 		elseif
 			dungeonState.Phase == "TowerAdvance"
 			and runtime.State:Get("Dungeons.AutoTowerProgression", true)
 			and dungeonState.ProgressionPosition
 		then
-			return moveToPoint(runtime, dungeonState.ProgressionPosition, 0, "TowerPortal")
+			return moveDungeonPoint(dungeonState.ProgressionPosition, 0, "TowerPortal")
 		elseif
 			dungeonState.Phase == "Objective"
 			and runtime.State:Get("Dungeons.AutoProgression", true)
@@ -1161,25 +1176,25 @@ return function()
 				return true, activationStatus
 			end
 
-			return moveToPoint(runtime, dungeonState.ProgressionPosition, 0, "DungeonObjective")
+			return moveDungeonPoint(dungeonState.ProgressionPosition, 0, "DungeonObjective")
 		elseif
 			dungeonState.Phase == "Progression"
 			and runtime.State:Get("Dungeons.AutoProgression", true)
 			and dungeonState.ProgressionPosition
 		then
-			return moveToPoint(runtime, dungeonState.ProgressionPosition, 0, "DungeonProgression")
+			return moveDungeonPoint(dungeonState.ProgressionPosition, 0, "DungeonProgression")
 		elseif
 			dungeonState.Phase == "TowerWaiting"
 			and runtime.State:Get("Dungeons.HoldDefense", true)
 			and dungeonState.HoldPosition
 		then
-			return moveToPoint(runtime, dungeonState.HoldPosition, 8, "TowerWaiting")
+			return moveDungeonPoint(dungeonState.HoldPosition, 8, "TowerWaiting")
 		elseif
 			dungeonState.Phase == "BetweenWaves"
 			and runtime.State:Get("Dungeons.HoldDefense", true)
 			and dungeonState.HoldPosition
 		then
-			return moveToPoint(runtime, dungeonState.HoldPosition, 10, "DungeonDefense")
+			return moveDungeonPoint(dungeonState.HoldPosition, 10, "DungeonDefense")
 		elseif dungeonState.Phase == "BetweenWaves" then
 			runtime.Navigator.Stop()
 			return true, "dungeon_waiting_for_wave"

@@ -193,7 +193,15 @@ return function(ctx)
 
 		local missionObjects = workspace:FindFirstChild("MissionObjects")
 		local missionStart = missionObjects and missionObjects:FindFirstChild("MissionStart", true)
-		local startTrigger = missionStart and missionStart:FindFirstChild("Collider", true)
+		local startTrigger = missionStart
+			and (
+				missionStart:IsA("Model")
+					and (
+						missionStart.PrimaryPart
+						or missionStart:FindFirstChild("Collider", true)
+					)
+				or getPart(missionStart)
+			)
 		local protectedObjects = getProtectedObjects(missionObjects)
 		local progression, progressionTargets = getProgressionTarget(missionObjects, missionState)
 		local mobs = Mobs.GetAll() or {}
