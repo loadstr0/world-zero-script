@@ -1647,6 +1647,23 @@ return function()
 			return moveDungeonPoint(dungeonState.ProgressionPosition, 0, "DungeonProgression")
 		elseif
 			dungeonState.Phase == "TowerWaiting"
+			and dungeonState.IsCelestialTower
+			and runtime.State:Get("Dungeons.AutoTowerProgression", true)
+			and dungeonState.StartPosition
+		then
+			-- Empty tower rooms do not register their mobs until the live arena
+			-- entry trigger is reached. Holding at the spawn point can leave the
+			-- automation forever waiting on a wave that has not been activated.
+			return moveToPoint(runtime, dungeonState.StartPosition, 6, "TowerWaitingEntry", {
+				MovementMode = "Smooth Flight",
+				FlightGroundSafety = false,
+				FlightCruiseHeight = 0,
+				FlightNoclip = false,
+				FlightRouteThreshold = math.huge,
+				ZeroVelocity = true,
+			})
+		elseif
+			dungeonState.Phase == "TowerWaiting"
 			and runtime.State:Get("Dungeons.HoldDefense", true)
 			and dungeonState.HoldPosition
 		then

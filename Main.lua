@@ -132,12 +132,9 @@ return function(ctx)
 		end
 
 		if dungeonState then
-			local returnPosition = dungeonState.HoldPosition
-				or dungeonState.PriorityOrigin
-				or dungeonState.ProgressionPosition
-				or dungeonState.StartPosition
+			local returnPosition = nil
 
-			if typeof(returnPosition) ~= "Vector3" and runtime.MobsAPI then
+			if runtime.MobsAPI then
 				local ok, _, descriptor = pcall(runtime.MobsAPI.SelectTarget, {
 					Range = math.huge,
 					IncludeOwned = false,
@@ -145,15 +142,31 @@ return function(ctx)
 
 				if ok and descriptor and typeof(descriptor.Position) == "Vector3" then
 					returnPosition = descriptor.Position
+					returnMode = "live_mob_target"
+				end
+			end
+
+			if typeof(returnPosition) ~= "Vector3" then
+				if dungeonState.IsCelestialTower then
+					returnPosition = dungeonState.StartPosition
+						or dungeonState.ProgressionPosition
+						or dungeonState.HoldPosition
+				else
+					returnPosition = dungeonState.ProgressionPosition
+						or dungeonState.StartPosition
+						or dungeonState.PriorityOrigin
+						or dungeonState.HoldPosition
 				end
 			end
 
 			if typeof(returnPosition) == "Vector3" then
 				local rotation = safety.OriginalCFrame and safety.OriginalCFrame.Rotation or CFrame.identity
 				returnCFrame = CFrame.new(returnPosition + Vector3.new(0, 18, 0)) * rotation
-				returnMode = dungeonState.IsCelestialTower
-						and "current_tower_floor"
-					or "current_dungeon_stage"
+				if returnMode ~= "live_mob_target" then
+					returnMode = dungeonState.IsCelestialTower
+							and "current_tower_entry"
+						or "current_dungeon_stage"
+				end
 			elseif
 				tonumber(safety.InitialTowerFloor)
 				and tonumber(safety.CurrentTowerFloor)
