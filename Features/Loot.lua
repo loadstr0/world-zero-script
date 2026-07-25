@@ -339,7 +339,9 @@ return function(ctx)
 				local gold, soldOrError = runtime.InventoryAPI.Sell(
 					candidates,
 					runtime.State:Get("Loot.PreserveModified", true),
-					runtime.GearAPI.GetProtectedItems()
+					runtime.GearAPI.GetProtectedItems({
+						ReserveBestTradable = runtime.State:Get("Gear.ReserveBestTradable", true),
+					})
 				)
 				selling = false
 

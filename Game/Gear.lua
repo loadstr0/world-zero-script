@@ -282,6 +282,32 @@ return function(ctx)
 			or 0
 	end
 
+	local function getTradeEligibility(context, item)
+		local definition = context.Modules.Items[item.Name]
+		local upgrade = getValue(item, "Upgrade", 0)
+		local upgradeLimit = item:FindFirstChild("UpgradeLimit")
+		local structurallyEligible = type(definition) == "table"
+			and definition.Untradeable ~= true
+			and upgrade <= 0
+			and not item:FindFirstChild("Exploited")
+			and (not upgradeLimit or tonumber(upgradeLimit.Value) ~= 0)
+		local currentlyTradable = false
+
+		if structurallyEligible and type(context.Modules.Inventory.IsTradable) == "function" then
+			local ok, result = pcall(
+				context.Modules.Inventory.IsTradable,
+				context.Modules.Inventory,
+				item,
+				context.Player
+			)
+			currentlyTradable = ok and result == true
+		end
+
+		-- Locked or favorited items fail the live IsTradable check, but remain valid
+		-- reserves because removing that protection later restores their tradeability.
+		return structurallyEligible, currentlyTradable
+	end
+
 	local function describeItem(context, item, slotName)
 		if typeof(item) ~= "Instance" or not item.Parent then
 			return nil, "item_unavailable"
@@ -306,6 +332,7 @@ return function(ctx)
 		local maximumScore = tonumber(maximumStats[statName]) or currentScore
 		local perks = getPerks(context, item)
 		local perkMultiplier = getPerkMultiplier(slotName, perks)
+		local tradeEligible, currentlyTradable = getTradeEligibility(context, item)
 
 		return {
 			Item = item,
@@ -325,6 +352,8 @@ return function(ctx)
 			Level = getValue(item, "Level", 1),
 			Empower = getValue(item, "Empower", 0),
 			IsEquipped = item.Parent and item.Parent.Name == slotName,
+			TradeEligible = tradeEligible,
+			IsTradable = currentlyTradable,
 		}
 	end
 
@@ -354,7 +383,8 @@ return function(ctx)
 		return table.clone(SLOT_ORDER)
 	end
 
-	function Gear.GetBestForSlot(slotName, excludedItems)
+	function Gear.GetBestForSlot(slotName, excludedItems, options)
+		options = options or {}
 		local context, contextError = getContext()
 
 		if not context then
@@ -369,31 +399,65 @@ return function(ctx)
 
 		local currentItem = getEquippedItem(slot)
 		local current = currentItem and describeItem(context, currentItem, slotName) or nil
-		local best = current
+		local candidates = {}
+
+		if current and not (excludedItems and excludedItems[current.Item]) then
+			table.insert(candidates, current)
+		end
 
 		for _, item in ipairs(context.Items:GetChildren()) do
 			if not (excludedItems and excludedItems[item]) and canEquip(context, item, slot) then
 				local descriptor = describeItem(context, item, slotName)
 
-				if descriptor and isBetter(descriptor, best) then
+				if descriptor then
+					table.insert(candidates, descriptor)
+				end
+			end
+		end
+
+		local reserved = nil
+
+		if options.ReserveBestTradable == true then
+			for _, descriptor in ipairs(candidates) do
+				if descriptor.TradeEligible and isBetter(descriptor, reserved) then
+					reserved = descriptor
+				end
+			end
+		end
+
+		local best = nil
+
+		for _, descriptor in ipairs(candidates) do
+			if
+				not reserved
+				or descriptor.Item ~= reserved.Item
+			then
+				if isBetter(descriptor, best) then
 					best = descriptor
 				end
 			end
 		end
 
-		return best, current
+		-- Never leave an otherwise empty slot unusable. Equipping does not bind gear;
+		-- the upgrade guard below still prevents the sole reserved item from being modified.
+		best = best or current or reserved
+
+		return best, current, nil, reserved
 	end
 
-	function Gear.GetBestLoadout()
+	function Gear.GetBestLoadout(options)
+		options = options or {}
 		local result = {}
 		local used = {}
 
 		for _, slotName in ipairs(SLOT_ORDER) do
-			local best, current, slotError = Gear.GetBestForSlot(slotName, used)
+			local best, current, slotError, reserved =
+				Gear.GetBestForSlot(slotName, used, options)
 
 			result[slotName] = {
 				Best = best,
 				Current = current,
+				Reserved = reserved,
 				Error = slotError,
 			}
 
@@ -405,12 +469,13 @@ return function(ctx)
 		return result
 	end
 
-	function Gear.GetProtectedItems()
+	function Gear.GetProtectedItems(options)
 		local protected = {}
 
-		for _, slot in pairs(Gear.GetBestLoadout()) do
+		for _, slot in pairs(Gear.GetBestLoadout(options)) do
 			local best = type(slot) == "table" and slot.Best
 			local current = type(slot) == "table" and slot.Current
+			local reserved = type(slot) == "table" and slot.Reserved
 
 			if best and typeof(best.Item) == "Instance" then
 				protected[best.Item] = true
@@ -419,9 +484,29 @@ return function(ctx)
 			if current and typeof(current.Item) == "Instance" then
 				protected[current.Item] = true
 			end
+
+			if reserved and typeof(reserved.Item) == "Instance" then
+				protected[reserved.Item] = true
+			end
 		end
 
 		return protected
+	end
+
+	function Gear.IsTradeReserve(item)
+		if typeof(item) ~= "Instance" then
+			return false
+		end
+
+		for _, slot in pairs(Gear.GetBestLoadout({
+			ReserveBestTradable = true,
+		})) do
+			if slot.Reserved and slot.Reserved.Item == item then
+				return true, slot.Reserved
+			end
+		end
+
+		return false
 	end
 
 	function Gear.ListDominatedItems(options)
@@ -578,13 +663,17 @@ return function(ctx)
 		}
 	end
 
-	function Gear.RequestUpgrade(item, useCrystals)
+	function Gear.RequestUpgrade(item, useCrystals, options)
 		local context, contextError = getContext()
 
 		if not context then
 			return false, contextError
 		elseif typeof(item) ~= "Instance" or not item.Parent then
 			return false, "item_unavailable"
+		end
+
+		if options and options.ReserveBestTradable == true and Gear.IsTradeReserve(item) then
+			return false, "trade_reserve_protected"
 		end
 
 		local info, infoError = Gear.GetUpgradeInfo(item)
@@ -610,7 +699,7 @@ return function(ctx)
 		return true
 	end
 
-	function Gear.Equip(item, slotName)
+	function Gear.Equip(item, slotName, options)
 		local context, contextError = getContext()
 
 		if not context then
@@ -625,6 +714,10 @@ return function(ctx)
 			return false, "item_not_in_inventory"
 		elseif not canEquip(context, item, slot) then
 			return false, "item_not_compatible"
+		end
+
+		if options and options.ReserveBestTradable == true and Gear.IsTradeReserve(item) then
+			return false, "trade_reserve_protected"
 		end
 
 		local ok, equipError = pcall(context.Modules.Inventory.EquipItemClient, context.Modules.Inventory, item, slot)
@@ -656,6 +749,7 @@ return function(ctx)
 			SupportsDominatedGearCleanup = context ~= nil,
 			SupportsUpgrade = context and type(context.Modules.ItemUpgrade.UpgradeItem) == "function" or false,
 			SupportsEquip = context and type(context.Modules.Inventory.EquipItemClient) == "function" or false,
+			SupportsTradeReserve = context ~= nil,
 		}
 	end
 

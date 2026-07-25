@@ -52,8 +52,14 @@ return function()
 		return runtimeAttempts, tonumber(runtimeAttempts[item]) or 0
 	end
 
+	local function getLoadoutOptions(runtime)
+		return {
+			ReserveBestTradable = runtime.State:Get("Gear.ReserveBestTradable", true),
+		}
+	end
+
 	function Engine.Scan(runtime)
-		local loadout = runtime.GearAPI.GetBestLoadout()
+		local loadout = runtime.GearAPI.GetBestLoadout(getLoadoutOptions(runtime))
 		local result = {}
 
 		for _, slotName in ipairs(SLOT_ORDER) do
@@ -64,6 +70,7 @@ return function()
 			result[slotName] = {
 				Best = best,
 				Current = current,
+				Reserved = slot.Reserved,
 				Improvement = improvement(best, current),
 				Error = slot.Error,
 			}
@@ -105,10 +112,21 @@ return function()
 				local slot = scan[slotName]
 				local best = slot and slot.Best
 				local current = slot and slot.Current
+				local reserved = slot and slot.Reserved
+				local replacingReserved = reserved
+					and current
+					and current.Item == reserved.Item
+					and best
+					and best.Item ~= reserved.Item
 				local better = best
-					and (best.Item == (current and current.Item) or slot.Improvement > minimumImprovement)
+					and (
+						best.Item == (current and current.Item)
+						or slot.Improvement > minimumImprovement
+						or replacingReserved
+					)
 
 				if better then
+					local loadoutOptions = getLoadoutOptions(runtime)
 					local autoUpgrade = runtime.State:Get("Gear.AutoUpgrade", false)
 					local upgradeInfo = runtime.GearAPI.GetUpgradeInfo(best.Item)
 					local isNewItem = best.Item ~= (current and current.Item)
@@ -119,7 +137,8 @@ return function()
 						and runtime.State:Get("Gear.AutoEquip", true)
 						and not waitUntilMaxed
 					then
-						local equipped, equipError = runtime.GearAPI.Equip(best.Item, slotName)
+						local equipped, equipError =
+							runtime.GearAPI.Equip(best.Item, slotName, loadoutOptions)
 
 						setStatus(runtime, {
 							Action = equipped and "Equip confirmed" or "Equip failed",
@@ -158,7 +177,8 @@ return function()
 							return false, affordabilityError
 						end
 
-						local requested, requestError = runtime.GearAPI.RequestUpgrade(best.Item, useCrystals)
+						local requested, requestError =
+							runtime.GearAPI.RequestUpgrade(best.Item, useCrystals, loadoutOptions)
 
 						if requested then
 							runtimeAttempts[best.Item] = count + 1
@@ -183,7 +203,8 @@ return function()
 							or upgradeInfo.IsMaxed
 						)
 					then
-						local equipped, equipError = runtime.GearAPI.Equip(best.Item, slotName)
+						local equipped, equipError =
+							runtime.GearAPI.Equip(best.Item, slotName, loadoutOptions)
 
 						setStatus(runtime, {
 							Action = equipped and "Equip requested" or "Equip failed",

@@ -14,7 +14,9 @@ return function()
 			return {}
 		end
 
-		local ok, protected = pcall(runtime.GearAPI.GetProtectedItems)
+		local ok, protected = pcall(runtime.GearAPI.GetProtectedItems, {
+			ReserveBestTradable = runtime.State:Get("Gear.ReserveBestTradable", true),
+		})
 
 		if not ok or type(protected) ~= "table" then
 			return {}

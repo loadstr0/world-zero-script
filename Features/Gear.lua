@@ -30,6 +30,7 @@ return function(ctx)
 			.. tostring(descriptor.Upgrade)
 			.. "/"
 			.. tostring(descriptor.UpgradeLimit)
+			.. (descriptor.TradeEligible and " | trade reserve eligible" or "")
 			.. " | farm score "
 			.. tostring(
 				math.floor(
@@ -49,6 +50,7 @@ return function(ctx)
 		runtime.State:Set("Gear.AutoWeapons", true)
 		runtime.State:Set("Gear.AutoOffhand", true)
 		runtime.State:Set("Gear.AutoArmor", true)
+		runtime.State:Set("Gear.ReserveBestTradable", true)
 		runtime.State:Set("Gear.AutoUpgrade", false)
 		runtime.State:Set("Gear.AutoEquip", true)
 		runtime.State:Set("Gear.EquipOnlyMaxed", false)
@@ -102,6 +104,14 @@ return function(ctx)
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Gear.AutoArmor", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "GearReserveBestTradable", {
+			Name = "Reserve strongest tradeable gear for main",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Gear.ReserveBestTradable", value)
 			end,
 		})
 
@@ -220,6 +230,8 @@ return function(ctx)
 							.. formatDescriptor(slot and slot.Current)
 							.. "\nBest: "
 							.. formatDescriptor(slot and slot.Best)
+							.. "\nReserved for main: "
+							.. formatDescriptor(slot and slot.Reserved)
 							.. "\nPotential gain: "
 							.. (
 								slot and slot.Improvement == math.huge and "new slot"
