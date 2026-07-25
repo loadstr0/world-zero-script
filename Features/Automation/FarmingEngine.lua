@@ -502,7 +502,11 @@ return function()
 	end
 
 	local function addMovementMode(runtime, options)
-		options.MovementMode = runtime.State:Get("Farming.MovementMode", "Smooth Flight")
+		local dungeonState = runtime.CurrentDungeonState
+		options.MovementMode = dungeonState
+				and dungeonState.Active == true
+				and "Pathfinding"
+			or runtime.State:Get("Farming.MovementMode", "Smooth Flight")
 		options.CFrameFlightSpeed = math.min(
 			90,
 			tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 90)) or 90
@@ -1307,7 +1311,7 @@ return function()
 		return true
 	end
 
-	local function handleDefense(runtime, statusState)
+	local function handleDefense(runtime, statusState, dungeonState)
 		local threat = runtime.MobsAPI.GetThreatState(tonumber(runtime.State:Get("Farming.ThreatRadius", 25)) or 25)
 		local survival = Engine.GetSurvivalState(runtime)
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
@@ -1362,7 +1366,9 @@ return function()
 						and flatOffset.Unit
 					or Vector3.new(0, 0, 1)
 				local distance = tonumber(runtime.State:Get("Farming.RetreatDistance", 35)) or 35
-				local height = runtime.State:Get("Farming.AirRecovery", true)
+				local inDungeon = dungeonState and dungeonState.Active == true
+				local height = not inDungeon
+						and runtime.State:Get("Farming.AirRecovery", true)
 						and (tonumber(runtime.State:Get("Farming.AirRecoveryHeight", 70)) or 70)
 					or 0
 
@@ -1380,7 +1386,9 @@ return function()
 			retreatOptions.Owner = "EmergencyRecovery"
 			retreatOptions.StopDistance = 2
 
-			if runtime.State:Get("Farming.AirRecovery", true) then
+			if dungeonState and dungeonState.Active == true then
+				retreatOptions.MovementMode = "Pathfinding"
+			elseif runtime.State:Get("Farming.AirRecovery", true) then
 				retreatOptions.MovementMode = "Smooth Flight"
 				retreatOptions.FlightNoclip = true
 				retreatOptions.FlightGroundSafety = true
@@ -1509,6 +1517,19 @@ return function()
 						continue
 					end
 
+					local dungeonState = nil
+
+					if runtime.DungeonsAPI then
+						local dungeonOk, resolvedDungeonState =
+							pcall(runtime.DungeonsAPI.GetState)
+
+						if dungeonOk then
+							dungeonState = resolvedDungeonState
+						end
+					end
+
+					runtime.CurrentDungeonState = dungeonState
+
 					local statusState = runtime.Status.GetAutomationState()
 						or {
 							MovementBlocked = false,
@@ -1517,7 +1538,7 @@ return function()
 					updateSpeedBoost(runtime, statusState)
 					updateDamageListener(runtime)
 					updateFatalStatusWarning(runtime, statusState)
-					local retreating = handleDefense(runtime, statusState)
+					local retreating = handleDefense(runtime, statusState, dungeonState)
 
 					if statusState.MovementBlocked then
 						runtime.Navigator.Stop()
@@ -1528,17 +1549,6 @@ return function()
 						if not rescuing then
 							local questState = nil
 							local currentWorldOrder = nil
-							local dungeonState = nil
-
-							if runtime.DungeonsAPI then
-								local dungeonOk, resolvedDungeonState =
-									pcall(runtime.DungeonsAPI.GetState)
-
-								if dungeonOk then
-									dungeonState = resolvedDungeonState
-								end
-							end
-
 							if runtime.State:Get("Quests.Enabled", false) and runtime.QuestsAPI then
 								currentWorldOrder = runtime.TeleportAPI.GetCurrentWorldOrder()
 								questState = runtime.QuestsAPI.GetCurrent(currentWorldOrder)
@@ -1645,6 +1655,7 @@ return function()
 										combatRoute.StopDistance,
 										questCombatRoute and "QuestInteriorRoute" or "DungeonInteriorRoute",
 										{
+											MovementMode = combatRoute.MovementMode,
 											FlightGroundSafety = combatRoute.FlightGroundSafety,
 											FlightCruiseHeight = combatRoute.FlightCruiseHeight,
 											FlightNoclip = combatRoute.FlightNoclip,
@@ -1669,6 +1680,7 @@ return function()
 												or descriptor.Position.Y < 10
 											)
 											and {
+												MovementMode = "Pathfinding",
 												FlightGroundSafety = false,
 												FlightCruiseHeight = 6,
 												FlightNoclip = true,
