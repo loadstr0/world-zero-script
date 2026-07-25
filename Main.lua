@@ -131,6 +131,7 @@ return function(ctx)
 			ChestsAPI = ctx:Require("ChestsAPI"),
 			InventoryAPI = ctx:Require("InventoryAPI"),
 			GearAPI = ctx:Require("GearAPI"),
+			PetsAPI = ctx:Require("PetsAPI"),
 			StarterPassAPI = ctx:Require("StarterPassAPI"),
 			Navigator = ctx:Require("Navigator"),
 			FarmingEngine = ctx:Require("FarmingEngine"),

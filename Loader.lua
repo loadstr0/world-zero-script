@@ -36,6 +36,7 @@ local MODULES = {
 	{ Key = "ChestsAPI", Path = "Game/Chests" },
 	{ Key = "InventoryAPI", Path = "Game/Inventory" },
 	{ Key = "GearAPI", Path = "Game/Gear" },
+	{ Key = "PetsAPI", Path = "Game/Pets" },
 	{ Key = "StarterPassAPI", Path = "Game/StarterPass" },
 	{ Key = "Navigator", Path = "Game/Navigator" },
 	{ Key = "Skills", Path = "Game/Skills" },

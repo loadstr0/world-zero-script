@@ -23,11 +23,17 @@ return function()
 	local function improvement(best, current)
 		if not best then
 			return 0
-		elseif not current or current.MaximumScore <= 0 then
+		end
+
+		local bestScore = tonumber(best.EffectiveMaximumScore) or tonumber(best.MaximumScore) or 0
+		local currentScore =
+			current and (tonumber(current.EffectiveMaximumScore) or tonumber(current.MaximumScore)) or 0
+
+		if not current or currentScore <= 0 then
 			return math.huge
 		end
 
-		return ((best.MaximumScore - current.MaximumScore) / current.MaximumScore) * 100
+		return ((bestScore - currentScore) / currentScore) * 100
 	end
 
 	local function setStatus(runtime, state)

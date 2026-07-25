@@ -11,6 +11,7 @@ return function(ctx)
 		local healthStatus = runtime.Health.Describe()
 		local statusStatus = runtime.Status.Describe()
 		local walkspeedStatus = runtime.Walkspeed.Describe()
+		local petStatus = runtime.PetsAPI.Describe()
 		local targetProvider = function(range)
 			return Engine.GetActiveTarget(runtime, range)
 		end
@@ -52,6 +53,8 @@ return function(ctx)
 		runtime.State:Set("Farming.RotationMode", "Full Rotation")
 		runtime.State:Set("Farming.AttackSlot", "Primary")
 		runtime.State:Set("Farming.UseUltimate", true)
+		runtime.State:Set("Farming.AutoPetAbility", true)
+		runtime.State:Set("Farming.PetAttackRange", 100)
 		runtime.State:Set("Farming.SkillRetryInterval", 0.2)
 		runtime.State:Set("Farming.AttackRange", 45)
 		runtime.State:Set("Farming.AutoDodge", true)
@@ -101,6 +104,24 @@ return function(ctx)
 			tab,
 			"Class rotations",
 			"Full Rotation is the default. Auto Farm reads the currently equipped class, cycles every available special attack, uses Ultimate when energy is full, and keeps Primary attacks in the rotation. The separate class aura is optional."
+		)
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Pet ability",
+			petStatus.ActiveSkill
+					and (
+						"Equipped "
+						.. tostring(petStatus.EquippedName)
+						.. " uses "
+						.. tostring(petStatus.ActiveSkill)
+						.. " automatically during combat."
+					)
+				or (
+					"Equipped "
+					.. tostring(petStatus.EquippedName or "item")
+					.. " has no active pet ability. Eggs follow the player but cannot attack; equip a hatched combat pet to enable this rotation."
+				)
 		)
 
 		runtime.UI:CreateParagraph(
@@ -474,6 +495,25 @@ return function(ctx)
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Farming.UseUltimate", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingAutoPetAbility", {
+			Name = "Use equipped pet ability",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.AutoPetAbility", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingPetAttackRange", {
+			Name = "Pet ability target distance",
+			Range = { 10, 200 },
+			Increment = 5,
+			Suffix = " studs",
+			CurrentValue = 100,
+			Callback = function(value)
+				runtime.State:Set("Farming.PetAttackRange", value)
 			end,
 		})
 

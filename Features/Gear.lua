@@ -10,6 +10,15 @@ return function(ctx)
 			return "none"
 		end
 
+		local perkNames = {}
+
+		for _, perk in ipairs(descriptor.Perks or {}) do
+			table.insert(
+				perkNames,
+				perk.DisplayName .. " " .. tostring(math.floor((tonumber(perk.Value) or 0) * 100)) .. "%"
+			)
+		end
+
 		return descriptor.Name
 			.. " | "
 			.. descriptor.Stat
@@ -21,6 +30,15 @@ return function(ctx)
 			.. tostring(descriptor.Upgrade)
 			.. "/"
 			.. tostring(descriptor.UpgradeLimit)
+			.. " | farm score "
+			.. tostring(
+				math.floor(
+					tonumber(descriptor.EffectiveMaximumScore)
+						or tonumber(descriptor.MaximumScore)
+						or 0
+				)
+			)
+			.. (#perkNames > 0 and (" | " .. table.concat(perkNames, ", ")) or "")
 	end
 
 	function Gear.Register(runtime)
@@ -50,7 +68,7 @@ return function(ctx)
 			tab,
 			"Maximum-potential scoring",
 			sourceStatus.Available
-					and "Weapons and armor are scored with Shared.Combat:GetItemStats after cloning each item at its real UpgradeLimit. Class and slot compatibility are checked with Shared.Inventory before any request."
+					and "Weapons and armor are cloned at their real UpgradeLimit, then ranked by a balanced farming score. It includes raw Attack/Defense plus the item's real perk values: damage, critical stacking, sustain, ultimate charge, boss modifiers, HP, dodge, damage reduction, status resistance, and utility. Class and slot compatibility are still verified before any request."
 				or ("Gear integration unavailable: " .. tostring(sourceStatus.Error))
 		)
 

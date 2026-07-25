@@ -702,14 +702,27 @@ return function()
 	local function useFarmAttack(runtime, target, descriptor)
 		local distance = tonumber(descriptor and descriptor.Distance)
 		local attackRange = tonumber(runtime.State:Get("Farming.AttackRange", 45)) or 45
+		local petAttackRange = tonumber(runtime.State:Get("Farming.PetAttackRange", 100)) or 100
+		local petAttempted = false
 
 		if
 			not runtime.State:Get("Farming.AutoAttack", true)
 			or not distance
-			or distance > attackRange
-			or runtime.Actions.IsBusy() == true
 		then
 			return false
+		end
+
+		if
+			runtime.State:Get("Farming.AutoPetAbility", true)
+			and runtime.PetsAPI
+			and distance <= petAttackRange
+		then
+			local ok, used = pcall(runtime.PetsAPI.UseSkill, target)
+			petAttempted = ok and used == true
+		end
+
+		if distance > attackRange or runtime.Actions.IsBusy() == true then
+			return petAttempted
 		end
 
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
@@ -718,7 +731,7 @@ return function()
 			local ok, ready = pcall(adapter.EnsureUnsheathed)
 
 			if not ok or not ready then
-				return false
+				return petAttempted
 			end
 		end
 
@@ -729,20 +742,20 @@ return function()
 		local mode = runtime.State:Get("Farming.RotationMode", "Full Rotation")
 
 		if mode == "Primary Only" then
-			return attemptSlot(runtime, adapter, "Primary", descriptor)
+			return attemptSlot(runtime, adapter, "Primary", descriptor) or petAttempted
 		elseif mode == "Selected Slot" then
 			return attemptSlot(
 				runtime,
 				adapter,
 				runtime.State:Get("Farming.AttackSlot", "Primary"),
 				descriptor
-			)
+			) or petAttempted
 		end
 
 		local rotation = buildRotation(runtime)
 
 		if #rotation == 0 then
-			return attemptSlot(runtime, adapter, "Primary", descriptor)
+			return attemptSlot(runtime, adapter, "Primary", descriptor) or petAttempted
 		end
 
 		local cursor = rotationCursors[runtime] or 1
@@ -757,7 +770,7 @@ return function()
 			end
 		end
 
-		return false
+		return petAttempted
 	end
 
 	function Engine.GetHealthRatio(runtime)
