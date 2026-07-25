@@ -1654,11 +1654,11 @@ return function()
 			-- Empty tower rooms do not register their mobs until the live arena
 			-- entry trigger is reached. Holding at the spawn point can leave the
 			-- automation forever waiting on a wave that has not been activated.
-			return moveToPoint(runtime, dungeonState.StartPosition, 6, "TowerWaitingEntry", {
-				MovementMode = "Smooth Flight",
+			return moveToPoint(runtime, dungeonState.StartPosition, 0, "TowerWaitingEntry", {
+				MovementMode = "Instant CFrame",
 				FlightGroundSafety = false,
 				FlightCruiseHeight = 0,
-				FlightNoclip = false,
+				FlightNoclip = true,
 				FlightRouteThreshold = math.huge,
 				ZeroVelocity = true,
 			})
