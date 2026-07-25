@@ -75,11 +75,12 @@ return function(ctx)
 		runtime.State:Set("Farming.ThreatRadius", 25)
 		runtime.State:Set("Farming.DodgeHealthThreshold", 70)
 		runtime.State:Set("Farming.EmergencyRetreat", true)
-		runtime.State:Set("Farming.RetreatHealthThreshold", 30)
-		runtime.State:Set("Farming.RetreatDistance", 35)
+		runtime.State:Set("Farming.AggressiveSurvival", true)
+		runtime.State:Set("Farming.RetreatHealthThreshold", 65)
+		runtime.State:Set("Farming.RetreatDistance", 55)
 		runtime.State:Set("Farming.AirRecovery", true)
-		runtime.State:Set("Farming.AirRecoveryHeight", 70)
-		runtime.State:Set("Farming.RecoveryResumeThreshold", 85)
+		runtime.State:Set("Farming.AirRecoveryHeight", 45)
+		runtime.State:Set("Farming.RecoveryResumeThreshold", 95)
 		runtime.State:Set("Farming.AutoHealItem", false)
 		runtime.State:Set("Farming.HealItemName", "")
 		runtime.State:Set("Farming.HealItemHealthThreshold", 40)
@@ -702,10 +703,18 @@ return function(ctx)
 		})
 
 		runtime.UI:CreateToggle(tab, "FarmingEmergencyRetreat", {
-			Name = "Emergency low-health retreat",
+			Name = "Panic flight recovery",
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Farming.EmergencyRetreat", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingAggressiveSurvival", {
+			Name = "Aggressive survival (65% minimum)",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.AggressiveSurvival", value)
 			end,
 		})
 
@@ -714,7 +723,7 @@ return function(ctx)
 			Range = { 5, 80 },
 			Increment = 5,
 			Suffix = "%",
-			CurrentValue = 30,
+			CurrentValue = 65,
 			Callback = function(value)
 				runtime.State:Set("Farming.RetreatHealthThreshold", value)
 			end,
@@ -725,7 +734,7 @@ return function(ctx)
 			Range = { 10, 80 },
 			Increment = 5,
 			Suffix = " studs",
-			CurrentValue = 35,
+			CurrentValue = 55,
 			Callback = function(value)
 				runtime.State:Set("Farming.RetreatDistance", value)
 			end,
@@ -744,7 +753,7 @@ return function(ctx)
 			Range = { 25, 150 },
 			Increment = 5,
 			Suffix = " studs",
-			CurrentValue = 70,
+			CurrentValue = 45,
 			Callback = function(value)
 				runtime.State:Set("Farming.AirRecoveryHeight", value)
 			end,
@@ -755,7 +764,7 @@ return function(ctx)
 			Range = { 40, 100 },
 			Increment = 5,
 			Suffix = "%",
-			CurrentValue = 85,
+			CurrentValue = 95,
 			Callback = function(value)
 				runtime.State:Set("Farming.RecoveryResumeThreshold", value)
 			end,

@@ -1454,6 +1454,34 @@ return function()
 		return true
 	end
 
+	local function getSafeRecoveryHeight(runtime, root, requestedHeight)
+		local height = math.max(0, tonumber(requestedHeight) or 0)
+		local workspace = runtime.Context.Services.Workspace
+
+		if height <= 0 or not workspace then
+			return height
+		end
+
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { root.Parent }
+		local hit = nil
+
+		pcall(function()
+			hit = workspace:Raycast(
+				root.Position + Vector3.new(0, 2, 0),
+				Vector3.new(0, height + 8, 0),
+				params
+			)
+		end)
+
+		if hit then
+			height = math.max(0, math.min(height, hit.Distance - 7))
+		end
+
+		return height
+	end
+
 	local function handleDefense(runtime, statusState, dungeonState)
 		local threat = runtime.MobsAPI.GetThreatState(tonumber(runtime.State:Get("Farming.ThreatRadius", 25)) or 25)
 		local survival = Engine.GetSurvivalState(runtime)
@@ -1467,6 +1495,10 @@ return function()
 
 		dodgeThreat(runtime, adapter, threat, survival.ProtectionRatio, statusState)
 		local retreatThreshold = tonumber(runtime.State:Get("Farming.RetreatHealthThreshold", 30)) or 30
+
+		if runtime.State:Get("Farming.AggressiveSurvival", true) then
+			retreatThreshold = math.max(retreatThreshold, 65)
+		end
 
 		if
 			runtime.State:Get("Farming.DebuffSurvival", true)
@@ -1482,6 +1514,10 @@ return function()
 			retreatThreshold,
 			tonumber(runtime.State:Get("Farming.RecoveryResumeThreshold", 85)) or 85
 		) / 100
+
+		if runtime.State:Get("Farming.AggressiveSurvival", true) then
+			resumeThreshold = math.max(resumeThreshold, 0.95)
+		end
 		local currentRatio = math.min(
 			tonumber(survival.HealthRatio) or 1,
 			tonumber(survival.ProtectionRatio) or 1
@@ -1494,7 +1530,6 @@ return function()
 
 		if
 			runtime.State:Get("Farming.EmergencyRetreat", true)
-			and (recovery or (threat and threat.Nearest))
 			and not (statusState and statusState.MovementBlocked)
 			and (recovery or currentRatio <= retreatThreshold / 100)
 		then
@@ -1516,10 +1551,21 @@ return function()
 					or Vector3.new(0, 0, 1)
 				local distance = tonumber(runtime.State:Get("Farming.RetreatDistance", 35)) or 35
 				local inDungeon = dungeonState and dungeonState.Active == true
-				local height = not inDungeon
-						and runtime.State:Get("Farming.AirRecovery", true)
-						and (tonumber(runtime.State:Get("Farming.AirRecoveryHeight", 70)) or 70)
+				local useAirRecovery = runtime.State:Get("Farming.AirRecovery", true)
+
+				if runtime.State:Get("Farming.AggressiveSurvival", true) then
+					distance = math.max(distance, 55)
+				end
+
+				local requestedHeight = useAirRecovery
+						and (tonumber(runtime.State:Get("Farming.AirRecoveryHeight", 45)) or 45)
 					or 0
+
+				if inDungeon then
+					requestedHeight = math.min(requestedHeight, 35)
+				end
+
+				local height = getSafeRecoveryHeight(runtime, root, requestedHeight)
 
 				recovery = {
 					Character = root.Parent,
@@ -1535,13 +1581,12 @@ return function()
 			retreatOptions.Owner = "EmergencyRecovery"
 			retreatOptions.StopDistance = 2
 
-			if dungeonState and dungeonState.Active == true then
-				retreatOptions.MovementMode = "Pathfinding"
-			elseif runtime.State:Get("Farming.AirRecovery", true) then
+			if runtime.State:Get("Farming.AirRecovery", true) then
 				retreatOptions.MovementMode = "Smooth Flight"
 				retreatOptions.FlightNoclip = true
 				retreatOptions.FlightGroundSafety = true
 				retreatOptions.FlightCruiseHeight = 8
+				retreatOptions.FlightGroundClearance = 4
 			end
 
 			runtime.Navigator.MoveTo(recovery.Position, retreatOptions)

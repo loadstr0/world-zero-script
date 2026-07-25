@@ -6,6 +6,7 @@ return function(ctx)
 	local Executor = ctx:Require("Executor")
 	local Players = ctx.Services.Players
 	local HttpService = ctx.Services.HttpService
+	local env = getgenv()
 	local cachedModule = nil
 
 	local function resolve()
@@ -38,7 +39,20 @@ return function(ctx)
 			return false, "queue_on_teleport_unavailable"
 		end
 
-		local bootstrapUrl = ctx.Base
+		local bootstrapBase = ctx.Base
+		local loadedCommit = env.WorldZeroLoadedCommit
+
+		if
+			type(loadedCommit) == "string"
+			and #loadedCommit >= 7
+			and string.match(loadedCommit, "^[%da-fA-F]+$")
+		then
+			bootstrapBase = "https://raw.githubusercontent.com/loadstr0/world-zero-script/"
+				.. loadedCommit
+				.. "/"
+		end
+
+		local bootstrapUrl = bootstrapBase
 			.. "Bootstrap.lua?cache="
 			.. tostring(os.time())
 			.. tostring(math.random(1000, 9999))
