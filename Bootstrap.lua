@@ -3,7 +3,27 @@
 
 local env = getgenv()
 local defaultBase = "https://raw.githubusercontent.com/loadstr0/world-zero-script/main/"
-local base = env.WorldZeroBase or defaultBase
+local previousCommit = env.WorldZeroLoadedCommit
+local previousPinnedBase = type(previousCommit) == "string"
+		and previousCommit ~= ""
+		and (
+			"https://raw.githubusercontent.com/loadstr0/world-zero-script/"
+			.. previousCommit
+			.. "/"
+		)
+	or nil
+local configuredBase = env.WorldZeroBase
+local officialPinnedBase = type(configuredBase) == "string"
+	and string.match(
+		configuredBase,
+		"^https://raw%.githubusercontent%.com/loadstr0/world%-zero%-script/[%da-fA-F]+/$"
+	) ~= nil
+local base = (
+		env.WorldZeroPinLatestCommit ~= false
+		and (configuredBase == previousPinnedBase or officialPinnedBase)
+	)
+		and defaultBase
+	or (configuredBase or defaultBase)
 
 if env.WorldZeroReloading ~= true then
 	env.WorldZeroLoadedCommit = nil

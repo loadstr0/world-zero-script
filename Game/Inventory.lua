@@ -262,7 +262,8 @@ return function(ctx)
 				and item.Parent == itemsFolder
 				and not (excludeItems and excludeItems[item])
 			then
-				local protected = Inventory.IsProtected(item, preserveModified)
+				local protectModified = preserveModified and descriptor.AllowModified ~= true
+				local protected = Inventory.IsProtected(item, protectModified)
 				local current = Inventory.GetDescriptor(item)
 
 				if

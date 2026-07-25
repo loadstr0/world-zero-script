@@ -32,9 +32,11 @@ return function()
 		end
 	end
 
-	function Engine.GetCandidates(runtime)
+	function Engine.GetCandidates(runtime, inventoryPressure)
 		local protectedGear = getProtectedGear(runtime)
 		local preserveModified = runtime.State:Get("Loot.PreserveModified", true)
+		local allowModifiedDominated = inventoryPressure == true
+			and runtime.State:Get("Loot.AutoSellModifiedDominated", true)
 		local result = {}
 		local seen = {}
 		local smartCount = 0
@@ -56,11 +58,15 @@ return function()
 			for _, gear in ipairs(dominated) do
 				local item = gear.Item
 				local protected = protectedGear[item]
-					or runtime.InventoryAPI.IsProtected(item, preserveModified)
+					or runtime.InventoryAPI.IsProtected(
+						item,
+						preserveModified and not allowModifiedDominated
+					)
 				local descriptor = not protected and runtime.InventoryAPI.GetDescriptor(item) or nil
 
 				if descriptor and descriptor.Price > 0 then
 					descriptor.CleanupMode = "Dominated gear"
+					descriptor.AllowModified = allowModifiedDominated
 					descriptor.Category = gear.Category
 					descriptor.CurrentScore = gear.CurrentScore
 					descriptor.MaximumScore = gear.MaximumScore
@@ -145,7 +151,7 @@ return function()
 			return false, "automatic_selling_not_armed"
 		end
 
-		local candidates, candidateError, candidateSummary = Engine.GetCandidates(runtime)
+		local candidates, candidateError, candidateSummary = Engine.GetCandidates(runtime, true)
 
 		if not candidates then
 			setStatus(runtime, {

@@ -32,6 +32,7 @@ return function(ctx)
 		runtime.State:Set("Loot.AutoSellReserveSlots", 3)
 		runtime.State:Set("Loot.AutoSellBatchSize", 5)
 		runtime.State:Set("Loot.AutoSellInterval", 5)
+		runtime.State:Set("Loot.AutoSellModifiedDominated", true)
 
 		runtime.Janitor:Add(function()
 			InventoryEngine.Stop(runtime)
@@ -332,6 +333,14 @@ return function(ctx)
 			CurrentValue = false,
 			Callback = function(value)
 				runtime.State:Set("Loot.AutoSellArmed", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "LootAutoSellModifiedDominated", {
+			Name = "Sell weaker perked gear when space is low",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Loot.AutoSellModifiedDominated", value)
 			end,
 		})
 
