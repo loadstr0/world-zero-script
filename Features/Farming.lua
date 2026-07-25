@@ -47,7 +47,7 @@ return function(ctx)
 		runtime.State:Set("Farming.AutoJump", true)
 		runtime.State:Set("Farming.RepathInterval", 1.25)
 		runtime.State:Set("Farming.TargetMoveThreshold", 10)
-		runtime.State:Set("Farming.StuckTimeout", 1.4)
+		runtime.State:Set("Farming.StuckTimeout", 3)
 		runtime.State:Set("Farming.AutoAttack", true)
 		runtime.State:Set("Farming.RotationMode", "Full Rotation")
 		runtime.State:Set("Farming.AttackSlot", "Primary")
@@ -344,11 +344,11 @@ return function(ctx)
 		})
 
 		runtime.UI:CreateSlider(tab, "FarmingStuckTimeout", {
-			Name = "Stuck jump recovery delay",
-			Range = { 0.5, 3 },
-			Increment = 0.1,
+			Name = "Stuck re-path delay",
+			Range = { 2, 6 },
+			Increment = 0.25,
 			Suffix = "s",
-			CurrentValue = 1.4,
+			CurrentValue = 3,
 			Callback = function(value)
 				runtime.State:Set("Farming.StuckTimeout", value)
 			end,

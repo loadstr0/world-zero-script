@@ -28,30 +28,33 @@ return function(ctx)
 			or nil
 	end
 
-	local function getProgressionGuide(root, targetPart)
+	local function getEntranceGuide(root, targetPart)
 		if not progressionSession or not PathfindingService or not targetPart then
 			return nil
 		end
 
-		local now = os.clock()
-		local cachedGuide = progressionSession.Guide
-		local cacheMatches = progressionSession.GuideTarget == targetPart
-			and progressionSession.GuideOrigin
-			and (root.Position - progressionSession.GuideOrigin).Magnitude < 7
-			and now - (progressionSession.GuideAt or 0) < 0.8
-
-		if
-			cacheMatches
-			and cachedGuide
-			and (root.Position - cachedGuide).Magnitude > 3
-		then
-			return cachedGuide
+		if progressionSession.EntranceTarget ~= targetPart then
+			progressionSession.EntranceTarget = targetPart
+			progressionSession.EntranceGuide = nil
+			progressionSession.EntranceChecked = false
+			progressionSession.EntranceComplete = false
 		end
 
-		progressionSession.Guide = nil
-		progressionSession.GuideTarget = targetPart
-		progressionSession.GuideOrigin = root.Position
-		progressionSession.GuideAt = now
+		if progressionSession.EntranceComplete then
+			return nil
+		elseif progressionSession.EntranceGuide then
+			if (root.Position - progressionSession.EntranceGuide).Magnitude <= 5 then
+				progressionSession.EntranceComplete = true
+				progressionSession.EntranceGuide = nil
+				return nil
+			end
+
+			return progressionSession.EntranceGuide
+		elseif progressionSession.EntranceChecked then
+			return nil
+		end
+
+		progressionSession.EntranceChecked = true
 
 		local path
 		local computed = pcall(function()
@@ -69,30 +72,15 @@ return function(ctx)
 			return nil
 		end
 
-		local waypoints = path:GetWaypoints()
-		local previousPosition = root.Position
-		local distanceAlongPath = 0
-		local guide = nil
-
-		for index, waypoint in ipairs(waypoints) do
-			distanceAlongPath = distanceAlongPath + (waypoint.Position - previousPosition).Magnitude
-			previousPosition = waypoint.Position
-
-			if index > 1 and (root.Position - waypoint.Position).Magnitude > 4 then
-				guide = waypoint.Position + Vector3.new(0, 3, 0)
-
-				if distanceAlongPath >= 16 then
-					break
-				end
+		for index, waypoint in ipairs(path:GetWaypoints()) do
+			if
+				index > 1
+				and root.Position.Y - waypoint.Position.Y >= 15
+			then
+				progressionSession.EntranceGuide =
+					waypoint.Position + Vector3.new(0, 3, 0)
+				return progressionSession.EntranceGuide
 			end
-		end
-
-		if
-			guide
-			and (guide - targetPart.Position).Magnitude > 7
-		then
-			progressionSession.Guide = guide
-			return guide
 		end
 
 		return nil
@@ -338,20 +326,17 @@ return function(ctx)
 			return nil
 		end
 
-		local guide = getProgressionGuide(root, step.Part)
+		local guide = step.Kind == "DungeonRoom"
+				and getEntranceGuide(root, step.Part)
+			or nil
 
 		if guide then
-			local guideMode = step.Kind == "DungeonRoom"
-					and math.abs(root.Position.Y - guide.Y) >= 15
-					and "Smooth Flight"
-				or "Pathfinding"
-
 			return {
-				Kind = "DungeonPath",
-				Name = step.Name .. " corridor",
+				Kind = "DungeonEntrance",
+				Name = step.Name .. " entrance",
 				Position = guide,
 				StopDistance = 2,
-				MovementMode = guideMode,
+				MovementMode = "Smooth Flight",
 				FlightGroundSafety = false,
 				FlightCruiseHeight = 4,
 				FlightNoclip = true,
@@ -363,9 +348,7 @@ return function(ctx)
 			Name = step.Name,
 			Position = step.Part.Position,
 			StopDistance = step.StopDistance,
-			MovementMode = step.Kind == "DungeonRoom"
-					and "Smooth Flight"
-				or "Pathfinding",
+			MovementMode = "Pathfinding",
 			FlightGroundSafety = false,
 			FlightCruiseHeight = 6,
 			FlightNoclip = true,

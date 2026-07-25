@@ -73,6 +73,16 @@ return function(ctx)
 		return GameContext.GetHumanoid(), GameContext.GetRootPart()
 	end
 
+	local function horizontalDistance(a, b)
+		local offset = a - b
+		return Vector3.new(offset.X, 0, offset.Z).Magnitude
+	end
+
+	local function reachedWaypoint(rootPosition, waypointPosition, radius)
+		return horizontalDistance(rootPosition, waypointPosition) <= radius
+			and math.abs(rootPosition.Y - waypointPosition.Y) <= 7
+	end
+
 	local function normalizeMode(value)
 		if value == "Smooth Flight" or value == "Instant CFrame" then
 			return value
@@ -394,6 +404,12 @@ return function(ctx)
 
 		if not humanoid or not root then
 			return false, "movement_controller_unavailable"
+		elseif
+			humanoid.FloorMaterial == Enum.Material.Air
+			and humanoid:GetState() ~= Enum.HumanoidStateType.Climbing
+		then
+			lastStatus = "waiting_for_ground"
+			return false, lastStatus
 		end
 
 		local path = nil
@@ -433,7 +449,7 @@ return function(ctx)
 
 		currentPath = path
 		waypoints = path:GetWaypoints()
-		waypointIndex = #waypoints >= 2 and 2 or 1
+		waypointIndex = 1
 		blockedConnection = path.Blocked:Connect(function(blockedIndex)
 			if path == currentPath and blockedIndex >= math.max(waypointIndex, 1) then
 				currentPath = nil
@@ -537,12 +553,17 @@ return function(ctx)
 		end
 
 		if needsRecompute(targetPosition, options) then
-			computePath(targetPosition, options)
+			local _, computeStatus = computePath(targetPosition, options)
+
+			if computeStatus == "waiting_for_ground" then
+				return true, lastStatus
+			end
 		end
 
 		local waypoint = waypoints[waypointIndex]
+		local reachDistance = numberOption(options.WaypointReachDistance, 2.5, 1)
 
-		while waypoint and (root.Position - waypoint.Position).Magnitude <= (options.WaypointReachDistance or 3) do
+		while waypoint and reachedWaypoint(root.Position, waypoint.Position, reachDistance) do
 			waypointIndex = waypointIndex + 1
 			waypoint = waypoints[waypointIndex]
 		end
@@ -560,15 +581,16 @@ return function(ctx)
 		end
 
 		local now = os.clock()
+		local progressed = lastProgressPosition
+			and horizontalDistance(root.Position, lastProgressPosition) >= 0.75
 
-		if not lastProgressPosition or (root.Position - lastProgressPosition).Magnitude >= 0.5 then
+		if not lastProgressPosition or progressed then
 			lastProgressPosition = root.Position
 			lastProgressAt = now
-		elseif now - lastProgressAt >= numberOption(options.StuckTimeout, 1.4, 0.5) then
-			if options.AutoJump ~= false then
-				jump(humanoid)
-			end
-
+		elseif now - lastProgressAt >= math.max(
+			3,
+			numberOption(options.StuckTimeout, 3, 0.5)
+		) then
 			if blockedConnection then
 				blockedConnection:Disconnect()
 				blockedConnection = nil
