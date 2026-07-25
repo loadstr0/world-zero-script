@@ -2,6 +2,84 @@
 -- Public entry point for loadstr0/world-zero-script.
 
 local env = getgenv()
+local BOOT_SAFETY_HEIGHT = 120
+
+local function beginBootSafety()
+	local previous = env.WorldZeroBootSafety
+
+	if type(previous) == "table" and previous.Active then
+		return previous
+	end
+
+	local safety = {
+		Active = true,
+		Height = BOOT_SAFETY_HEIGHT,
+	}
+	env.WorldZeroBootSafety = safety
+
+	local function secureCharacter()
+		local player = game:GetService("Players").LocalPlayer
+		local character = player and player.Character
+		local root = character
+			and (character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart)
+
+		if not root or not root:IsA("BasePart") then
+			return
+		end
+
+		if safety.Character ~= character or not safety.SafeCFrame then
+			safety.Character = character
+			safety.Root = root
+			safety.OriginalCFrame = root.CFrame
+			safety.OriginalAnchored = root.Anchored
+			safety.SafeCFrame = root.CFrame + Vector3.new(0, safety.Height, 0)
+		end
+
+		pcall(function()
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+			root.CFrame = safety.SafeCFrame
+			root.Anchored = true
+		end)
+	end
+
+	secureCharacter()
+	task.spawn(function()
+		while safety.Active do
+			secureCharacter()
+			task.wait(0.1)
+		end
+	end)
+
+	return safety
+end
+
+local function abortBootSafety()
+	local safety = env.WorldZeroBootSafety
+
+	if type(safety) ~= "table" then
+		return
+	end
+
+	safety.Active = false
+	local root = safety.Root
+
+	if root and root.Parent then
+		pcall(function()
+			if safety.OriginalCFrame then
+				root.CFrame = safety.OriginalCFrame
+			end
+
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+			root.Anchored = safety.OriginalAnchored == true
+		end)
+	end
+
+	env.WorldZeroBootSafety = nil
+end
+
+beginBootSafety()
 local defaultBase = "https://raw.githubusercontent.com/loadstr0/world-zero-script/main/"
 local previousCommit = env.WorldZeroLoadedCommit
 local previousPinnedBase = type(previousCommit) == "string"
@@ -106,11 +184,23 @@ if env.WorldZeroCacheBust ~= false then
 	loaderUrl = loaderUrl .. "?cache=" .. tostring(os.time()) .. tostring(math.random(1000, 9999))
 end
 
-local source = game:HttpGet(loaderUrl)
+local sourceOk, source = pcall(game.HttpGet, game, loaderUrl)
+
+if not sourceOk then
+	abortBootSafety()
+	error("[WorldZeroBootstrap] Loader download failed: " .. tostring(source), 0)
+end
+
 local loader, compileError = loadstring(source)
 
 if not loader then
+	abortBootSafety()
 	error("[WorldZeroBootstrap] Loader compilation failed: " .. tostring(compileError), 0)
 end
 
-loader()
+local loaded, loaderError = pcall(loader)
+
+if not loaded then
+	abortBootSafety()
+	error(loaderError, 0)
+end

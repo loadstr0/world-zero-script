@@ -108,6 +108,43 @@ return function(ctx)
 		return message
 	end
 
+	local function releaseBootSafety(runtime)
+		local env = getgenv()
+		local safety = env.WorldZeroBootSafety
+
+		if type(safety) ~= "table" then
+			return false
+		end
+
+		safety.Active = false
+		local root = runtime.Game.GetRootPart()
+		local automationEnabled = runtime.FarmingEngine.IsEnabled(runtime)
+
+		if root and root.Parent then
+			pcall(function()
+				if
+					not automationEnabled
+					and safety.Character == root.Parent
+					and safety.OriginalCFrame
+				then
+					root.CFrame = safety.OriginalCFrame
+				end
+
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+				root.Anchored = automationEnabled and false or safety.OriginalAnchored == true
+			end)
+		end
+
+		runtime.BootSafety = {
+			Used = true,
+			Height = tonumber(safety.Height) or 0,
+			AutomationRelease = automationEnabled == true,
+		}
+		env.WorldZeroBootSafety = nil
+		return true
+	end
+
 	function Main.Start()
 		if activeRuntime then
 			Main.Stop()
@@ -250,6 +287,7 @@ return function(ctx)
 
 		ui:LoadConfiguration()
 		local resumedAfterTeleport = restoreTeleportState(runtime, Logger)
+		releaseBootSafety(runtime)
 		ui:Notify("World Zero", "Modular interface loaded.", 4, "circle-check")
 		if resumedAfterTeleport then
 			ui:Notify("Automation resumed", "Farming state was restored after teleport.", 5, 0)
