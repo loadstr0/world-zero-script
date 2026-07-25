@@ -19,6 +19,13 @@ local function beginBootSafety()
 	}
 	env.WorldZeroBootSafety = safety
 
+	local floorValue = game:GetService("ReplicatedStorage"):FindFirstChild("ReplicateTowerFloor")
+
+	if floorValue and floorValue:IsA("ValueBase") then
+		safety.InitialTowerFloor = tonumber(floorValue.Value)
+		safety.CurrentTowerFloor = tonumber(floorValue.Value)
+	end
+
 	local function secureCharacter()
 		local player = game:GetService("Players").LocalPlayer
 		local character = player and player.Character
@@ -37,11 +44,18 @@ local function beginBootSafety()
 			safety.SafeCFrame = root.CFrame + Vector3.new(0, safety.Height, 0)
 		end
 
+		if floorValue and floorValue.Parent then
+			safety.CurrentTowerFloor = tonumber(floorValue.Value)
+		end
+
 		pcall(function()
+			-- Keep local network ownership while repeatedly publishing the safe
+			-- CFrame. A client-only anchor can leave the server simulating melee
+			-- hits at the old position.
+			root.Anchored = false
 			root.AssemblyLinearVelocity = Vector3.zero
 			root.AssemblyAngularVelocity = Vector3.zero
 			root.CFrame = safety.SafeCFrame
-			root.Anchored = true
 		end)
 	end
 

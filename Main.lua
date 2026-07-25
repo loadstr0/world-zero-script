@@ -119,16 +119,61 @@ return function(ctx)
 		safety.Active = false
 		local root = runtime.Game.GetRootPart()
 		local automationEnabled = runtime.FarmingEngine.IsEnabled(runtime)
+		local returnCFrame = safety.OriginalCFrame
+		local returnMode = "original_position"
+		local dungeonState = nil
+
+		if automationEnabled and runtime.DungeonsAPI then
+			local ok, state = pcall(runtime.DungeonsAPI.GetState)
+
+			if ok and type(state) == "table" and state.Active then
+				dungeonState = state
+			end
+		end
+
+		if dungeonState then
+			local returnPosition = dungeonState.HoldPosition
+				or dungeonState.PriorityOrigin
+				or dungeonState.ProgressionPosition
+				or dungeonState.StartPosition
+
+			if typeof(returnPosition) ~= "Vector3" and runtime.MobsAPI then
+				local ok, _, descriptor = pcall(runtime.MobsAPI.SelectTarget, {
+					Range = math.huge,
+					IncludeOwned = false,
+				})
+
+				if ok and descriptor and typeof(descriptor.Position) == "Vector3" then
+					returnPosition = descriptor.Position
+				end
+			end
+
+			if typeof(returnPosition) == "Vector3" then
+				local rotation = safety.OriginalCFrame and safety.OriginalCFrame.Rotation or CFrame.identity
+				returnCFrame = CFrame.new(returnPosition + Vector3.new(0, 18, 0)) * rotation
+				returnMode = dungeonState.IsCelestialTower
+						and "current_tower_floor"
+					or "current_dungeon_stage"
+			elseif
+				tonumber(safety.InitialTowerFloor)
+				and tonumber(safety.CurrentTowerFloor)
+				and tonumber(safety.InitialTowerFloor) ~= tonumber(safety.CurrentTowerFloor)
+			then
+				-- Never send the character back to the previous tower floor.
+				returnCFrame = nil
+				returnMode = "tower_floor_changed_no_stale_restore"
+			end
+		end
 
 		if root and root.Parent then
 			pcall(function()
-				if safety.Character == root.Parent and safety.OriginalCFrame then
-					root.CFrame = safety.OriginalCFrame
+				if safety.Character == root.Parent and returnCFrame then
+					root.CFrame = returnCFrame
 				end
 
 				root.AssemblyLinearVelocity = Vector3.zero
 				root.AssemblyAngularVelocity = Vector3.zero
-				root.Anchored = safety.OriginalAnchored == true
+				root.Anchored = automationEnabled and false or safety.OriginalAnchored == true
 			end)
 		end
 
@@ -136,6 +181,9 @@ return function(ctx)
 			Used = true,
 			Height = tonumber(safety.Height) or 0,
 			AutomationRelease = automationEnabled == true,
+			ReturnMode = returnMode,
+			InitialTowerFloor = tonumber(safety.InitialTowerFloor),
+			CurrentTowerFloor = tonumber(safety.CurrentTowerFloor),
 		}
 		env.WorldZeroBootSafety = nil
 		return true
