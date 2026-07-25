@@ -11,6 +11,7 @@ return function(ctx)
 	local progressionSession = nil
 	local progressionEnteredAt = setmetatable({}, { __mode = "k" })
 	local progressionVisited = setmetatable({}, { __mode = "k" })
+	local progressionCheckpointFloor = nil
 
 	local ROUTE_MARKERS = {
 		TownTalkPart = true,
@@ -124,6 +125,7 @@ return function(ctx)
 		progressionSession = session
 		progressionEnteredAt = setmetatable({}, { __mode = "k" })
 		progressionVisited = setmetatable({}, { __mode = "k" })
+		progressionCheckpointFloor = nil
 	end
 
 	local function getProgressionTarget(missionObjects, missionState)
@@ -137,29 +139,80 @@ return function(ctx)
 
 		local now = os.clock()
 		local candidates = {}
+		local nearestCheckpointNumber = nil
+		local nearestCheckpointDistance = math.huge
 
 		for _, instance in ipairs(missionObjects:GetDescendants()) do
 			if isProgressionPart(instance) then
 				local inside = isInside(instance, root.Position)
+				local checkpointNumber = tonumber(
+					string.match(instance.Name, "^Checkpoint(%d+)$")
+				)
 
 				if inside then
 					progressionEnteredAt[instance] = progressionEnteredAt[instance] or now
 
 					if now - progressionEnteredAt[instance] >= 0.75 then
 						progressionVisited[instance] = now
+
+						if checkpointNumber then
+							progressionCheckpointFloor = math.max(
+								progressionCheckpointFloor or 1,
+								checkpointNumber + 1
+							)
+						end
 					end
 				else
 					progressionEnteredAt[instance] = nil
+				end
+
+				local distance = (root.Position - instance.Position).Magnitude
+
+				if
+					checkpointNumber
+					and distance < nearestCheckpointDistance
+				then
+					nearestCheckpointNumber = checkpointNumber
+					nearestCheckpointDistance = distance
 				end
 
 				table.insert(candidates, {
 					Part = instance,
 					Name = instance.Name,
 					Position = instance.Position,
-					Distance = (root.Position - instance.Position).Magnitude,
+					Distance = distance,
 					VisitedAt = progressionVisited[instance],
 					Inside = inside,
+					CheckpointNumber = checkpointNumber,
 				})
+			end
+		end
+
+		if progressionCheckpointFloor == nil then
+			progressionCheckpointFloor = nearestCheckpointNumber or 1
+		elseif
+			nearestCheckpointNumber
+			and nearestCheckpointDistance <= 35
+		then
+			progressionCheckpointFloor = math.max(
+				progressionCheckpointFloor,
+				nearestCheckpointNumber
+			)
+		end
+
+		local orderedCheckpoint = nil
+
+		for _, candidate in ipairs(candidates) do
+			if
+				candidate.CheckpointNumber
+				and candidate.VisitedAt == nil
+				and candidate.CheckpointNumber >= progressionCheckpointFloor
+				and (
+					not orderedCheckpoint
+					or candidate.CheckpointNumber < orderedCheckpoint.CheckpointNumber
+				)
+			then
+				orderedCheckpoint = candidate
 			end
 		end
 
@@ -175,7 +228,19 @@ return function(ctx)
 			return a.Name < b.Name
 		end)
 
-		local target = candidates[1]
+		local target = orderedCheckpoint
+
+		if not target then
+			for _, candidate in ipairs(candidates) do
+				if
+					candidate.CheckpointNumber == nil
+					and candidate.VisitedAt == nil
+				then
+					target = candidate
+					break
+				end
+			end
+		end
 
 		return target and not target.VisitedAt and target or nil, candidates
 	end
