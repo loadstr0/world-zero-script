@@ -577,22 +577,27 @@ return function(ctx)
 			runtime.UI:CreateParagraph(tab, "Completion listener", "Unavailable: " .. tostring(finishError))
 		end
 
-		task.delay(1, function()
-			if runtime.Stopped then
-				return
-			end
+		task.spawn(function()
+			for _ = 1, 40 do
+				if runtime.Stopped or workspace:GetAttribute("MissionCleared") == true then
+					return
+				end
 
-			local missionState = runtime.MissionsAPI.GetRuntimeState()
-			local dungeonState = runtime.DungeonsAPI.GetState()
-			local failedBeforeInitialization = workspace:GetAttribute("MissionCleared") == false
-				and missionState
-				and missionState.Active == true
-				and tonumber(missionState.Lives) == 0
-				and dungeonState
-				and dungeonState.Phase == "Rewards"
+				local missionState = runtime.MissionsAPI.GetRuntimeState()
+				local dungeonState = runtime.DungeonsAPI.GetState()
+				local failedBeforeInitialization = workspace:GetAttribute("MissionCleared") == false
+					and missionState
+					and missionState.Active == true
+					and tonumber(missionState.Lives) == 0
+					and dungeonState
+					and dungeonState.Phase == "Rewards"
 
-			if failedBeforeInitialization then
-				scheduleFailedRetry()
+				if failedBeforeInitialization then
+					scheduleFailedRetry()
+					return
+				end
+
+				task.wait(0.5)
 			end
 		end)
 	end
