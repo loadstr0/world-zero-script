@@ -358,6 +358,7 @@ return function(ctx)
 			Name = step.Name,
 			Position = step.Part.Position,
 			StopDistance = step.StopDistance,
+			MovementMode = "Pathfinding",
 			FlightGroundSafety = false,
 			FlightCruiseHeight = 6,
 			FlightNoclip = true,
