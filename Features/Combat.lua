@@ -67,6 +67,7 @@ return function()
 		runtime.State:Set("Combat.PredictiveDodgeLead", 0.12)
 		runtime.State:Set("Combat.PredictiveDodgeFallback", 0.25)
 		runtime.State:Set("Combat.PrioritizeDungeonChests", true)
+		runtime.State:Set("Combat.PrioritizeRangedThreats", true)
 
 		runtime.UI:CreateSection(tab, "Integration status")
 		runtime.UI:CreateParagraph(
@@ -241,6 +242,14 @@ return function()
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Combat.MobFunnel", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "CombatPrioritizeRangedThreats", {
+			Name = "Eliminate ranged threats first",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.PrioritizeRangedThreats", value)
 			end,
 		})
 

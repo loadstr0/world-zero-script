@@ -641,7 +641,9 @@ return function(ctx)
 						return
 					end
 
-					local rewards, rewardError = runtime.MissionsAPI.ClaimAvailableRewards(3)
+					local rewardLimit = runtime.MissionsAPI.GetRewardClaimLimit()
+					local rewards, rewardError =
+						runtime.MissionsAPI.ClaimAvailableRewards(rewardLimit)
 
 					if rewards then
 						local names = {}

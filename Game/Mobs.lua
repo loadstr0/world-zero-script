@@ -61,6 +61,102 @@ return function(ctx)
 		return value and value.Value or nil
 	end
 
+	local RANGED_NAME_HINTS = {
+		"archer",
+		"blossomtree",
+		"cannon",
+		"gunner",
+		"mage",
+		"ranger",
+		"shooter",
+		"sniper",
+		"turret",
+	}
+
+	local RANGED_ATTACK_HINTS = {
+		"arrow",
+		"beam",
+		"bullet",
+		"laser",
+		"missile",
+		"projectile",
+		"shoot",
+		"spit",
+	}
+
+	local function containsHint(value, hints)
+		local lowered = string.lower(tostring(value or ""))
+
+		for _, hint in ipairs(hints) do
+			if string.find(lowered, hint, 1, true) then
+				return true
+			end
+		end
+
+		return false
+	end
+
+	local function getRangedThreat(data, mob)
+		local maximumRange = 0
+		local projectileAttack = false
+		local modelHint = containsHint(
+			table.concat({
+				tostring(mob and mob.Name or ""),
+				tostring(data and data.Type or ""),
+				tostring(data and data.NameTag or data and data.Name or ""),
+			}, " "),
+			RANGED_NAME_HINTS
+		)
+		local attacks = data and data.Attacks
+
+		if type(attacks) == "table" then
+			for attackName, attack in pairs(attacks) do
+				if containsHint(attackName, RANGED_ATTACK_HINTS) then
+					projectileAttack = true
+				end
+
+				if type(attack) == "table" then
+					for field, value in pairs(attack) do
+						local fieldName = string.lower(tostring(field))
+
+						if containsHint(fieldName, RANGED_ATTACK_HINTS) and value ~= false and value ~= nil then
+							projectileAttack = true
+						end
+
+						if
+							type(value) == "number"
+							and (
+								string.find(fieldName, "attackdistance", 1, true)
+								or string.find(fieldName, "maxdistance", 1, true)
+								or string.find(fieldName, "range", 1, true)
+								or string.find(fieldName, "shapedepth", 1, true)
+							)
+						then
+							maximumRange = math.max(maximumRange, value)
+						end
+					end
+				end
+			end
+		end
+
+		for _, field in ipairs({ "AttackDistance", "AttackRange", "MaxDistance", "Range" }) do
+			maximumRange = math.max(maximumRange, tonumber(data and data[field]) or 0)
+		end
+
+		local isRanged = modelHint or projectileAttack or maximumRange >= 28
+		local score = maximumRange
+
+		if projectileAttack then
+			score = math.max(score, 60)
+		end
+
+		if modelHint then
+			score = math.max(score, 80)
+		end
+
+		return isRanged, score
+	end
+
 	local function getNameTokens(filter)
 		local tokens = {}
 
@@ -159,6 +255,7 @@ return function(ctx)
 		local properties = data.Properties or mob:FindFirstChild("MobProperties")
 		local position = part.Position
 		local distance = origin and (position - origin).Magnitude or nil
+		local isRangedThreat, rangedThreatScore = getRangedThreat(data, mob)
 
 		if elite == nil then
 			elite = getPropertyValue(properties, "Elite") == true
@@ -185,6 +282,8 @@ return function(ctx)
 			Properties = properties,
 			CurrentTarget = getPropertyValue(properties, "Target"),
 			CurrentAttack = getPropertyValue(properties, "CurrentAttack"),
+			IsRangedThreat = isRangedThreat,
+			RangedThreatScore = rangedThreatScore,
 			Data = data,
 		}
 	end
@@ -233,9 +332,22 @@ return function(ctx)
 		return descriptor, descriptorError
 	end
 
-	local function isBetter(candidate, current, mode)
+	local function isBetter(candidate, current, mode, options)
 		if not current then
 			return true
+		end
+
+		if options.PrioritizeRangedThreats ~= false then
+			if candidate.IsRangedThreat ~= current.IsRangedThreat then
+				return candidate.IsRangedThreat
+			end
+
+			if
+				candidate.IsRangedThreat
+				and candidate.RangedThreatScore ~= current.RangedThreatScore
+			then
+				return (candidate.RangedThreatScore or 0) > (current.RangedThreatScore or 0)
+			end
 		end
 
 		if mode == "Lowest Health" then
@@ -307,7 +419,7 @@ return function(ctx)
 		end
 
 		for _, candidate in ipairs(candidates) do
-			if isBetter(candidate, selected, mode) then
+			if isBetter(candidate, selected, mode, options) then
 				selected = candidate
 			end
 		end

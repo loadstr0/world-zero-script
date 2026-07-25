@@ -6,6 +6,8 @@ return function(ctx)
 	local Players = ctx.Services.Players
 	local cachedModule = nil
 	local cachedCamera = nil
+	local cachedRewardPass = nil
+	local EXTRA_REWARD_CHEST_PASS_ID = 8136250
 
 	local function resolve()
 		if type(cachedModule) == "table" then
@@ -375,9 +377,55 @@ return function(ctx)
 		}
 	end
 
+	function Missions.GetRewardClaimLimit()
+		local player = getPlayer()
+
+		if not player then
+			return 2, false, "local_player_unavailable"
+		end
+
+		local now = os.clock()
+
+		if
+			not cachedRewardPass
+			or cachedRewardPass.UserId ~= player.UserId
+			or now - cachedRewardPass.At >= 60
+		then
+			local ownsPass = false
+			local ok, ownership = pcall(
+				game:GetService("MarketplaceService").UserOwnsGamePassAsync,
+				game:GetService("MarketplaceService"),
+				player.UserId,
+				EXTRA_REWARD_CHEST_PASS_ID
+			)
+
+			if ok then
+				ownsPass = ownership == true
+			end
+
+			cachedRewardPass = {
+				UserId = player.UserId,
+				At = now,
+				OwnsPass = ownsPass,
+			}
+
+			if not ok then
+				cachedRewardPass.Error = tostring(ownership)
+			end
+		end
+
+		return cachedRewardPass.OwnsPass and 3 or 2,
+			cachedRewardPass.OwnsPass,
+			cachedRewardPass.Error
+	end
+
 	function Missions.ClaimAvailableRewards(maximum)
 		local rewards = {}
-		local limit = math.clamp(tonumber(maximum) or 3, 1, 5)
+		local allowed = Missions.GetRewardClaimLimit()
+		local limit = math.min(
+			math.clamp(tonumber(maximum) or allowed, 1, 5),
+			allowed
+		)
 		local lastError = nil
 
 		for _ = 1, limit do

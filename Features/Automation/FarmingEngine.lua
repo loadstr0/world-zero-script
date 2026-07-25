@@ -30,6 +30,7 @@ return function()
 	local funnelStates = {}
 	local learnedAttackTimings = {}
 	local dungeonChestStates = {}
+	local towerTransitionStates = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -104,6 +105,7 @@ return function()
 			IncludeOwned = false,
 			OriginPosition = originPosition,
 			ClusterRadius = tonumber(runtime.State:Get("Combat.AuraClusterRadius", 24)) or 24,
+			PrioritizeRangedThreats = runtime.State:Get("Combat.PrioritizeRangedThreats", true),
 		}
 	end
 
@@ -158,6 +160,23 @@ return function()
 			local descriptor = root and runtime.MobsAPI.GetDescriptor(locked.Target, root.Position) or nil
 
 			if descriptor and runtime.MobsAPI.IsValidTarget(descriptor, options) then
+				if options.PrioritizeRangedThreats and not descriptor.IsRangedThreat then
+					local priorityTarget, priorityDescriptor = runtime.MobsAPI.SelectTarget(options)
+
+					if
+						priorityTarget
+						and priorityDescriptor
+						and priorityDescriptor.IsRangedThreat
+						and priorityTarget ~= locked.Target
+					then
+						locks[key] = {
+							Target = priorityTarget,
+							Descriptor = priorityDescriptor,
+						}
+						return priorityTarget, priorityDescriptor
+					end
+				end
+
 				locked.Descriptor = descriptor
 				return locked.Target, descriptor
 			end
@@ -316,6 +335,7 @@ return function()
 			NameFilter = table.concat(questState.AllowedMobNames, ","),
 			ExactNames = questState.AllowedMobNames,
 			IncludeOwned = false,
+			PrioritizeRangedThreats = runtime.State:Get("Combat.PrioritizeRangedThreats", true),
 		}
 		local target, descriptorOrError = selectTarget(runtime, "Quest:" .. tostring(questState.ID), options)
 
@@ -1189,6 +1209,15 @@ return function()
 		local minimumTargets =
 			math.max(2, tonumber(runtime.State:Get("Combat.FunnelMinimumTargets", 3)) or 3)
 
+		if runtime.State:Get("Combat.PrioritizeRangedThreats", true) then
+			for _, descriptor in ipairs(descriptors) do
+				if descriptor.IsRangedThreat then
+					funnelStates[runtime] = nil
+					return false, "ranged_threat_bypasses_funnel", descriptor
+				end
+			end
+		end
+
 		if #descriptors < minimumTargets then
 			funnelStates[runtime] = nil
 			return false
@@ -1477,6 +1506,51 @@ return function()
 		return moveToPoint(runtime, questState.Location.Position, stopDistance, "Quest")
 	end
 
+	local function settleTowerFloorTransition(runtime, dungeonState)
+		if
+			not dungeonState
+			or not dungeonState.Active
+			or not dungeonState.IsCelestialTower
+			or tonumber(dungeonState.TowerFloor) == nil
+		then
+			towerTransitionStates[runtime] = nil
+			return false
+		end
+
+		local floor = tonumber(dungeonState.TowerFloor)
+		local state = towerTransitionStates[runtime]
+		local now = os.clock()
+
+		if not state then
+			state = {
+				Floor = floor,
+				HoldUntil = 0,
+			}
+			towerTransitionStates[runtime] = state
+		elseif state.Floor ~= floor then
+			state.Floor = floor
+			state.HoldUntil = now + 0.45
+			runtime.Navigator.Stop()
+			Engine.StopSprint(runtime)
+		end
+
+		if now < (tonumber(state.HoldUntil) or 0) then
+			local root = runtime.Game.GetRootPart()
+
+			if root then
+				pcall(function()
+					root.AssemblyLinearVelocity = Vector3.zero
+					root.AssemblyAngularVelocity = Vector3.zero
+				end)
+			end
+
+			runtime.Navigator.Stop()
+			return true
+		end
+
+		return false
+	end
+
 	local function routeDungeon(runtime, dungeonState)
 		local function moveDungeonPoint(position, stopDistance, owner)
 			local root = runtime.Game.GetRootPart()
@@ -1512,13 +1586,27 @@ return function()
 			and runtime.State:Get("Dungeons.AutoTowerProgression", true)
 			and dungeonState.StartPosition
 		then
-			return moveDungeonPoint(dungeonState.StartPosition, 0, "TowerEntry")
+			return moveToPoint(runtime, dungeonState.StartPosition, 3, "TowerEntry", {
+				MovementMode = "Smooth Flight",
+				FlightGroundSafety = false,
+				FlightCruiseHeight = 0,
+				FlightNoclip = false,
+				FlightRouteThreshold = math.huge,
+				ZeroVelocity = true,
+			})
 		elseif
 			dungeonState.Phase == "TowerAdvance"
 			and runtime.State:Get("Dungeons.AutoTowerProgression", true)
 			and dungeonState.ProgressionPosition
 		then
-			return moveDungeonPoint(dungeonState.ProgressionPosition, 0, "TowerPortal")
+			return moveToPoint(runtime, dungeonState.ProgressionPosition, 3, "TowerPortal", {
+				MovementMode = "Smooth Flight",
+				FlightGroundSafety = false,
+				FlightCruiseHeight = 0,
+				FlightNoclip = false,
+				FlightRouteThreshold = math.huge,
+				ZeroVelocity = true,
+			})
 		elseif
 			dungeonState.Phase == "Objective"
 			and runtime.State:Get("Dungeons.AutoProgression", true)
@@ -2136,6 +2224,16 @@ return function()
 
 					runtime.CurrentDungeonState = dungeonState
 
+					if settleTowerFloorTransition(runtime, dungeonState) then
+						automationDecisions[runtime] = {
+							Dungeon = dungeonState,
+							Waiting = "tower_floor_transition_settle",
+							Navigator = runtime.Navigator.GetState(),
+						}
+						task.wait(0.05)
+						continue
+					end
+
 					local statusState = runtime.Status.GetAutomationState()
 						or {
 							MovementBlocked = false,
@@ -2459,6 +2557,7 @@ return function()
 			hazardStates[runtime] = nil
 			funnelStates[runtime] = nil
 			dungeonChestStates[runtime] = nil
+			towerTransitionStates[runtime] = nil
 			automationDecisions[runtime] = nil
 
 			if runtime.Stopped then
