@@ -169,8 +169,20 @@ return function()
 					or runtime.State:Get("Quests.Enabled", false)
 				)
 			then
-				lootWindows[runtime] = os.clock()
-					+ math.max(0, tonumber(runtime.State:Get("Loot.AfterKillSweepDuration", 2.5)) or 2.5)
+				local sweepDuration =
+					math.max(0, tonumber(runtime.State:Get("Loot.AfterKillSweepDuration", 2.5)) or 2.5)
+
+				if
+					runtime.State:Get("Combat.AuraEnabled", true)
+					and runtime.State:Get("Combat.AuraMapSweep", true)
+				then
+					sweepDuration = math.min(
+						sweepDuration,
+						tonumber(runtime.State:Get("Combat.AuraRetargetDelay", 0.15)) or 0.15
+					)
+				end
+
+				lootWindows[runtime] = os.clock() + sweepDuration
 				return nil, "post_combat_loot_window"
 			end
 		end
@@ -254,6 +266,10 @@ return function()
 
 	function Engine.GetTarget(runtime, rangeOverride, bypassConfiguredRange, originPosition)
 		local mapWide = runtime.State:Get("Farming.MapWideTargets", true)
+			or (
+				runtime.State:Get("Combat.AuraEnabled", true)
+				and runtime.State:Get("Combat.AuraMapSweep", true)
+			)
 		local options =
 			Engine.GetOptions(
 				runtime,
@@ -508,10 +524,21 @@ return function()
 
 	local function addMovementMode(runtime, options)
 		options.MovementMode = runtime.State:Get("Farming.MovementMode", "Smooth Flight")
-		options.CFrameFlightSpeed = math.min(
-			90,
-			tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 90)) or 90
-		)
+		local flightSpeed = tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 90)) or 90
+		local speedLimit = 90
+
+		if
+			runtime.State:Get("Combat.AuraEnabled", true)
+			and runtime.State:Get("Combat.AuraMapSweep", true)
+		then
+			flightSpeed = math.max(
+				flightSpeed,
+				tonumber(runtime.State:Get("Combat.AuraFlightSpeed", 120)) or 120
+			)
+			speedLimit = 180
+		end
+
+		options.CFrameFlightSpeed = math.min(speedLimit, flightSpeed)
 		options.ZeroVelocity = runtime.State:Get("Farming.CFrameZeroVelocity", true)
 		options.FlightNoclip = runtime.State:Get("Farming.FlightNoclip", true)
 		options.FlightGroundSafety = runtime.State:Get("Farming.FlightGroundSafety", true)

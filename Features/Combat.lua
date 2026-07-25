@@ -49,8 +49,11 @@ return function()
 		runtime.State:Set("Combat.AutoAim", true)
 		runtime.State:Set("Combat.MinimumTargets", 1)
 		runtime.State:Set("Combat.AuraEnabled", true)
+		runtime.State:Set("Combat.AuraMapSweep", true)
 		runtime.State:Set("Combat.AuraClusterRadius", 24)
 		runtime.State:Set("Combat.AuraRetryInterval", 0.1)
+		runtime.State:Set("Combat.AuraRetargetDelay", 0.15)
+		runtime.State:Set("Combat.AuraFlightSpeed", 120)
 
 		runtime.UI:CreateSection(tab, "Integration status")
 		runtime.UI:CreateParagraph(
@@ -153,6 +156,14 @@ return function()
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "CombatAuraMapSweep", {
+			Name = "Map-wide cluster sweep",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.AuraMapSweep", value)
+			end,
+		})
+
 		runtime.UI:CreateSlider(tab, "CombatAuraClusterRadius", {
 			Name = "Aura cluster radius",
 			Range = { 10, 60 },
@@ -161,6 +172,28 @@ return function()
 			CurrentValue = 24,
 			Callback = function(value)
 				runtime.State:Set("Combat.AuraClusterRadius", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatAuraFlightSpeed", {
+			Name = "Aura travel speed",
+			Range = { 90, 180 },
+			Increment = 10,
+			Suffix = " studs/s",
+			CurrentValue = 120,
+			Callback = function(value)
+				runtime.State:Set("Combat.AuraFlightSpeed", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatAuraRetargetDelay", {
+			Name = "Delay after each kill",
+			Range = { 0.05, 1 },
+			Increment = 0.05,
+			Suffix = "s",
+			CurrentValue = 0.15,
+			Callback = function(value)
+				runtime.State:Set("Combat.AuraRetargetDelay", value)
 			end,
 		})
 
@@ -178,7 +211,7 @@ return function()
 		runtime.UI:CreateParagraph(
 			tab,
 			"Aura behavior",
-			"Prioritizes the densest nearby enemy cluster and continuously uses normal class skills, AoE attacks, primary attacks, and pet abilities. It does not fabricate server damage."
+			"Finds clusters across the full map, flies to each one, and continuously uses normal class skills, AoE attacks, primary attacks, and pet abilities. It does not fabricate server damage at impossible distances."
 		)
 
 		runtime.UI:CreateSection(tab, "Primary attack")
