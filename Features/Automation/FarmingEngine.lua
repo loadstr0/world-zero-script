@@ -529,12 +529,12 @@ return function()
 	local function approachTarget(runtime, descriptor, movementOverrides)
 		local distance = tonumber(descriptor and descriptor.Distance)
 
-		if
-			not runtime.State:Get("Farming.AutoApproach", true)
-			or not distance
-			or typeof(descriptor.Position) ~= "Vector3"
-		then
-			return false
+		if not runtime.State:Get("Farming.AutoApproach", true) then
+			return false, "auto_approach_disabled"
+		elseif not distance then
+			return false, "target_distance_unavailable"
+		elseif typeof(descriptor.Position) ~= "Vector3" then
+			return false, "target_position_unavailable"
 		end
 
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
@@ -544,7 +544,7 @@ return function()
 		local heightOffset = tonumber(runtime.State:Get("Farming.TargetHeightOffset", 0)) or 0
 
 		if not root then
-			return false
+			return false, "character_root_unavailable"
 		elseif heightOffset ~= 0 then
 			targetPosition += Vector3.new(0, heightOffset, 0)
 			distance = (targetPosition - root.Position).Magnitude
@@ -602,7 +602,7 @@ return function()
 			)
 		end
 
-		return moved
+		return moved, movementError
 	end
 
 	local function buildRotation(runtime)
@@ -1793,6 +1793,7 @@ return function()
 							local routing = false
 							local routeError = nil
 							local approaching = false
+							local approachError = nil
 							local attackAttempted = false
 
 							if
@@ -1840,7 +1841,10 @@ return function()
 											}
 										or nil
 
-									approaching = approachTarget(runtime, descriptor, undergroundMovement) == true
+									local moved, movementError =
+										approachTarget(runtime, descriptor, undergroundMovement)
+									approaching = moved == true
+									approachError = movementError
 								end
 
 								if
@@ -1865,6 +1869,7 @@ return function()
 								CollectionError = collectionError,
 								Routing = routing == true,
 								Approaching = approaching,
+								ApproachError = approachError,
 								AttackAttempted = attackAttempted,
 								Retreating = retreating == true,
 								HazardHolding = hazardHolding == true,
