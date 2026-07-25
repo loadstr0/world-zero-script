@@ -408,6 +408,9 @@ return function(ctx)
 			AttackingCount = 0,
 			Nearest = nil,
 			NearestDistance = math.huge,
+			Attacking = {},
+			NearestAttacking = nil,
+			NearestAttackingDistance = math.huge,
 		}
 
 		for _, mob in pairs(all) do
@@ -423,6 +426,12 @@ return function(ctx)
 
 				if type(descriptor.CurrentAttack) == "string" and descriptor.CurrentAttack ~= "" then
 					state.AttackingCount = state.AttackingCount + 1
+					table.insert(state.Attacking, descriptor)
+
+					if descriptor.Distance < state.NearestAttackingDistance then
+						state.NearestAttacking = descriptor
+						state.NearestAttackingDistance = descriptor.Distance
+					end
 				end
 
 				if descriptor.Distance < state.NearestDistance then

@@ -6,6 +6,8 @@ return function()
 	local rotationCursors = {}
 	local lastSlotAttempts = {}
 	local lastDodgeAttempts = {}
+	local dodgeAttackStates = {}
+	local lastDodgedDamage = {}
 	local lastHealAttempts = {}
 	local farmSprinting = {}
 	local boostedCharacters = {}
@@ -1242,24 +1244,55 @@ return function()
 	local function dodgeThreat(runtime, adapter, threat, healthRatio, statusState)
 		local damage = recentDamage[runtime]
 		local reactionWindow = tonumber(runtime.State:Get("Farming.DamageReactionWindow", 1.25)) or 1.25
-		local dodgeThreshold = (tonumber(runtime.State:Get("Farming.DodgeHealthThreshold", 70)) or 70) / 100
 		local damagedRecently = runtime.State:Get("Farming.DodgeAfterDamage", true)
 			and damage
 			and os.clock() - (tonumber(damage.At) or 0) <= reactionWindow
+		local attackStates = dodgeAttackStates[runtime]
+
+		if not attackStates then
+			attackStates = setmetatable({}, { __mode = "k" })
+			dodgeAttackStates[runtime] = attackStates
+		end
+
+		local activeAttacks = setmetatable({}, { __mode = "k" })
+		local attacking = nil
+
+		for _, candidate in ipairs(threat and threat.Attacking or {}) do
+			local model = candidate.Model
+			local name = tostring(candidate.CurrentAttack or "")
+
+			if model and name ~= "" then
+				activeAttacks[model] = name
+
+				if not attacking and attackStates[model] ~= name then
+					attacking = candidate
+				end
+			end
+		end
+
+		for model in pairs(attackStates) do
+			if activeAttacks[model] == nil then
+				attackStates[model] = nil
+			end
+		end
+
+		local attackName = attacking and tostring(attacking.CurrentAttack or "") or ""
+		local newAttack = attacking and attackName ~= ""
+		local newDamage = damagedRecently and lastDodgedDamage[runtime] ~= damage.At
 
 		if
 			not runtime.State:Get("Farming.AutoDodge", true)
 			or (statusState and statusState.SkillsBlocked)
-			or ((not threat or (tonumber(threat.Count) or 0) <= 0) and not damagedRecently)
-			or ((not threat or (tonumber(threat.AttackingCount) or 0) <= 0) and (tonumber(healthRatio) or 1) > dodgeThreshold and not damagedRecently)
+			or (not newAttack and not newDamage)
 			or runtime.Actions.IsBusy() == true
 		then
 			return false
 		end
 
 		local lastAttempt = lastDodgeAttempts[runtime] or 0
+		local minimumInterval = tonumber(runtime.State:Get("Farming.DodgeMinimumInterval", 0.85)) or 0.85
 
-		if os.clock() - lastAttempt < 0.5 then
+		if os.clock() - lastAttempt < minimumInterval then
 			return false
 		end
 
@@ -1268,6 +1301,12 @@ return function()
 		end
 
 		lastDodgeAttempts[runtime] = os.clock()
+		if newAttack then
+			attackStates[attacking.Model] = attackName
+		end
+		if newDamage then
+			lastDodgedDamage[runtime] = damage.At
+		end
 
 		if adapter and type(adapter.UseDodge) == "function" then
 			pcall(adapter.UseDodge)
@@ -1879,6 +1918,8 @@ return function()
 			rotationCursors[runtime] = nil
 			lastSlotAttempts[runtime] = nil
 			lastDodgeAttempts[runtime] = nil
+			dodgeAttackStates[runtime] = nil
+			lastDodgedDamage[runtime] = nil
 			lastHealAttempts[runtime] = nil
 			speedBoostWarnings[runtime] = nil
 			fatalStatusWarnings[runtime] = nil
