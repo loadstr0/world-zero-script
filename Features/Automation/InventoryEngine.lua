@@ -23,6 +23,97 @@ return function()
 		return protected
 	end
 
+	local function appendUnique(result, seen, descriptor)
+		local item = descriptor and descriptor.Item
+
+		if typeof(item) == "Instance" and item.Parent and not seen[item] then
+			seen[item] = true
+			table.insert(result, descriptor)
+		end
+	end
+
+	function Engine.GetCandidates(runtime)
+		local protectedGear = getProtectedGear(runtime)
+		local preserveModified = runtime.State:Get("Loot.PreserveModified", true)
+		local result = {}
+		local seen = {}
+		local smartCount = 0
+
+		if
+			runtime.State:Get("Loot.SmartSellDominatedGear", true)
+			and runtime.GearAPI
+			and type(runtime.GearAPI.ListDominatedItems) == "function"
+		then
+			local dominated, dominatedError = runtime.GearAPI.ListDominatedItems({
+				KeepPerCategory = runtime.State:Get("Loot.SmartSellKeepPerCategory", 2),
+				ExcludeItems = protectedGear,
+			})
+
+			if not dominated then
+				return nil, dominatedError
+			end
+
+			for _, gear in ipairs(dominated) do
+				local item = gear.Item
+				local protected = protectedGear[item]
+					or runtime.InventoryAPI.IsProtected(item, preserveModified)
+				local descriptor = not protected and runtime.InventoryAPI.GetDescriptor(item) or nil
+
+				if descriptor and descriptor.Price > 0 then
+					descriptor.CleanupMode = "Dominated gear"
+					descriptor.Category = gear.Category
+					descriptor.CurrentScore = gear.CurrentScore
+					descriptor.MaximumScore = gear.MaximumScore
+					descriptor.DominatedBy = gear.DominatedBy
+					appendUnique(result, seen, descriptor)
+					smartCount += 1
+				end
+			end
+		end
+
+		if runtime.State:Get("Loot.SellByTierEnabled", false) then
+			local thresholdCandidates, thresholdError = runtime.InventoryAPI.ListSellCandidates({
+				MaxTier = runtime.State:Get("Loot.SellMaxTier", 1),
+				MaxLevel = runtime.State:Get("Loot.SellMaxLevel", 10),
+				PreserveModified = preserveModified,
+				ExcludeItems = protectedGear,
+			})
+
+			if not thresholdCandidates then
+				return nil, thresholdError
+			end
+
+			for _, descriptor in ipairs(thresholdCandidates) do
+				descriptor.CleanupMode = descriptor.CleanupMode or "Tier/level rule"
+				appendUnique(result, seen, descriptor)
+			end
+		end
+
+		table.sort(result, function(a, b)
+			local aSmart = a.CleanupMode == "Dominated gear"
+			local bSmart = b.CleanupMode == "Dominated gear"
+
+			if aSmart ~= bSmart then
+				return aSmart
+			elseif aSmart and bSmart and a.MaximumScore ~= b.MaximumScore then
+				return a.MaximumScore < b.MaximumScore
+			elseif a.Tier ~= b.Tier then
+				return a.Tier < b.Tier
+			elseif a.Level ~= b.Level then
+				return a.Level < b.Level
+			elseif a.Price ~= b.Price then
+				return a.Price < b.Price
+			end
+
+			return a.Name < b.Name
+		end)
+
+		return result, nil, {
+			Smart = smartCount,
+			Total = #result,
+		}
+	end
+
 	function Engine.Step(runtime)
 		local capacity, capacityError = runtime.InventoryAPI.GetCapacity()
 
@@ -54,13 +145,7 @@ return function()
 			return false, "automatic_selling_not_armed"
 		end
 
-		local protectedGear = getProtectedGear(runtime)
-		local candidates, candidateError = runtime.InventoryAPI.ListSellCandidates({
-			MaxTier = runtime.State:Get("Loot.SellMaxTier", 1),
-			MaxLevel = runtime.State:Get("Loot.SellMaxLevel", 10),
-			PreserveModified = runtime.State:Get("Loot.PreserveModified", true),
-			ExcludeItems = protectedGear,
-		})
+		local candidates, candidateError, candidateSummary = Engine.GetCandidates(runtime)
 
 		if not candidates then
 			setStatus(runtime, {
@@ -95,6 +180,7 @@ return function()
 			Action = gold and "Sold safe items" or "Sell failed",
 			Sold = gold and soldOrError or 0,
 			Gold = gold,
+			SmartCandidates = candidateSummary and candidateSummary.Smart or 0,
 			Remaining = capacity.Remaining,
 			Capacity = capacity.Capacity,
 			Error = gold and nil or soldOrError,

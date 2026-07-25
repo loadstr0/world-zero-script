@@ -36,7 +36,7 @@
 - Filtered Auto Farm with nearest, boss, health, level, elite, and name targeting
 - Map-wide targeting, sticky targets, no-damage timeout, and temporary stalled-target blacklisting
 - Automatic equipped-class rotation through every available special, Primary, and Ultimate
-- Pathfinding, continuous smooth flight, and instant CFrame movement with flight noclip cleanup
+- Pathfinding, terrain-clamped ascent/cruise/descent flight, and instant CFrame movement with flight noclip cleanup
 - Speed-aware ranged kiting and optional automation movement multiplier
 - Barrier-aware Auto Dodge, post-hit follow-up Dodge, low-health retreat, and quick-item healing
 - Exact status handling: skill-only Darkness pause; full Frozen/Shock/Knockdown/Stunned pause
@@ -51,7 +51,7 @@
 - Teleport continuation through centralized `queue_on_teleport`
 - Post-kill dropped-item/currency collection and proximity-open reward-chest routing without stealing live combat targets by default
 - Smart best-potential weapon/offhand/armor upgrades and equipping
-- Capacity-aware protected inventory cleanup with equipped/best-gear preservation
+- Capacity-aware smart selling that compares maximum-potential stats within each weapon subtype or armor, keeps configurable backups, and preserves equipped/best/modified gear
 - Real hubs and active event destinations from live `WorldData`
 - Anti-idle and respawn-safe long-session recovery
 - One-click non-destructive full-farm start/stop

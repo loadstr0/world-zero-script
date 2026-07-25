@@ -488,6 +488,9 @@ return function()
 		options.CFrameFlightSpeed = tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 500)) or 500
 		options.ZeroVelocity = runtime.State:Get("Farming.CFrameZeroVelocity", true)
 		options.FlightNoclip = runtime.State:Get("Farming.FlightNoclip", true)
+		options.FlightGroundSafety = runtime.State:Get("Farming.FlightGroundSafety", true)
+		options.FlightCruiseHeight = tonumber(runtime.State:Get("Farming.FlightCruiseHeight", 35)) or 35
+		options.FlightGroundClearance = tonumber(runtime.State:Get("Farming.FlightGroundClearance", 3)) or 3
 		return options
 	end
 

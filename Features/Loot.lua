@@ -21,6 +21,9 @@ return function(ctx)
 		runtime.State:Set("Loot.AfterKillSweep", true)
 		runtime.State:Set("Loot.AfterKillSweepDuration", 2.5)
 		runtime.State:Set("Loot.SellingArmed", false)
+		runtime.State:Set("Loot.SmartSellDominatedGear", true)
+		runtime.State:Set("Loot.SmartSellKeepPerCategory", 2)
+		runtime.State:Set("Loot.SellByTierEnabled", false)
 		runtime.State:Set("Loot.SellMaxTier", 1)
 		runtime.State:Set("Loot.SellMaxLevel", 10)
 		runtime.State:Set("Loot.PreserveModified", true)
@@ -153,6 +156,33 @@ return function(ctx)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "LootSmartSellDominatedGear", {
+			Name = "Sell gear dominated by stronger gear",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Loot.SmartSellDominatedGear", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "LootSmartSellKeepPerCategory", {
+			Name = "Strongest items kept per gear category",
+			Range = { 1, 5 },
+			Increment = 1,
+			Suffix = " items",
+			CurrentValue = 2,
+			Callback = function(value)
+				runtime.State:Set("Loot.SmartSellKeepPerCategory", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "LootSellByTierEnabled", {
+			Name = "Also use tier and level sell rules",
+			CurrentValue = false,
+			Callback = function(value)
+				runtime.State:Set("Loot.SellByTierEnabled", value)
+			end,
+		})
+
 		runtime.UI:CreateDropdown(tab, "LootSellMaxTier", {
 			Name = "Highest tier to sell",
 			Options = {
@@ -189,18 +219,13 @@ return function(ctx)
 		})
 
 		local getSellCandidates = function()
-			return runtime.InventoryAPI.ListSellCandidates({
-				MaxTier = runtime.State:Get("Loot.SellMaxTier", 1),
-				MaxLevel = runtime.State:Get("Loot.SellMaxLevel", 10),
-				PreserveModified = runtime.State:Get("Loot.PreserveModified", true),
-				ExcludeItems = runtime.GearAPI.GetProtectedItems(),
-			})
+			return InventoryEngine.GetCandidates(runtime)
 		end
 
 		runtime.UI:CreateButton(tab, {
 			Name = "Preview protected sell selection",
 			Callback = function()
-				local candidates, candidateError = getSellCandidates()
+				local candidates, candidateError, candidateSummary = getSellCandidates()
 
 				if not candidates then
 					runtime.UI:Notify("Sell preview", "Preview failed: " .. tostring(candidateError), 5, 0)
@@ -213,14 +238,20 @@ return function(ctx)
 					local item = candidates[index]
 					table.insert(
 						sample,
-						item.Name .. " (T" .. tostring(item.Tier) .. ", L" .. tostring(item.Level) .. ")"
+						item.Name
+							.. " ("
+							.. tostring(item.CleanupMode or "rule")
+							.. (item.DominatedBy and (", replaced by " .. tostring(item.DominatedBy)) or "")
+							.. ")"
 					)
 				end
 
 				runtime.UI:Notify(
 					"Sell preview",
 					tostring(#candidates)
-						.. " unprotected item(s) match."
+						.. " safe cleanup item(s) match; "
+						.. tostring(candidateSummary and candidateSummary.Smart or 0)
+						.. " are dominated gear."
 						.. (#sample > 0 and ("\n" .. table.concat(sample, "\n")) or ""),
 					8,
 					0
@@ -276,7 +307,7 @@ return function(ctx)
 			tab,
 			"Sell protection",
 			inventoryStatus.Available
-					and "Locked and favorited items are always excluded and rechecked immediately before the server request. Modified-item protection is enabled by default. Selling is manual, armed separately, and can be previewed first."
+					and "Locked, favorited, equipped, current-best, and best-upgrade-potential items are always excluded and rechecked immediately before the server request. Modified-item protection is enabled by default. Smart cleanup compares maximum upgraded Attack or Defense inside the same weapon subtype or armor category."
 				or ("Inventory selling unavailable: " .. tostring(inventoryStatus.Error))
 		)
 
@@ -284,7 +315,7 @@ return function(ctx)
 		runtime.UI:CreateParagraph(
 			tab,
 			"Why this matters",
-			"World Zero refuses item pickups when inventory slots are full. The cleanup supervisor reads Shared.Inventory:GetRemainingSpace, preserves the current and best-potential loadout, and only sells items that also pass the locked, favorite, modified, tier, and level filters above."
+			"World Zero refuses item pickups when inventory slots are full. Cleanup starts while reserve slots still exist, so a newly dropped upgrade can enter the inventory first. It then becomes protected as the new best item and the weakest dominated predecessor becomes the first sell candidate."
 		)
 
 		runtime.UI:CreateToggle(tab, "LootAutoSellEnabled", {
@@ -347,6 +378,8 @@ return function(ctx)
 					capacityText
 						.. "\nLast action: "
 						.. tostring(status and status.Action or "none")
+						.. "\nSmart candidates: "
+						.. tostring(status and status.SmartCandidates or 0)
 						.. "\nDetail: "
 						.. tostring(status and status.Error or "none"),
 					7,

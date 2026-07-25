@@ -62,11 +62,18 @@ return function(ctx)
 			return nil, profileError
 		end
 
+		local items, itemsError = resolve("Shared.Items", "Items")
+
+		if not items then
+			return nil, itemsError
+		end
+
 		return {
 			Inventory = inventory,
 			ItemUpgrade = upgrade,
 			Combat = combat,
 			Profile = profile,
+			Items = items,
 		}
 	end
 
@@ -302,6 +309,114 @@ return function(ctx)
 		return protected
 	end
 
+	function Gear.ListDominatedItems(options)
+		options = options or {}
+		local context, contextError = getContext()
+
+		if not context then
+			return nil, contextError
+		end
+
+		local groups = {}
+		local keepPerCategory = math.max(1, tonumber(options.KeepPerCategory) or 2)
+		local excludedItems = options.ExcludeItems or {}
+
+		local function addItem(item, equippedSlot)
+			if typeof(item) ~= "Instance" then
+				return
+			end
+
+			local definition = context.Modules.Items[item.Name]
+			local itemType = definition and definition.Type
+			local category = nil
+			local slotName = nil
+
+			if itemType == "Weapon" and type(definition.SubType) == "string" then
+				category = "Weapon:" .. definition.SubType
+				slotName = "Primary"
+			elseif itemType == "Armor" then
+				category = "Armor"
+				slotName = "Armor"
+			else
+				return
+			end
+
+			local descriptor = describeItem(context, item, slotName)
+
+			if not descriptor then
+				return
+			end
+
+			descriptor.Category = category
+			descriptor.IsEquipped = equippedSlot ~= nil or descriptor.IsEquipped
+			descriptor.EquippedSlot = equippedSlot
+			descriptor.IsExcluded = excludedItems[item] == true
+			groups[category] = groups[category] or {}
+			table.insert(groups[category], descriptor)
+		end
+
+		for _, slotName in ipairs(SLOT_ORDER) do
+			local slot = context.Equips:FindFirstChild(slotName)
+			local equipped = getEquippedItem(slot)
+
+			if equipped then
+				addItem(equipped, slotName)
+			end
+		end
+
+		for _, item in ipairs(context.Items:GetChildren()) do
+			addItem(item)
+		end
+
+		local result = {}
+
+		for category, descriptors in pairs(groups) do
+			table.sort(descriptors, function(a, b)
+				return isBetter(a, b)
+			end)
+
+			local best = descriptors[1]
+
+			for index, descriptor in ipairs(descriptors) do
+				if
+					index > keepPerCategory
+					and not descriptor.IsEquipped
+					and not descriptor.IsExcluded
+					and descriptor.Item.Parent == context.Items
+					and best
+					and (
+						best.MaximumScore > descriptor.MaximumScore
+						or (
+							best.MaximumScore == descriptor.MaximumScore
+							and best.CurrentScore >= descriptor.CurrentScore
+						)
+					)
+				then
+					descriptor.DominatedBy = best.Name
+					descriptor.DominatedByScore = best.MaximumScore
+					descriptor.Category = category
+					table.insert(result, descriptor)
+				end
+			end
+		end
+
+		table.sort(result, function(a, b)
+			if a.MaximumScore ~= b.MaximumScore then
+				return a.MaximumScore < b.MaximumScore
+			elseif a.CurrentScore ~= b.CurrentScore then
+				return a.CurrentScore < b.CurrentScore
+			elseif a.Tier ~= b.Tier then
+				return a.Tier < b.Tier
+			elseif a.Level ~= b.Level then
+				return a.Level < b.Level
+			end
+
+			return a.Name < b.Name
+		end)
+
+		return result
+	end
+
 	function Gear.GetUpgradeInfo(item)
 		local context, contextError = getContext()
 
@@ -423,6 +538,7 @@ return function(ctx)
 			Available = context ~= nil,
 			Error = contextError,
 			SupportsPotentialScoring = context ~= nil,
+			SupportsDominatedGearCleanup = context ~= nil,
 			SupportsUpgrade = context and type(context.Modules.ItemUpgrade.UpgradeItem) == "function" or false,
 			SupportsEquip = context and type(context.Modules.Inventory.EquipItemClient) == "function" or false,
 		}

@@ -29,6 +29,9 @@ return function(ctx)
 		runtime.State:Set("Farming.CFrameFlightSpeed", 500)
 		runtime.State:Set("Farming.CFrameZeroVelocity", true)
 		runtime.State:Set("Farming.FlightNoclip", true)
+		runtime.State:Set("Farming.FlightGroundSafety", true)
+		runtime.State:Set("Farming.FlightCruiseHeight", 35)
+		runtime.State:Set("Farming.FlightGroundClearance", 3)
 		runtime.State:Set("Farming.StickyTargets", true)
 		runtime.State:Set("Farming.SkipStalledTargets", true)
 		runtime.State:Set("Farming.NoDamageTimeout", 5)
@@ -230,10 +233,31 @@ return function(ctx)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "FarmingFlightGroundSafety", {
+			Name = "Terrain-safe flight routing",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.FlightGroundSafety", value)
+				runtime.Navigator.Stop()
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingFlightCruiseHeight", {
+			Name = "Safe-flight cruise height",
+			Range = { 10, 100 },
+			Increment = 5,
+			Suffix = " studs",
+			CurrentValue = 35,
+			Callback = function(value)
+				runtime.State:Set("Farming.FlightCruiseHeight", value)
+				runtime.Navigator.Stop()
+			end,
+		})
+
 		runtime.UI:CreateParagraph(
 			tab,
 			"Blatant navigation",
-			"Smooth Flight continuously moves through the air at the selected speed and retargets moving destinations. Instant CFrame moves to the requested stopping distance in one update. Both bypass pathfinding and can be corrected by the server."
+			"Smooth Flight uses an ascent, level cruise, and vertical descent for long trips. Terrain-safe routing also clamps every flight position above solid ground, preventing noclip from carrying the character through terrain into a death plane. Instant CFrame is ground-clamped by the same safety option."
 		)
 
 		runtime.UI:CreateSection(tab, "Pathfinding controls")

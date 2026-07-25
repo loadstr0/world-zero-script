@@ -33,6 +33,8 @@ Built-in probes:
 - `quest-dungeon` lists real story candidates and verifies quest-to-mission routing.
 - `dungeon-runtime` scans mission state, protected objects, start triggers, workspace mechanics, and objective UI.
 - `gear-runtime` compares maximum-potential gear against equipped items and explains upgrade/equip gates.
+- `inventory-model` inspects live item metadata and inventory APIs without changing anything.
+- `smart-sell-preview` calculates the exact protected cleanup candidates without selling anything.
 - `option-health` audits every major integration and automation engine in one result.
 
 Useful options:

@@ -4,6 +4,7 @@ return function(ctx)
 	local GameContext = ctx:Require("GameContext")
 	local PathfindingService = ctx.Services.PathfindingService
 	local RunService = ctx.Services.RunService
+	local Workspace = ctx.Services.Workspace or game:GetService("Workspace")
 	local currentPath = nil
 	local waypoints = {}
 	local waypointIndex = 0
@@ -23,6 +24,10 @@ return function(ctx)
 	local flightConnection = nil
 	local flightTarget = nil
 	local flightOptions = nil
+	local flightSafeTarget = nil
+	local flightPlanTarget = nil
+	local flightCruiseY = nil
+	local flightPhase = nil
 	local flightCollisionStates = setmetatable({}, { __mode = "k" })
 
 	local function numberOption(value, fallback, minimum)
@@ -110,7 +115,91 @@ return function(ctx)
 
 		flightTarget = nil
 		flightOptions = nil
+		flightSafeTarget = nil
+		flightPlanTarget = nil
+		flightCruiseY = nil
+		flightPhase = nil
 		setFlightCollision(false)
+	end
+
+	local function getFlightRaycastParams()
+		local filter = {}
+		local character = GameContext.GetCharacter()
+
+		if character then
+			table.insert(filter, character)
+		end
+
+		for _, containerName in ipairs({ "Mobs", "Characters", "Pets", "Coins" }) do
+			local container = Workspace:FindFirstChild(containerName)
+
+			if container then
+				table.insert(filter, container)
+			end
+		end
+
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = filter
+		params.IgnoreWater = false
+
+		pcall(function()
+			params.RespectCanCollide = true
+		end)
+
+		return params
+	end
+
+	local function clampAboveGround(position, options)
+		if options.FlightGroundSafety == false then
+			return position
+		end
+
+		local clearance = numberOption(options.FlightGroundClearance, 3, 1)
+		local probeHeight = math.max(clearance + 12, 16)
+		local probeDepth = numberOption(options.FlightGroundProbeDepth, 512, 64)
+		local result = nil
+
+		pcall(function()
+			result = Workspace:Raycast(
+				position + Vector3.new(0, probeHeight, 0),
+				Vector3.new(0, -(probeHeight + probeDepth), 0),
+				getFlightRaycastParams()
+			)
+		end)
+
+		if
+			result
+			and result.Position
+			and result.Normal
+			and result.Normal.Y >= 0.35
+			and position.Y < result.Position.Y + clearance
+		then
+			return Vector3.new(position.X, result.Position.Y + clearance, position.Z)
+		end
+
+		return position
+	end
+
+	local function planFlight(root, targetPosition, options)
+		flightSafeTarget = clampAboveGround(targetPosition, options)
+		flightPlanTarget = targetPosition
+
+		local flatOffset = Vector3.new(
+			flightSafeTarget.X - root.Position.X,
+			0,
+			flightSafeTarget.Z - root.Position.Z
+		)
+		local routeThreshold = numberOption(options.FlightRouteThreshold, 35, 5)
+
+		if options.FlightGroundSafety ~= false and flatOffset.Magnitude >= routeThreshold then
+			local cruiseHeight = numberOption(options.FlightCruiseHeight, 35, 8)
+			flightCruiseY = math.max(root.Position.Y, flightSafeTarget.Y) + cruiseHeight
+			flightPhase = "ascent"
+		else
+			flightCruiseY = nil
+			flightPhase = "approach"
+		end
 	end
 
 	local function placeRoot(root, targetPosition, travelDistance, options)
@@ -122,6 +211,7 @@ return function(ctx)
 		end
 
 		local nextPosition = root.Position + offset.Unit * math.min(distance, travelDistance)
+		nextPosition = clampAboveGround(nextPosition, options)
 		local lookDirection = targetPosition - nextPosition
 		local nextCFrame
 
@@ -149,10 +239,11 @@ return function(ctx)
 		lastProgressAt = os.clock()
 		lastMovePosition = nextPosition
 		lastMoveAt = os.clock()
-		return true
+		return true, nil, nextPosition
 	end
 
 	local function moveInstantly(root, targetPosition, stopDistance, options)
+		targetPosition = clampAboveGround(targetPosition, options)
 		local distance = (targetPosition - root.Position).Magnitude
 
 		if distance <= stopDistance then
@@ -188,7 +279,8 @@ return function(ctx)
 		setFlightCollision(flightOptions.FlightNoclip ~= false)
 
 		local stopDistance = numberOption(flightOptions.StopDistance, 0, 0)
-		local distance = (flightTarget - root.Position).Magnitude
+		flightSafeTarget = clampAboveGround(flightTarget, flightOptions)
+		local distance = (flightSafeTarget - root.Position).Magnitude
 
 		if distance <= stopDistance then
 			pcall(function()
@@ -199,26 +291,93 @@ return function(ctx)
 			return
 		end
 
+		local movementTarget = flightSafeTarget
+
+		if flightPhase == "ascent" and flightCruiseY then
+			if root.Position.Y >= flightCruiseY - 1 then
+				flightPhase = "cruise"
+			else
+				movementTarget = Vector3.new(root.Position.X, flightCruiseY, root.Position.Z)
+			end
+		end
+
+		if flightPhase == "cruise" and flightCruiseY then
+			local horizontalOffset = Vector3.new(
+				flightSafeTarget.X - root.Position.X,
+				0,
+				flightSafeTarget.Z - root.Position.Z
+			)
+
+			if horizontalOffset.Magnitude <= 2 then
+				flightPhase = "descent"
+			else
+				movementTarget = Vector3.new(flightSafeTarget.X, flightCruiseY, flightSafeTarget.Z)
+			end
+		end
+
 		local speed = numberOption(flightOptions.CFrameFlightSpeed, 90, 1)
+		local waypointDistance = (movementTarget - root.Position).Magnitude
+		local allowedDistance = waypointDistance
+
+		if movementTarget == flightSafeTarget then
+			allowedDistance = math.max(0, distance - stopDistance)
+		end
+
 		local travelDistance =
-			math.min(math.max(0, distance - stopDistance), speed * math.max(tonumber(deltaTime) or 0, 0))
-		local moved = placeRoot(root, flightTarget, travelDistance, flightOptions)
+			math.min(allowedDistance, speed * math.max(tonumber(deltaTime) or 0, 0))
+		local moved = placeRoot(root, movementTarget, travelDistance, flightOptions)
 
 		if moved then
-			lastStatus = "smooth_flight"
+			lastStatus = "smooth_flight_" .. tostring(flightPhase or "approach")
 		end
 	end
 
 	local function startFlight(targetPosition, options)
+		local _, root = getMovementParts()
+		local targetMoveThreshold = numberOption(options.TargetMoveThreshold, 10, 2)
+		local needsPlan = not flightPlanTarget
+			or not flightSafeTarget
+			or (flightPlanTarget - targetPosition).Magnitude >= targetMoveThreshold
+
 		flightTarget = targetPosition
 		flightOptions = options
 		destination = targetPosition
+
+		if root and needsPlan then
+			local flatDistance = Vector3.new(
+				targetPosition.X - root.Position.X,
+				0,
+				targetPosition.Z - root.Position.Z
+			).Magnitude
+
+			if
+				not flightPhase
+				or (
+					(flightPhase == "descent" or flightPhase == "approach")
+					and flatDistance >= numberOption(options.FlightRouteThreshold, 35, 5)
+				)
+			then
+				planFlight(root, targetPosition, options)
+			else
+				flightPlanTarget = targetPosition
+				flightSafeTarget = clampAboveGround(targetPosition, options)
+
+				if flightCruiseY then
+					flightCruiseY = math.max(
+						flightCruiseY,
+						flightSafeTarget.Y + numberOption(options.FlightCruiseHeight, 35, 8)
+					)
+				end
+			end
+		elseif root then
+			flightSafeTarget = clampAboveGround(targetPosition, options)
+		end
 
 		if not flightConnection then
 			flightConnection = RunService.Heartbeat:Connect(updateFlight)
 		end
 
-		lastStatus = "smooth_flight"
+		lastStatus = "smooth_flight_" .. tostring(flightPhase or "approach")
 		return true, lastStatus
 	end
 
@@ -466,6 +625,9 @@ return function(ctx)
 			Destination = destination,
 			Owner = currentOwner,
 			Mode = currentMode,
+			FlightPhase = flightPhase,
+			FlightCruiseY = flightCruiseY,
+			FlightGroundSafety = flightOptions and flightOptions.FlightGroundSafety ~= false or nil,
 			PathFailed = pathFailed,
 			LastMoveAge = lastMoveAt > 0 and os.clock() - lastMoveAt or nil,
 		}
@@ -476,6 +638,7 @@ return function(ctx)
 			Available = PathfindingService ~= nil,
 			UsesPathfinding = true,
 			SupportsSmoothFlight = true,
+			SupportsTerrainSafeFlight = true,
 			SupportsInstantCFrame = true,
 			CanJump = true,
 			HasStuckRecovery = true,

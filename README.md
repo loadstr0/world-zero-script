@@ -137,7 +137,7 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Filtered Auto Farm with boss, elite, name, health, level, and distance targeting
 - Map-wide target discovery with sticky-target health progress, stalled-target skipping, and retry blacklisting
 - Full equipped-class rotation across every available special attack, Primary, and charged Ultimate
-- Pathfinding, continuous smooth flight, or instant CFrame navigation with optional flight noclip and collision restoration
+- Pathfinding, terrain-safe ascent/cruise/descent flight, or instant CFrame navigation with optional flight noclip and collision restoration
 - Adaptive ranged kiting using live player/mob speed and equipped-class Primary range
 - Barrier-aware Auto Dodge/retreat with post-damage follow-up Dodge
 - Exact catalog-driven responses for Darkness, freezes, Shock, Knockdown, Stunned, Poison, damage-over-time, vulnerability, healing, and Death Mark
@@ -148,7 +148,7 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Central `queue_on_teleport` continuation for world, hub, event, dungeon, and mission-finish travel
 - Coordinated dropped-item/currency collection with post-kill loot windows so collection does not steal movement from a living target by default
 - Maximum-upgrade-potential gear scoring, protected upgrade/equip automation, and spending reserves
-- Capacity-aware inventory supervision with separately armed automatic cleanup that preserves locked, favorited, modified, equipped, and best-potential items
+- Capacity-aware inventory supervision with separately armed, maximum-potential smart selling that retains the strongest gear per subtype and preserves locked, favorited, modified, equipped, and best-potential items
 - Respawn waiting, anti-idle, movement ownership, and error-recovery loops for long sessions
 - One-click safe farming start/stop across farming, main quests, loot, chests, and smart gear
 - Projected regeneration-aware quick-item healing
@@ -249,7 +249,7 @@ The default batch covers the status handlers, settings, gear, remote resolver, m
 
 `DevBridge/WorldZeroBridge.cmd` is a local command-line application for sending isolated diagnostic Luau jobs through Project Real's filesystem IPC. It captures prints, warnings, returned values, errors, tracebacks, and client metadata, then archives JSON results inside `DevBridge/results/`.
 
-Built-in probes include runtime status and quest-dungeon routing inspection. See `DevBridge/README.md` for commands and safety details.
+Built-in probes include runtime status, quest-dungeon routing, inventory-model inspection, and a read-only smart-selling preview. See `DevBridge/README.md` for commands and safety details.
 
 ## Configuration and updates
 
