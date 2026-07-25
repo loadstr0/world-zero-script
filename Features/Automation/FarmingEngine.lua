@@ -505,11 +505,7 @@ return function()
 	end
 
 	local function addMovementMode(runtime, options)
-		local dungeonState = runtime.CurrentDungeonState
-		options.MovementMode = dungeonState
-				and dungeonState.Active == true
-				and "Pathfinding"
-			or runtime.State:Get("Farming.MovementMode", "Smooth Flight")
+		options.MovementMode = runtime.State:Get("Farming.MovementMode", "Smooth Flight")
 		options.CFrameFlightSpeed = math.min(
 			90,
 			tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 90)) or 90
