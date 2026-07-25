@@ -245,6 +245,12 @@ The output folder path is printed and copied to the clipboard when supported. Co
 
 The default batch covers the status handlers, settings, gear, remote resolver, missions, objectives, quests, teleports, chests, drops, inventory, and the related client interfaces. To add paths without editing the exporter, set `getgenv().WorldZeroSourceExporter.ModulePaths` or `.TreePaths` before executing it; tree paths recursively include every script below that instance.
 
+## Developer bridge
+
+`DevBridge/WorldZeroBridge.cmd` is a local command-line application for sending isolated diagnostic Luau jobs through Project Real's filesystem IPC. It captures prints, warnings, returned values, errors, tracebacks, and client metadata, then archives JSON results inside `DevBridge/results/`.
+
+Built-in probes include runtime status and quest-dungeon routing inspection. See `DevBridge/README.md` for commands and safety details.
+
 ## Configuration and updates
 
 Rayfield automatically saves all flagged controls. The Settings tab reports the active configuration folder/file and can reload saved values.
