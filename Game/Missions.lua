@@ -439,6 +439,29 @@ return function(ctx)
 		return event.OnClientEvent:Connect(callback)
 	end
 
+	function Missions.SkipCutscene()
+		local skipped, skipError = callOptional("SkippedCutscene")
+
+		if skipped == nil and skipError then
+			return false, skipError
+		end
+
+		return true
+	end
+
+	function Missions.ObserveCutscene(callback)
+		local moduleScript =
+			GameContext.FindReplicated("Shared.Missions")
+		local event = moduleScript
+			and moduleScript:FindFirstChild("DoCutscene")
+
+		if not event or not event:IsA("RemoteEvent") then
+			return nil, "mission_cutscene_event_not_found"
+		end
+
+		return event.OnClientEvent:Connect(callback)
+	end
+
 	function Missions.Describe()
 		local module, resolveError = resolve()
 		local list = module and Missions.List() or nil
@@ -456,6 +479,8 @@ return function(ctx)
 					and type(module.SetLeaveChoice) == "function"
 					and type(module.NotifyReadyToLeave) == "function"
 				or false,
+			SupportsCutsceneSkip =
+				module and type(module.SkippedCutscene) == "function" or false,
 		}
 	end
 

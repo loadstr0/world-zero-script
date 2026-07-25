@@ -50,6 +50,7 @@ return function(ctx)
 		runtime.State:Set("Dungeons.AutoStart", true)
 		runtime.State:Set("Dungeons.AutoProgression", true)
 		runtime.State:Set("Dungeons.AutoTowerProgression", true)
+		runtime.State:Set("Dungeons.AutoSkipCutscenes", true)
 		runtime.State:Set("Dungeons.DefensePriority", true)
 		runtime.State:Set("Dungeons.HoldDefense", true)
 
@@ -251,6 +252,13 @@ return function(ctx)
 				runtime.State:Set("Dungeons.AutoTowerProgression", value)
 			end,
 		})
+		runtime.UI:CreateToggle(tab, "DungeonAutoSkipCutscenes", {
+			Name = "Vote to skip dungeon cutscenes automatically",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Dungeons.AutoSkipCutscenes", value)
+			end,
+		})
 		runtime.UI:CreateToggle(tab, "DungeonDefensePriority", {
 			Name = "Protect damaged defense objectives first",
 			CurrentValue = true,
@@ -270,6 +278,33 @@ return function(ctx)
 			"Dungeon supervisor",
 			"Mission start colliders, traversal triggers, checkpoints, wave gaps, protected objects, mob waves, mission completion, rewards, and return travel are handled as separate dungeon phases. Celestial Tower arena gates and next-floor portals are read from the live floor controller."
 		)
+
+		local cutsceneConnection, cutsceneError =
+			runtime.MissionsAPI.ObserveCutscene(function()
+				if not runtime.State:Get("Dungeons.AutoSkipCutscenes", true) then
+					return
+				end
+
+				task.defer(function()
+					local skipped, skipError = runtime.MissionsAPI.SkipCutscene()
+
+					if not skipped then
+						runtime.Logger.warn(
+							"Automatic cutscene skip failed",
+							skipError
+						)
+					end
+				end)
+			end)
+
+		if cutsceneConnection then
+			runtime.Janitor:Add(cutsceneConnection)
+		elseif cutsceneError then
+			runtime.Logger.warn(
+				"Cutscene observer unavailable",
+				cutsceneError
+			)
+		end
 
 		runtime.UI:CreateSection(tab, "Manual dungeon selection")
 		runtime.UI:CreateParagraph(
