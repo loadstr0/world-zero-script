@@ -454,37 +454,50 @@ return function(ctx)
 			"Failed-run retry is independent from successful completion automation and includes Celestial Tower deaths. The free reward uses the same GetMissionPrize request as the reward screen; inventory and eligibility are checked by the server. Replay only succeeds for the party leader. Other members are marked ready and follow the leader's choice."
 		)
 
+		local failedRetryScheduled = false
+
+		local function scheduleFailedRetry()
+			if
+				failedRetryScheduled
+				or not runtime.State:Get("Missions.AutoRetryFailed", true)
+			then
+				return false
+			end
+
+			failedRetryScheduled = true
+			finishSequence = finishSequence + 1
+			local sequence = finishSequence
+
+			task.spawn(function()
+				task.wait(tonumber(runtime.State:Get("Missions.FailedRetryDelay", 4)) or 4)
+
+				if runtime.Stopped or sequence ~= finishSequence then
+					failedRetryScheduled = false
+					return
+				end
+
+				runtime.TeleportAPI.QueueBootstrap()
+				local ok, retryError = runtime.MissionsAPI.FinishChoice(true)
+
+				if not ok then
+					failedRetryScheduled = false
+					runtime.UI:Notify(
+						"Mission retry",
+						"Automatic retry failed: " .. tostring(retryError),
+						6,
+						0
+					)
+				end
+			end)
+			return true
+		end
+
 		local finishConnection, finishError = runtime.MissionsAPI.ObserveFinished(function(...)
 			local arguments = { ... }
 			local failed = arguments[3] == true
 
 			if failed then
-				if not runtime.State:Get("Missions.AutoRetryFailed", true) then
-					return
-				end
-
-				finishSequence = finishSequence + 1
-				local sequence = finishSequence
-
-				task.spawn(function()
-					task.wait(tonumber(runtime.State:Get("Missions.FailedRetryDelay", 4)) or 4)
-
-					if runtime.Stopped or sequence ~= finishSequence then
-						return
-					end
-
-					runtime.TeleportAPI.QueueBootstrap()
-					local ok, retryError = runtime.MissionsAPI.FinishChoice(true)
-
-					if not ok then
-						runtime.UI:Notify(
-							"Mission retry",
-							"Automatic retry failed: " .. tostring(retryError),
-							6,
-							0
-						)
-					end
-				end)
+				scheduleFailedRetry()
 				return
 			end
 
@@ -563,6 +576,25 @@ return function(ctx)
 		elseif finishError then
 			runtime.UI:CreateParagraph(tab, "Completion listener", "Unavailable: " .. tostring(finishError))
 		end
+
+		task.delay(1, function()
+			if runtime.Stopped then
+				return
+			end
+
+			local missionState = runtime.MissionsAPI.GetRuntimeState()
+			local dungeonState = runtime.DungeonsAPI.GetState()
+			local failedBeforeInitialization = workspace:GetAttribute("MissionCleared") == false
+				and missionState
+				and missionState.Active == true
+				and tonumber(missionState.Lives) == 0
+				and dungeonState
+				and dungeonState.Phase == "Rewards"
+
+			if failedBeforeInitialization then
+				scheduleFailedRetry()
+			end
+		end)
 	end
 
 	return Missions
