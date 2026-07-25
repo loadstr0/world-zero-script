@@ -2,6 +2,7 @@ return function(ctx)
 	local DungeonRoutes = {}
 
 	local Players = ctx.Services.Players
+	local PathfindingService = ctx.Services.PathfindingService
 	local Workspace = ctx.Services.Workspace or game:GetService("Workspace")
 	local progressionSession = nil
 
@@ -25,6 +26,76 @@ return function(ctx)
 		return character
 			and (character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart)
 			or nil
+	end
+
+	local function getProgressionGuide(root, targetPart)
+		if not progressionSession or not PathfindingService or not targetPart then
+			return nil
+		end
+
+		local now = os.clock()
+		local cachedGuide = progressionSession.Guide
+		local cacheMatches = progressionSession.GuideTarget == targetPart
+			and progressionSession.GuideOrigin
+			and (root.Position - progressionSession.GuideOrigin).Magnitude < 7
+			and now - (progressionSession.GuideAt or 0) < 0.8
+
+		if
+			cacheMatches
+			and cachedGuide
+			and (root.Position - cachedGuide).Magnitude > 3
+		then
+			return cachedGuide
+		end
+
+		progressionSession.Guide = nil
+		progressionSession.GuideTarget = targetPart
+		progressionSession.GuideOrigin = root.Position
+		progressionSession.GuideAt = now
+
+		local path
+		local computed = pcall(function()
+			path = PathfindingService:CreatePath({
+				AgentRadius = 2,
+				AgentHeight = 5,
+				AgentCanJump = true,
+				AgentCanClimb = true,
+				WaypointSpacing = 5,
+			})
+			path:ComputeAsync(root.Position, targetPart.Position)
+		end)
+
+		if not computed or not path or path.Status ~= Enum.PathStatus.Success then
+			return nil
+		end
+
+		local waypoints = path:GetWaypoints()
+		local previousPosition = root.Position
+		local distanceAlongPath = 0
+		local guide = nil
+
+		for index, waypoint in ipairs(waypoints) do
+			distanceAlongPath = distanceAlongPath + (waypoint.Position - previousPosition).Magnitude
+			previousPosition = waypoint.Position
+
+			if index > 1 and (root.Position - waypoint.Position).Magnitude > 4 then
+				guide = waypoint.Position + Vector3.new(0, 3, 0)
+
+				if distanceAlongPath >= 16 then
+					break
+				end
+			end
+		end
+
+		if
+			guide
+			and (guide - targetPart.Position).Magnitude > 7
+		then
+			progressionSession.Guide = guide
+			return guide
+		end
+
+		return nil
 	end
 
 	local function isDirectRouteBlocked(root, targetPosition)
@@ -265,6 +336,20 @@ return function(ctx)
 
 		if not step then
 			return nil
+		end
+
+		local guide = getProgressionGuide(root, step.Part)
+
+		if guide then
+			return {
+				Kind = "DungeonPath",
+				Name = step.Name .. " corridor",
+				Position = guide,
+				StopDistance = 2,
+				FlightGroundSafety = false,
+				FlightCruiseHeight = 4,
+				FlightNoclip = true,
+			}
 		end
 
 		return {
