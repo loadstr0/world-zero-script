@@ -1296,8 +1296,27 @@ return function()
 
 		local padding = tonumber(runtime.State:Get("Farming.HazardPadding", 4)) or 4
 		local state = runtime.HazardsAPI.GetState(root.Position, padding)
+		local previous = hazardStates[runtime]
 
 		if not state or (tonumber(state.InsideCount) or 0) <= 0 then
+			local indicatorStillActive = false
+
+			for _, hazard in ipairs(previous and previous.Hazards or {}) do
+				if hazard.Instance and hazard.Instance.Parent then
+					indicatorStillActive = true
+					break
+				end
+			end
+
+			if
+				indicatorStillActive
+				and os.clock() - (tonumber(previous.At) or 0)
+					<= (tonumber(runtime.State:Get("Farming.HazardMaximumHold", 15)) or 15)
+			then
+				runtime.Navigator.Stop()
+				return true
+			end
+
 			hazardStates[runtime] = nil
 			return false
 		end
@@ -1312,6 +1331,7 @@ return function()
 			Name = state.Nearest and state.Nearest.Name or "Floor indicator",
 			Position = position,
 			Error = escapeError,
+			Hazards = state.Inside,
 		}
 
 		if
