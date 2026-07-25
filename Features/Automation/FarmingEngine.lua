@@ -1333,9 +1333,11 @@ return function()
 			Error = escapeError,
 			Hazards = state.Inside,
 		}
+		local escapeMode = runtime.State:Get("Farming.HazardEscapeMode", "Instant CFrame")
 
 		if
 			runtime.State:Get("Farming.HazardUseDodge", true)
+			and escapeMode ~= "Instant CFrame"
 			and not (statusState and statusState.SkillsBlocked)
 			and runtime.Actions.IsBusy() ~= true
 			and runtime.Actions.IsOnCooldown("Dodge") ~= true
@@ -1359,7 +1361,7 @@ return function()
 
 		runtime.Navigator.MoveTo(position, {
 			Owner = "FloorHazardEscape",
-			MovementMode = runtime.State:Get("Farming.HazardEscapeMode", "Instant CFrame"),
+			MovementMode = escapeMode,
 			StopDistance = 0,
 			ZeroVelocity = true,
 			FlightNoclip = true,
