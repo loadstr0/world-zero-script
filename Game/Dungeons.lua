@@ -20,6 +20,9 @@ return function(ctx)
 		BoulderTrigger = true,
 		BossIntroTrigger = true,
 		FinalTeleport = true,
+		WallsTrigger = true,
+		WallsCheckpoint = true,
+		WallsFinalTrigger = true,
 	}
 
 	local function rewardScreenVisible()
@@ -302,8 +305,6 @@ return function(ctx)
 		end
 
 		local defense = protectedObjects[1]
-		local fallback = missionObjects and missionObjects:FindFirstChild("Spawn", true)
-		local fallbackPart = getPart(fallback)
 		local towerEntry = towerState.Active and towerState.EntryTrigger or nil
 		local towerProgression = towerState.Active and towerState.Portal or nil
 		local objectiveTarget = objectiveState.Active and objectiveState.Target or nil
@@ -338,7 +339,7 @@ return function(ctx)
 			PriorityDefense = defense,
 			PriorityOrigin = defense and defense.Position or nil,
 			HoldPosition = towerState.Active and towerState.HoldPosition
-				or (defense and defense.Position or (fallbackPart and fallbackPart.Position or nil)),
+				or (defense and defense.Position or nil),
 			ProgressionTarget = towerProgression
 				or objectiveTarget
 				or (progression and progression.Part or nil),
