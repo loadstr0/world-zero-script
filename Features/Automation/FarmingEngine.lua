@@ -1333,7 +1333,7 @@ return function()
 			Error = escapeError,
 			Hazards = state.Inside,
 		}
-		local escapeMode = runtime.State:Get("Farming.HazardEscapeMode", "Instant CFrame")
+		local escapeMode = runtime.State:Get("Farming.HazardEscapeMode", "Smooth Flight")
 
 		if
 			runtime.State:Get("Farming.HazardUseDodge", true)

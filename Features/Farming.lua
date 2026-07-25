@@ -61,7 +61,7 @@ return function(ctx)
 		runtime.State:Set("Farming.AutoDodge", true)
 		runtime.State:Set("Farming.ProactiveSpellDodge", true)
 		runtime.State:Set("Farming.HazardUseDodge", true)
-		runtime.State:Set("Farming.HazardEscapeMode", "Instant CFrame")
+		runtime.State:Set("Farming.HazardEscapeMode", "Smooth Flight")
 		runtime.State:Set("Farming.HazardPadding", 4)
 		runtime.State:Set("Farming.HazardEscapeDistance", 10)
 		runtime.State:Set("Farming.HazardMaximumHold", 15)
@@ -563,17 +563,17 @@ return function(ctx)
 			end,
 		})
 
-		runtime.UI:CreateDropdown(tab, "FarmingHazardEscapeMode", {
+		runtime.UI:CreateDropdown(tab, "FarmingHazardEscapeModeV2", {
 			Name = "Floor-spell escape method",
 			Options = {
 				"Instant CFrame",
 				"Smooth Flight",
 				"Pathfinding",
 			},
-			CurrentOption = { "Instant CFrame" },
+			CurrentOption = { "Smooth Flight" },
 			MultipleOptions = false,
 			Callback = function(options)
-				runtime.State:Set("Farming.HazardEscapeMode", options and options[1] or "Instant CFrame")
+				runtime.State:Set("Farming.HazardEscapeMode", options and options[1] or "Smooth Flight")
 			end,
 		})
 
