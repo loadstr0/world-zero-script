@@ -69,20 +69,24 @@ return function(ctx)
 		runtime.State:Set("Farming.AutoThawFreezeTag", true)
 		runtime.State:Set("Farming.FreezeTagRescueRange", 300)
 		runtime.State:Set("Farming.DebuffSurvival", true)
-		runtime.State:Set("Farming.DebuffSafetyThreshold", 60)
+		runtime.State:Set("Farming.DebuffSafetyThreshold", 45)
 		runtime.State:Set("Farming.DodgeAfterDamage", true)
 		runtime.State:Set("Farming.DamageReactionWindow", 1.25)
 		runtime.State:Set("Farming.ThreatRadius", 25)
-		runtime.State:Set("Farming.DodgeHealthThreshold", 70)
+		runtime.State:Set("Farming.DodgeHealthThreshold", 50)
 		runtime.State:Set("Farming.EmergencyRetreat", true)
-		runtime.State:Set("Farming.AggressiveSurvival", true)
-		runtime.State:Set("Farming.RetreatHealthThreshold", 75)
+		runtime.State:Set("Farming.ConservativeRecovery", false)
+		runtime.State:Set("Farming.RetreatHealthThreshold", 35)
+		runtime.State:Set("Farming.BossTimerSurvival", true)
+		runtime.State:Set("Farming.BossRetreatHealthThreshold", 25)
+		runtime.State:Set("Farming.BossUrgentTimeThreshold", 45)
+		runtime.State:Set("Farming.BossRecoveryResumeThreshold", 45)
 		runtime.State:Set("Farming.RetreatDistance", 65)
 		runtime.State:Set("Farming.AirRecovery", true)
 		runtime.State:Set("Farming.AirRecoveryHeight", 45)
 		runtime.State:Set("Farming.MobileAirRecovery", true)
 		runtime.State:Set("Farming.RecoveryRelocationDistance", 45)
-		runtime.State:Set("Farming.RecoveryResumeThreshold", 95)
+		runtime.State:Set("Farming.RecoveryResumeThreshold", 60)
 		runtime.State:Set("Farming.AutoHealItem", false)
 		runtime.State:Set("Farming.HealItemName", "")
 		runtime.State:Set("Farming.HealItemHealthThreshold", 40)
@@ -652,12 +656,12 @@ return function(ctx)
 			end,
 		})
 
-		runtime.UI:CreateSlider(tab, "FarmingDebuffSafetyThreshold", {
+		runtime.UI:CreateSlider(tab, "FarmingDebuffSafetyThresholdV2", {
 			Name = "DoT/vulnerability safety threshold",
 			Range = { 20, 90 },
 			Increment = 5,
 			Suffix = "%",
-			CurrentValue = 60,
+			CurrentValue = 45,
 			Callback = function(value)
 				runtime.State:Set("Farming.DebuffSafetyThreshold", value)
 			end,
@@ -693,12 +697,12 @@ return function(ctx)
 			end,
 		})
 
-		runtime.UI:CreateSlider(tab, "FarmingDodgeHealthThreshold", {
+		runtime.UI:CreateSlider(tab, "FarmingDodgeHealthThresholdV2", {
 			Name = "Extra Dodge below health",
 			Range = { 10, 100 },
 			Increment = 5,
 			Suffix = "%",
-			CurrentValue = 70,
+			CurrentValue = 50,
 			Callback = function(value)
 				runtime.State:Set("Farming.DodgeHealthThreshold", value)
 			end,
@@ -712,22 +716,41 @@ return function(ctx)
 			end,
 		})
 
-		runtime.UI:CreateToggle(tab, "FarmingAggressiveSurvival", {
-			Name = "Aggressive survival (75% minimum)",
-			CurrentValue = true,
+		runtime.UI:CreateToggle(tab, "FarmingConservativeRecoveryV2", {
+			Name = "Conservative recovery outside bosses",
+			CurrentValue = false,
 			Callback = function(value)
-				runtime.State:Set("Farming.AggressiveSurvival", value)
+				runtime.State:Set("Farming.ConservativeRecovery", value)
 			end,
 		})
 
-		runtime.UI:CreateSlider(tab, "FarmingRetreatHealthThreshold", {
+		runtime.UI:CreateSlider(tab, "FarmingRetreatHealthThresholdV2", {
 			Name = "Retreat below health",
 			Range = { 5, 80 },
 			Increment = 5,
 			Suffix = "%",
-			CurrentValue = 75,
+			CurrentValue = 35,
 			Callback = function(value)
 				runtime.State:Set("Farming.RetreatHealthThreshold", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingBossTimerSurvival", {
+			Name = "Stay aggressive during timed bosses",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.BossTimerSurvival", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "FarmingBossRetreatHealthThreshold", {
+			Name = "Timed-boss retreat health",
+			Range = { 10, 50 },
+			Increment = 5,
+			Suffix = "%",
+			CurrentValue = 25,
+			Callback = function(value)
+				runtime.State:Set("Farming.BossRetreatHealthThreshold", value)
 			end,
 		})
 
@@ -769,12 +792,12 @@ return function(ctx)
 			end,
 		})
 
-		runtime.UI:CreateSlider(tab, "FarmingRecoveryResumeThreshold", {
+		runtime.UI:CreateSlider(tab, "FarmingRecoveryResumeThresholdV2", {
 			Name = "Resume fighting after healing",
 			Range = { 40, 100 },
 			Increment = 5,
 			Suffix = "%",
-			CurrentValue = 95,
+			CurrentValue = 60,
 			Callback = function(value)
 				runtime.State:Set("Farming.RecoveryResumeThreshold", value)
 			end,

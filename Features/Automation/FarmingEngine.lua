@@ -1918,7 +1918,7 @@ return function()
 		local threshold = tonumber(runtime.State:Get("Farming.HealItemHealthThreshold", 40)) or 40
 
 		if runtime.State:Get("Farming.DebuffSurvival", true) and statusState and statusState.HasDamageOverTime then
-			threshold = math.max(threshold, tonumber(runtime.State:Get("Farming.DebuffSafetyThreshold", 60)) or 60)
+			threshold = math.max(threshold, tonumber(runtime.State:Get("Farming.DebuffSafetyThreshold", 45)) or 45)
 		end
 
 		if
@@ -2003,10 +2003,10 @@ return function()
 		end
 
 		dodgeThreat(runtime, adapter, threat, survival.ProtectionRatio, statusState)
-		local retreatThreshold = tonumber(runtime.State:Get("Farming.RetreatHealthThreshold", 30)) or 30
+		local retreatThreshold = tonumber(runtime.State:Get("Farming.RetreatHealthThreshold", 35)) or 35
 
-		if runtime.State:Get("Farming.AggressiveSurvival", true) then
-			retreatThreshold = math.max(retreatThreshold, 75)
+		if runtime.State:Get("Farming.ConservativeRecovery", false) then
+			retreatThreshold = math.max(retreatThreshold, 50)
 		end
 
 		if
@@ -2015,18 +2015,55 @@ return function()
 			and (statusState.HasDamageOverTime or statusState.HasDefenseDebuff)
 		then
 			retreatThreshold =
-				math.max(retreatThreshold, tonumber(runtime.State:Get("Farming.DebuffSafetyThreshold", 60)) or 60)
+				math.max(retreatThreshold, tonumber(runtime.State:Get("Farming.DebuffSafetyThreshold", 45)) or 45)
+		end
+
+		local timedBoss = runtime.State:Get("Farming.BossTimerSurvival", true)
+			and threat
+			and (tonumber(threat.BossCount) or 0) > 0
+			and dungeonState
+			and dungeonState.Active
+			and tonumber(dungeonState.RemainingTime) ~= nil
+
+		if timedBoss then
+			local bossThreshold =
+				tonumber(runtime.State:Get("Farming.BossRetreatHealthThreshold", 25)) or 25
+			local remainingTime = tonumber(dungeonState.RemainingTime) or math.huge
+			local urgentTime =
+				tonumber(runtime.State:Get("Farming.BossUrgentTimeThreshold", 45)) or 45
+
+			if remainingTime <= urgentTime then
+				bossThreshold = math.max(12, bossThreshold - 7)
+			end
+
+			if
+				statusState
+				and (statusState.HasDamageOverTime or statusState.HasDefenseDebuff)
+			then
+				bossThreshold = math.max(bossThreshold, 35)
+			end
+
+			retreatThreshold = math.min(retreatThreshold, bossThreshold)
 		end
 
 		local recovery = recoveryStates[runtime]
-		local resumeThreshold = math.max(
+		local resumePercent = math.max(
 			retreatThreshold,
-			tonumber(runtime.State:Get("Farming.RecoveryResumeThreshold", 85)) or 85
-		) / 100
+			tonumber(runtime.State:Get("Farming.RecoveryResumeThreshold", 60)) or 60
+		)
 
-		if runtime.State:Get("Farming.AggressiveSurvival", true) then
-			resumeThreshold = math.max(resumeThreshold, 0.95)
+		if runtime.State:Get("Farming.ConservativeRecovery", false) then
+			resumePercent = math.max(resumePercent, 75)
 		end
+
+		if timedBoss then
+			resumePercent = math.max(
+				retreatThreshold + 15,
+				tonumber(runtime.State:Get("Farming.BossRecoveryResumeThreshold", 45)) or 45
+			)
+		end
+
+		local resumeThreshold = math.clamp(resumePercent, retreatThreshold, 100) / 100
 		local currentRatio = math.min(
 			tonumber(survival.HealthRatio) or 1,
 			tonumber(survival.ProtectionRatio) or 1
@@ -2062,10 +2099,6 @@ return function()
 				local inDungeon = dungeonState and dungeonState.Active == true
 				local useAirRecovery = runtime.State:Get("Farming.AirRecovery", true)
 
-				if runtime.State:Get("Farming.AggressiveSurvival", true) then
-					distance = math.max(distance, 65)
-				end
-
 				local requestedHeight = useAirRecovery
 						and (tonumber(runtime.State:Get("Farming.AirRecoveryHeight", 45)) or 45)
 					or 0
@@ -2084,6 +2117,9 @@ return function()
 					StartedAt = os.clock(),
 					LastDamageAt = recentDamage[runtime] and recentDamage[runtime].At or 0,
 					Relocations = 0,
+					RetreatThreshold = retreatThreshold,
+					ResumeThreshold = resumePercent,
+					TimedBoss = timedBoss == true,
 				}
 				recoveryStates[runtime] = recovery
 			end
