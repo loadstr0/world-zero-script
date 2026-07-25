@@ -1192,6 +1192,7 @@ return function()
 					"DungeonStageRoute",
 					{
 						MovementMode = progressionRoute.MovementMode,
+						ZeroVelocity = progressionRoute.ZeroVelocity,
 						FlightGroundSafety = progressionRoute.FlightGroundSafety,
 						FlightCruiseHeight = progressionRoute.FlightCruiseHeight,
 						FlightNoclip = progressionRoute.FlightNoclip,

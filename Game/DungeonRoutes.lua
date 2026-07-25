@@ -337,6 +337,7 @@ return function(ctx)
 				Position = guide,
 				StopDistance = 2,
 				MovementMode = "Smooth Flight",
+				ZeroVelocity = false,
 				FlightGroundSafety = false,
 				FlightCruiseHeight = 4,
 				FlightNoclip = true,
