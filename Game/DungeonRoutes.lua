@@ -109,8 +109,27 @@ return function(ctx)
 
 		local verticalDrop = root.Position.Y - targetPosition.Y
 
-		if verticalDrop < 24 or not isDirectRouteBlocked(root, targetPosition) then
+		if
+			(root.Position - targetPosition).Magnitude <= 32
+			or not isDirectRouteBlocked(root, targetPosition)
+		then
 			return nil
+		end
+
+		if verticalDrop < 24 then
+			if root.Position.Y >= 10 and targetPosition.Y >= 10 then
+				return nil
+			end
+
+			return {
+				Kind = "InteriorApproach",
+				Name = descriptor.Name or "Dungeon target",
+				Position = targetPosition,
+				StopDistance = 28,
+				FlightGroundSafety = false,
+				FlightCruiseHeight = 6,
+				FlightNoclip = true,
+			}
 		end
 
 		local checkpoint, gate = collectRouteParts(missionObjects, targetPosition)
