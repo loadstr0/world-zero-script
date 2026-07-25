@@ -231,6 +231,26 @@ return function(ctx)
 			})
 		end
 
+		-- A respawn, module refresh, or server-driven room transition can place the
+		-- character beyond an earlier marker before this local session observes it.
+		-- Resume from the closest forward marker so the route never tries to fly
+		-- backward through closed dungeon geometry.
+		local nearestIndex = nil
+		local nearestDistance = math.huge
+
+		for index = progressionSession.Step, #route do
+			local distance = (root.Position - route[index].Part.Position).Magnitude
+
+			if distance < nearestDistance then
+				nearestIndex = index
+				nearestDistance = distance
+			end
+		end
+
+		if nearestIndex and nearestIndex > progressionSession.Step then
+			progressionSession.Step = nearestIndex
+		end
+
 		while progressionSession.Step <= #route do
 			local step = route[progressionSession.Step]
 
