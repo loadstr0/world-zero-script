@@ -35,6 +35,7 @@ Built-in probes:
 - `gear-runtime` compares maximum-potential gear against equipped items and explains upgrade/equip gates.
 - `inventory-model` inspects live item metadata and inventory APIs without changing anything.
 - `smart-sell-preview` calculates the exact protected cleanup candidates without selling anything.
+- `dungeon2-stage` lists live traversal triggers, checkpoints, and their route distances without moving the character.
 - `option-health` audits every major integration and automation engine in one result.
 
 Useful options:

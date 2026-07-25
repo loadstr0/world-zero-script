@@ -1037,6 +1037,12 @@ return function()
 		then
 			return moveToPoint(runtime, dungeonState.StartPosition, 0, "DungeonStart")
 		elseif
+			dungeonState.Phase == "Progression"
+			and runtime.State:Get("Dungeons.AutoProgression", true)
+			and dungeonState.ProgressionPosition
+		then
+			return moveToPoint(runtime, dungeonState.ProgressionPosition, 0, "DungeonProgression")
+		elseif
 			dungeonState.Phase == "BetweenWaves"
 			and runtime.State:Get("Dungeons.HoldDefense", true)
 			and dungeonState.HoldPosition

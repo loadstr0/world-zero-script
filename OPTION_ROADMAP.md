@@ -47,7 +47,7 @@
 - Sprint, mount, sheath, and quick-item controls
 - Persistent Rayfield configuration
 - GitHub update checks and optional live auto-reload
-- Main-quest-first automation with exact mob objectives, unbounded loaded-map scans, cross-world travel, exact quest dungeons, quest-location fallback, and claiming
+- Main-quest-first automation with exact mob objectives, unbounded loaded-map scans, cross-world travel, exact quest dungeons, stage-aware traversal/checkpoints, quest-location fallback, and claiming
 - Teleport continuation through centralized `queue_on_teleport`
 - Post-kill dropped-item/currency collection and proximity-open reward-chest routing without stealing live combat targets by default
 - Smart best-potential weapon/offhand/armor upgrades and equipping

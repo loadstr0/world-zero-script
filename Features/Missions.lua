@@ -46,6 +46,7 @@ return function(ctx)
 		runtime.State:Set("Quests.MapWideSearch", true)
 		runtime.State:Set("Quests.SearchRange", 10000)
 		runtime.State:Set("Dungeons.AutoStart", true)
+		runtime.State:Set("Dungeons.AutoProgression", true)
 		runtime.State:Set("Dungeons.DefensePriority", true)
 		runtime.State:Set("Dungeons.HoldDefense", true)
 
@@ -187,6 +188,7 @@ return function(ctx)
 				end
 
 				local quest = decision.Quest
+				local dungeon = decision.Dungeon
 				local navigation = decision.Navigator or {}
 				runtime.UI:Notify(
 					"Quest diagnosis",
@@ -198,6 +200,10 @@ return function(ctx)
 						.. tostring(decision.QuestTarget and decision.QuestTarget.NameTag or "none")
 						.. "\nFallback combat target: "
 						.. tostring(decision.FarmTarget and decision.FarmTarget.NameTag or "none")
+						.. "\nDungeon phase: "
+						.. tostring(dungeon and dungeon.Phase or "none")
+						.. " | next stage: "
+						.. tostring(dungeon and dungeon.ProgressionName or "none")
 						.. "\nRouting: "
 						.. tostring(decision.Routing)
 						.. " | error: "
@@ -228,6 +234,13 @@ return function(ctx)
 				runtime.State:Set("Dungeons.AutoStart", value)
 			end,
 		})
+		runtime.UI:CreateToggle(tab, "DungeonAutoProgression", {
+			Name = "Advance traversal and checkpoint triggers",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Dungeons.AutoProgression", value)
+			end,
+		})
 		runtime.UI:CreateToggle(tab, "DungeonDefensePriority", {
 			Name = "Protect damaged defense objectives first",
 			CurrentValue = true,
@@ -245,7 +258,7 @@ return function(ctx)
 		runtime.UI:CreateParagraph(
 			tab,
 			"Dungeon supervisor",
-			"Mission start colliders, wave gaps, protected objects, mob waves, mission completion, rewards, and return travel are handled as separate dungeon phases."
+			"Mission start colliders, traversal triggers, checkpoints, wave gaps, protected objects, mob waves, mission completion, rewards, and return travel are handled as separate dungeon phases."
 		)
 
 		runtime.UI:CreateSection(tab, "Manual dungeon selection")
