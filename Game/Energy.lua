@@ -44,12 +44,22 @@ return function(ctx)
 
 		local ok, properties = pcall(module.GetEnergyProperties, module, character)
 
-		if not ok or type(properties) ~= "table" then
+		if
+			not ok
+			or (
+				type(properties) ~= "table"
+				and typeof(properties) ~= "Instance"
+			)
+		then
 			return nil, "energy_properties_unavailable"
 		end
 
-		local energy = properties.Energy
-		local maxEnergy = properties.MaxEnergy
+		local energy = typeof(properties) == "Instance"
+				and properties:FindFirstChild("Energy")
+			or properties.Energy
+		local maxEnergy = typeof(properties) == "Instance"
+				and properties:FindFirstChild("MaxEnergy")
+			or properties.MaxEnergy
 		local current = energy and tonumber(energy.Value)
 		local maximum = maxEnergy and tonumber(maxEnergy.Value)
 

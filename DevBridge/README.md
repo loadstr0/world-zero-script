@@ -36,6 +36,7 @@ Built-in probes:
 - `inventory-model` inspects live item metadata and inventory APIs without changing anything.
 - `smart-sell-preview` calculates the exact protected cleanup candidates without selling anything.
 - `dungeon2-stage` lists live traversal triggers, checkpoints, and their route distances without moving the character.
+- `dualwielder-ultimate` explains every Blade Dance readiness gate without activating the skill.
 - `option-health` audits every major integration and automation engine in one result.
 
 Useful options:

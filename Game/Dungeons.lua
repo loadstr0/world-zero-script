@@ -227,6 +227,8 @@ return function(ctx)
 			phase = missionState.MissionSucceeded and "Completed" or "Failed"
 		elseif mobCount > 0 then
 			phase = "Combat"
+		elseif not started and startTrigger then
+			phase = "WaitingForStart"
 		elseif progression and #protectedObjects == 0 then
 			phase = "Progression"
 		elseif started then

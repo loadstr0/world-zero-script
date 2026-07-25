@@ -36,6 +36,7 @@
 - Filtered Auto Farm with nearest, boss, health, level, elite, and name targeting
 - Map-wide targeting, sticky targets, no-damage timeout, and temporary stalled-target blacklisting
 - Automatic equipped-class rotation through every available special, Primary, and Ultimate
+- Boss-only Blade Dance targeting with corrected live energy-folder readiness
 - Pathfinding, terrain-clamped ascent/cruise/descent flight, and instant CFrame movement with flight noclip cleanup
 - Speed-aware ranged kiting and optional automation movement multiplier
 - Barrier-aware Auto Dodge, post-hit follow-up Dodge, low-health retreat, and quick-item healing

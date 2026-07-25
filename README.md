@@ -137,6 +137,7 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Filtered Auto Farm with boss, elite, name, health, level, and distance targeting
 - Map-wide target discovery with sticky-target health progress, stalled-target skipping, and retry blacklisting
 - Full equipped-class rotation across every available special attack, Primary, and charged Ultimate
+- Dual Wielder boss-only Blade Dance policy with live `EnergyProperties` readiness
 - Pathfinding, terrain-safe ascent/cruise/descent flight, or instant CFrame navigation with optional flight noclip and collision restoration
 - Adaptive ranged kiting using live player/mob speed and equipped-class Primary range
 - Barrier-aware Auto Dodge/retreat with post-damage follow-up Dodge

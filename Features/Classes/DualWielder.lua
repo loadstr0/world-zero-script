@@ -2,8 +2,14 @@ return function()
 	local DualWielderFeature = {}
 	local activeLoops = {}
 
-	local function chooseRotationSlot(runtime)
-		if runtime.State:Get("Class.DualWielder.AutoUltimate", true) then
+	local function chooseRotationSlot(runtime, descriptor)
+		if
+			runtime.State:Get("Class.DualWielder.AutoUltimate", true)
+			and (
+				not runtime.State:Get("Class.DualWielder.UltimateBossOnly", true)
+				or (descriptor and descriptor.IsBoss)
+			)
+		then
 			local canUseUltimate = runtime.DualWielder.CanUse("Ultimate")
 
 			if canUseUltimate then
@@ -65,6 +71,11 @@ return function()
 				local target = runtime.Actions.GetNearestTarget(range)
 
 				if target and runtime.Actions.IsBusy() ~= true then
+					local root = runtime.Game.GetRootPart()
+					local descriptor = runtime.MobsAPI.GetDescriptor(
+						target,
+						root and root.Position or nil
+					)
 					local minimumTargets = runtime.State:Get("Combat.MinimumTargets", 1)
 					local targetCount = runtime.CombatAPI.CountTargetsInRadius(range)
 					local ready = targetCount == nil or targetCount >= minimumTargets
@@ -82,7 +93,7 @@ return function()
 							runtime.Actions.AimAtNearestTarget(duration, range)
 						end
 
-						runtime.DualWielder.Use(chooseRotationSlot(runtime))
+						runtime.DualWielder.Use(chooseRotationSlot(runtime, descriptor))
 					end
 				end
 
@@ -101,6 +112,7 @@ return function()
 		runtime.State:Set("Class.DualWielder.UseLeapStrikes", true)
 		runtime.State:Set("Class.DualWielder.UseCrossSlash", true)
 		runtime.State:Set("Class.DualWielder.AutoUltimate", true)
+		runtime.State:Set("Class.DualWielder.UltimateBossOnly", true)
 		runtime.State:Set("Class.DualWielder.AttackInterval", 0.1)
 
 		runtime.UI:CreateSection(tab, "Dual Wielder automation")
@@ -169,17 +181,25 @@ return function()
 		})
 
 		runtime.UI:CreateToggle(tab, "DualWielderAutoUltimate", {
-			Name = "Auto Ultimate at full energy",
+			Name = "Auto Blade Dance at full energy",
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Class.DualWielder.AutoUltimate", value)
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "DualWielderUltimateBossOnly", {
+			Name = "Use Blade Dance against bosses only",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Class.DualWielder.UltimateBossOnly", value)
+			end,
+		})
+
 		runtime.UI:CreateParagraph(
 			tab,
 			"Verified Dual Wielder behavior",
-			"Successful hits build up to 10 speed stacks for 1.5x animation speed; the stacks reset after 3 seconds without a hit. Tempo immediately grants maximum speed for 6 seconds. Every kill during Tempo refreshes the status for 4 seconds and heals 5% of maximum health. The full-energy Ultimate can produce nine cone hits, sixteen falling swords, and four slam hits."
+			"Successful hits build up to 10 speed stacks for 1.5x animation speed; the stacks reset after 3 seconds without a hit. Tempo immediately grants maximum speed for 6 seconds. Every kill during Tempo refreshes the status for 4 seconds and heals 5% of maximum health. Blade Dance reads the live EnergyProperties folder and, by default, is reserved for verified boss targets."
 		)
 
 		runtime.UI:CreateButton(tab, {

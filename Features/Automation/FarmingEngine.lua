@@ -614,8 +614,17 @@ return function()
 		return result
 	end
 
-	local function canAttemptSlot(runtime, adapter, slot)
+	local function canAttemptSlot(runtime, adapter, slot, descriptor)
 		if slot == "Ultimate" and not runtime.State:Get("Farming.UseUltimate", true) then
+			return false
+		end
+
+		if
+			slot == "Ultimate"
+			and runtime.ClassRegistry.GetCurrentClass() == "DualWielder"
+			and runtime.State:Get("Class.DualWielder.UltimateBossOnly", true)
+			and not (descriptor and descriptor.IsBoss)
+		then
 			return false
 		end
 
@@ -639,8 +648,8 @@ return function()
 		return runtime.Actions.IsOnCooldown(slot) ~= true
 	end
 
-	local function attemptSlot(runtime, adapter, slot)
-		if not canAttemptSlot(runtime, adapter, slot) then
+	local function attemptSlot(runtime, adapter, slot, descriptor)
+		if not canAttemptSlot(runtime, adapter, slot, descriptor) then
 			return false
 		end
 
@@ -687,15 +696,20 @@ return function()
 		local mode = runtime.State:Get("Farming.RotationMode", "Full Rotation")
 
 		if mode == "Primary Only" then
-			return attemptSlot(runtime, adapter, "Primary")
+			return attemptSlot(runtime, adapter, "Primary", descriptor)
 		elseif mode == "Selected Slot" then
-			return attemptSlot(runtime, adapter, runtime.State:Get("Farming.AttackSlot", "Primary"))
+			return attemptSlot(
+				runtime,
+				adapter,
+				runtime.State:Get("Farming.AttackSlot", "Primary"),
+				descriptor
+			)
 		end
 
 		local rotation = buildRotation(runtime)
 
 		if #rotation == 0 then
-			return attemptSlot(runtime, adapter, "Primary")
+			return attemptSlot(runtime, adapter, "Primary", descriptor)
 		end
 
 		local cursor = rotationCursors[runtime] or 1
@@ -704,7 +718,7 @@ return function()
 			local index = ((cursor + offset - 1) % #rotation) + 1
 			local slot = rotation[index]
 
-			if attemptSlot(runtime, adapter, slot) then
+			if attemptSlot(runtime, adapter, slot, descriptor) then
 				rotationCursors[runtime] = (index % #rotation) + 1
 				return true
 			end
