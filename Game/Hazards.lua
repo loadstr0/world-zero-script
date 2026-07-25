@@ -58,7 +58,7 @@ return function(ctx)
 		}
 	end
 
-	local function signedClearance(hazard, position, padding)
+	local function signedClearance(hazard, position, padding, projected)
 		local part = hazard.Part
 
 		if not part or not part.Parent then
@@ -68,7 +68,7 @@ return function(ctx)
 		local localPosition = part.CFrame:PointToObjectSpace(position)
 		local verticalLimit = math.max(10, part.Size.Y * 0.5 + 6)
 
-		if math.abs(localPosition.Y) > verticalLimit then
+		if not projected and math.abs(localPosition.Y) > verticalLimit then
 			return math.huge
 		end
 
@@ -192,7 +192,7 @@ return function(ctx)
 		return result
 	end
 
-	function Hazards.GetState(position, padding)
+	function Hazards.GetState(position, padding, options)
 		if typeof(position) ~= "Vector3" then
 			local root = GameContext.GetRootPart()
 			position = root and root.Position or nil
@@ -206,9 +206,10 @@ return function(ctx)
 		local inside = {}
 		local nearest = nil
 		local nearestClearance = math.huge
+		local projected = type(options) == "table" and options.Projected == true
 
 		for _, hazard in ipairs(hazards) do
-			local clearance = signedClearance(hazard, position, padding)
+			local clearance = signedClearance(hazard, position, padding, projected)
 			hazard.Clearance = clearance
 
 			if clearance < nearestClearance then
@@ -231,13 +232,14 @@ return function(ctx)
 		}
 	end
 
-	function Hazards.FindEscape(position, state, padding, escapeBuffer)
+	function Hazards.FindEscape(position, state, padding, escapeBuffer, options)
 		if typeof(position) ~= "Vector3" or type(state) ~= "table" or #state.Inside == 0 then
 			return nil, "not_inside_hazard"
 		end
 
 		padding = math.max(0, tonumber(padding) or 4)
 		escapeBuffer = math.max(4, tonumber(escapeBuffer) or 10)
+		local projected = type(options) == "table" and options.Projected == true
 		local requiredRadius = 12
 
 		for _, hazard in ipairs(state.Inside) do
@@ -262,12 +264,14 @@ return function(ctx)
 				local angle = (math.pi * 2 * index) / 24
 				local rawCandidate = position
 					+ Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-				local candidate = groundCandidate(rawCandidate, position.Y, state.Hazards)
+				local candidate = projected
+						and rawCandidate
+					or groundCandidate(rawCandidate, position.Y, state.Hazards)
 				local minimumClearance = math.huge
 
 				for _, hazard in ipairs(state.Hazards) do
 					minimumClearance =
-						math.min(minimumClearance, signedClearance(hazard, candidate, padding))
+						math.min(minimumClearance, signedClearance(hazard, candidate, padding, projected))
 				end
 
 				if minimumClearance > 0 and hasClearRoute(position, candidate, state.Hazards) then
@@ -290,7 +294,10 @@ return function(ctx)
 			local offset = nearest and (position - nearest.Position) or Vector3.new(0, 0, 1)
 			local flat = Vector3.new(offset.X, 0, offset.Z)
 			local direction = flat.Magnitude > 0.01 and flat.Unit or Vector3.new(0, 0, 1)
-			best = groundCandidate(position + direction * math.min(70, requiredRadius), position.Y, state.Hazards)
+			local rawFallback = position + direction * math.min(70, requiredRadius)
+			best = projected
+					and rawFallback
+				or groundCandidate(rawFallback, position.Y, state.Hazards)
 		end
 
 		return best, nil, bestSafety
@@ -303,6 +310,7 @@ return function(ctx)
 			SupportsRectangular = true,
 			SupportsCone = true,
 			UsesLiveIndicatorGeometry = true,
+			SupportsProjectedAirSafety = true,
 		}
 	end
 

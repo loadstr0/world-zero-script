@@ -80,6 +80,8 @@ return function(ctx)
 		runtime.State:Set("Farming.RetreatDistance", 65)
 		runtime.State:Set("Farming.AirRecovery", true)
 		runtime.State:Set("Farming.AirRecoveryHeight", 45)
+		runtime.State:Set("Farming.MobileAirRecovery", true)
+		runtime.State:Set("Farming.RecoveryRelocationDistance", 45)
 		runtime.State:Set("Farming.RecoveryResumeThreshold", 95)
 		runtime.State:Set("Farming.AutoHealItem", false)
 		runtime.State:Set("Farming.HealItemName", "")
@@ -756,6 +758,14 @@ return function(ctx)
 			CurrentValue = 45,
 			Callback = function(value)
 				runtime.State:Set("Farming.AirRecoveryHeight", value)
+			end,
+		})
+
+		runtime.UI:CreateToggle(tab, "FarmingMobileAirRecovery", {
+			Name = "Keep moving when recovery is attacked",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Farming.MobileAirRecovery", value)
 			end,
 		})
 

@@ -1813,7 +1813,7 @@ return function()
 		return true
 	end
 
-	local function escapeFloorHazard(runtime, adapter, statusState)
+	local function escapeFloorHazard(runtime, adapter, statusState, recoveringInAir)
 		if
 			not runtime.State:Get("Farming.ProactiveSpellDodge", true)
 			or not runtime.HazardsAPI
@@ -1830,7 +1830,12 @@ return function()
 		end
 
 		local padding = tonumber(runtime.State:Get("Farming.HazardPadding", 4)) or 4
-		local state = runtime.HazardsAPI.GetState(root.Position, padding)
+		local projectToGround = recoveringInAir == true
+			and runtime.State:Get("Farming.MobileAirRecovery", true)
+		local hazardOptions = {
+			Projected = projectToGround,
+		}
+		local state = runtime.HazardsAPI.GetState(root.Position, padding, hazardOptions)
 		local previous = hazardStates[runtime]
 
 		if not state or (tonumber(state.InsideCount) or 0) <= 0 then
@@ -1858,7 +1863,7 @@ return function()
 
 		local escapeBuffer = tonumber(runtime.State:Get("Farming.HazardEscapeDistance", 10)) or 10
 		local position, escapeError =
-			runtime.HazardsAPI.FindEscape(root.Position, state, padding, escapeBuffer)
+			runtime.HazardsAPI.FindEscape(root.Position, state, padding, escapeBuffer, hazardOptions)
 
 		hazardStates[runtime] = {
 			At = os.clock(),
@@ -1867,6 +1872,7 @@ return function()
 			Position = position,
 			Error = escapeError,
 			Hazards = state.Inside,
+			Projected = projectToGround,
 		}
 		local escapeMode = runtime.State:Get("Farming.HazardEscapeMode", "Smooth Flight")
 
@@ -1986,7 +1992,10 @@ return function()
 		local threat = runtime.MobsAPI.GetThreatState(tonumber(runtime.State:Get("Farming.ThreatRadius", 25)) or 25)
 		local survival = Engine.GetSurvivalState(runtime)
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
-		local escapingHazard, holdingHazard = escapeFloorHazard(runtime, adapter, statusState)
+		local recoveringInAir = recoveryStates[runtime] ~= nil
+			and runtime.State:Get("Farming.AirRecovery", true)
+		local escapingHazard, holdingHazard =
+			escapeFloorHazard(runtime, adapter, statusState, recoveringInAir)
 		useEmergencyHeal(runtime, survival.HealthRatio, statusState)
 
 		if escapingHazard then
@@ -2073,8 +2082,55 @@ return function()
 						+ direction * distance
 						+ Vector3.new(0, height, 0),
 					StartedAt = os.clock(),
+					LastDamageAt = recentDamage[runtime] and recentDamage[runtime].At or 0,
+					Relocations = 0,
 				}
 				recoveryStates[runtime] = recovery
+			end
+
+			local damage = recentDamage[runtime]
+			local damageAt = tonumber(damage and damage.At) or 0
+			local now = os.clock()
+
+			if
+				runtime.State:Get("Farming.MobileAirRecovery", true)
+				and damageAt > (tonumber(recovery.LastDamageAt) or 0)
+				and now - damageAt
+					<= (tonumber(runtime.State:Get("Farming.DamageReactionWindow", 1.25)) or 1.25)
+				and now - (tonumber(recovery.LastRelocatedAt) or 0) >= 0.35
+			then
+				local attackerPart = nil
+
+				if typeof(damage.Attacker) == "Instance" then
+					attackerPart = runtime.MobsAPI.GetTargetPart(damage.Attacker)
+				end
+
+				local threatPosition = attackerPart and attackerPart.Position
+					or threat
+						and threat.Nearest
+						and threat.Nearest.Position
+					or (root.Position - root.CFrame.LookVector * 10)
+				local away = root.Position - threatPosition
+				local flatAway = Vector3.new(away.X, 0, away.Z)
+				local direction = flatAway.Magnitude > 0.01
+						and flatAway.Unit
+					or Vector3.new(0, 0, 1)
+				local side = Vector3.new(-direction.Z, 0, direction.X)
+				local sideSign = ((tonumber(recovery.Relocations) or 0) % 2 == 0) and 1 or -1
+				local evasiveDirection = (direction + side * 0.75 * sideSign).Unit
+				local relocationDistance = math.max(
+					25,
+					tonumber(runtime.State:Get("Farming.RecoveryRelocationDistance", 45)) or 45
+				)
+				local verticalOffset = math.max(0, recovery.Position.Y - root.Position.Y)
+
+				recovery.Position = root.Position
+					+ evasiveDirection * relocationDistance
+					+ Vector3.new(0, verticalOffset, 0)
+				recovery.LastDamageAt = damageAt
+				recovery.LastRelocatedAt = now
+				recovery.Relocations = (tonumber(recovery.Relocations) or 0) + 1
+				runtime.Navigator.Stop()
 			end
 
 			local retreatOptions = getNavigationOptions(runtime)
