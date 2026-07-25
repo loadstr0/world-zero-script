@@ -25,7 +25,7 @@ return function(ctx)
 		runtime.State:Set("Farming.NameFilter", "")
 		runtime.State:Set("Farming.AutoApproach", true)
 		runtime.State:Set("Farming.MovementMode", "Pathfinding")
-		runtime.State:Set("Farming.CFrameStepDistance", 18)
+		runtime.State:Set("Farming.CFrameFlightSpeed", 90)
 		runtime.State:Set("Farming.CFrameZeroVelocity", true)
 		runtime.State:Set("Farming.StopDistance", 10)
 		runtime.State:Set("Farming.AdaptiveKiting", true)
@@ -177,7 +177,7 @@ return function(ctx)
 			Name = "Navigation method",
 			Options = {
 				"Pathfinding",
-				"CFrame Step",
+				"Smooth Flight",
 				"Instant CFrame",
 			},
 			CurrentOption = { "Pathfinding" },
@@ -188,14 +188,14 @@ return function(ctx)
 			end,
 		})
 
-		runtime.UI:CreateSlider(tab, "FarmingCFrameStepDistance", {
-			Name = "CFrame step distance",
-			Range = { 2, 100 },
-			Increment = 1,
-			Suffix = " studs/tick",
-			CurrentValue = 18,
+		runtime.UI:CreateSlider(tab, "FarmingCFrameFlightSpeed", {
+			Name = "Smooth-flight speed",
+			Range = { 20, 500 },
+			Increment = 10,
+			Suffix = " studs/s",
+			CurrentValue = 90,
 			Callback = function(value)
-				runtime.State:Set("Farming.CFrameStepDistance", value)
+				runtime.State:Set("Farming.CFrameFlightSpeed", value)
 			end,
 		})
 
@@ -210,7 +210,7 @@ return function(ctx)
 		runtime.UI:CreateParagraph(
 			tab,
 			"Blatant navigation",
-			"CFrame Step moves directly through the route in configurable jumps. Instant CFrame moves to the requested stopping distance in one update. Both bypass pathfinding and can be corrected by the server."
+			"Smooth Flight continuously moves through the air at the selected speed and retargets moving destinations. Instant CFrame moves to the requested stopping distance in one update. Both bypass pathfinding and can be corrected by the server."
 		)
 
 		runtime.UI:CreateSection(tab, "Pathfinding controls")

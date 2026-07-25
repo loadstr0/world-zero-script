@@ -311,7 +311,7 @@ return function()
 
 	local function addMovementMode(runtime, options)
 		options.MovementMode = runtime.State:Get("Farming.MovementMode", "Pathfinding")
-		options.CFrameStepDistance = tonumber(runtime.State:Get("Farming.CFrameStepDistance", 18)) or 18
+		options.CFrameFlightSpeed = tonumber(runtime.State:Get("Farming.CFrameFlightSpeed", 90)) or 90
 		options.ZeroVelocity = runtime.State:Get("Farming.CFrameZeroVelocity", true)
 		return options
 	end

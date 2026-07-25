@@ -3,6 +3,7 @@ return function(ctx)
 
 	local GameContext = ctx:Require("GameContext")
 	local PathfindingService = ctx.Services.PathfindingService
+	local RunService = ctx.Services.RunService
 	local currentPath = nil
 	local waypoints = {}
 	local waypointIndex = 0
@@ -19,6 +20,9 @@ return function(ctx)
 	local pathFailed = false
 	local currentOwner = nil
 	local currentMode = "Pathfinding"
+	local flightConnection = nil
+	local flightTarget = nil
+	local flightOptions = nil
 
 	local function numberOption(value, fallback, minimum)
 		local numeric = tonumber(value) or fallback
@@ -64,29 +68,34 @@ return function(ctx)
 	end
 
 	local function normalizeMode(value)
-		if value == "CFrame Step" or value == "Instant CFrame" then
+		if value == "Smooth Flight" or value == "Instant CFrame" then
 			return value
+		elseif value == "CFrame Step" then
+			return "Smooth Flight"
 		end
 
 		return "Pathfinding"
 	end
 
-	local function moveWithCFrame(root, targetPosition, stopDistance, mode, options)
+	local function stopFlight()
+		if flightConnection then
+			flightConnection:Disconnect()
+			flightConnection = nil
+		end
+
+		flightTarget = nil
+		flightOptions = nil
+	end
+
+	local function placeRoot(root, targetPosition, travelDistance, options)
 		local offset = targetPosition - root.Position
 		local distance = offset.Magnitude
 
-		if distance <= stopDistance then
-			lastStatus = "in_range"
-			return true, lastStatus
+		if distance <= 0.001 or travelDistance <= 0 then
+			return true
 		end
 
-		local travelDistance = math.max(0, distance - stopDistance)
-
-		if mode == "CFrame Step" then
-			travelDistance = math.min(travelDistance, numberOption(options.CFrameStepDistance, 18, 1))
-		end
-
-		local nextPosition = root.Position + offset.Unit * travelDistance
+		local nextPosition = root.Position + offset.Unit * math.min(distance, travelDistance)
 		local lookDirection = targetPosition - nextPosition
 		local nextCFrame
 
@@ -110,12 +119,78 @@ return function(ctx)
 			return false, "cframe_move_failed:" .. tostring(moveError)
 		end
 
-		destination = targetPosition
 		lastProgressPosition = nextPosition
 		lastProgressAt = os.clock()
 		lastMovePosition = nextPosition
 		lastMoveAt = os.clock()
-		lastStatus = mode == "Instant CFrame" and "instant_cframe" or "cframe_step"
+		return true
+	end
+
+	local function moveInstantly(root, targetPosition, stopDistance, options)
+		local distance = (targetPosition - root.Position).Magnitude
+
+		if distance <= stopDistance then
+			lastStatus = "in_range"
+			return true, lastStatus
+		end
+
+		local moved, moveError = placeRoot(root, targetPosition, math.max(0, distance - stopDistance), options)
+
+		if not moved then
+			return false, moveError
+		end
+
+		destination = targetPosition
+		lastStatus = "instant_cframe"
+		return true, lastStatus
+	end
+
+	local function updateFlight(deltaTime)
+		if currentMode ~= "Smooth Flight" or not flightTarget or not flightOptions then
+			stopFlight()
+			return
+		end
+
+		local _, root = getMovementParts()
+
+		if not root then
+			lastStatus = "movement_controller_unavailable"
+			stopFlight()
+			return
+		end
+
+		local stopDistance = numberOption(flightOptions.StopDistance, 0, 0)
+		local distance = (flightTarget - root.Position).Magnitude
+
+		if distance <= stopDistance then
+			pcall(function()
+				root.AssemblyLinearVelocity = Vector3.zero
+				root.AssemblyAngularVelocity = Vector3.zero
+			end)
+			lastStatus = "in_range"
+			return
+		end
+
+		local speed = numberOption(flightOptions.CFrameFlightSpeed, 90, 1)
+		local travelDistance =
+			math.min(math.max(0, distance - stopDistance), speed * math.max(tonumber(deltaTime) or 0, 0))
+		local moved = placeRoot(root, flightTarget, travelDistance, flightOptions)
+
+		if moved then
+			lastStatus = "smooth_flight"
+		end
+	end
+
+	local function startFlight(targetPosition, options)
+		flightTarget = targetPosition
+		flightOptions = options
+		destination = targetPosition
+
+		if not flightConnection then
+			flightConnection = RunService.Heartbeat:Connect(updateFlight)
+		end
+
+		lastStatus = "smooth_flight"
 		return true, lastStatus
 	end
 
@@ -226,6 +301,7 @@ return function(ctx)
 
 		if root ~= lastRoot or humanoid ~= lastHumanoid then
 			clearPath()
+			stopFlight()
 			lastRoot = root
 			lastHumanoid = humanoid
 			lastMovePosition = nil
@@ -238,6 +314,7 @@ return function(ctx)
 
 		if currentOwner ~= requestedOwner or currentMode ~= requestedMode then
 			clearPath()
+			stopFlight()
 			currentOwner = requestedOwner
 			currentMode = requestedMode
 			lastMovePosition = nil
@@ -248,12 +325,20 @@ return function(ctx)
 		local stopDistance = numberOption(options.StopDistance, 0, 0)
 		local distance = (root.Position - targetPosition).Magnitude
 
-		if requestedMode ~= "Pathfinding" then
+		if requestedMode == "Smooth Flight" then
 			clearPath()
 			currentOwner = requestedOwner
 			currentMode = requestedMode
-			return moveWithCFrame(root, targetPosition, stopDistance, requestedMode, options)
+			return startFlight(targetPosition, options)
+		elseif requestedMode == "Instant CFrame" then
+			stopFlight()
+			clearPath()
+			currentOwner = requestedOwner
+			currentMode = requestedMode
+			return moveInstantly(root, targetPosition, stopDistance, options)
 		end
+
+		stopFlight()
 
 		if distance <= stopDistance then
 			if lastStatus ~= "in_range" then
@@ -338,6 +423,7 @@ return function(ctx)
 		end
 
 		clearPath()
+		stopFlight()
 		lastMovePosition = nil
 		currentOwner = nil
 		currentMode = "Pathfinding"
@@ -361,7 +447,7 @@ return function(ctx)
 		return {
 			Available = PathfindingService ~= nil,
 			UsesPathfinding = true,
-			SupportsCFrameStep = true,
+			SupportsSmoothFlight = true,
 			SupportsInstantCFrame = true,
 			CanJump = true,
 			HasStuckRecovery = true,
