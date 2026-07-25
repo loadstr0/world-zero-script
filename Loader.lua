@@ -24,6 +24,7 @@ local MODULES = {
 	{ Key = "Status", Path = "Game/Status" },
 	{ Key = "Walkspeed", Path = "Game/Walkspeed" },
 	{ Key = "MissionsAPI", Path = "Game/Missions" },
+	{ Key = "QuestRoutesAPI", Path = "Game/QuestRoutes" },
 	{ Key = "QuestsAPI", Path = "Game/Quests" },
 	{ Key = "TeleportAPI", Path = "Game/Teleport" },
 	{ Key = "MobsAPI", Path = "Game/Mobs" },

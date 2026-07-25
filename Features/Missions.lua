@@ -18,6 +18,44 @@ return function(ctx)
 		local selectedMissionId = nil
 		local selectedDifficultyId = 1
 		local finishSequence = 0
+		local questClaimRunning = false
+
+		local function claimAllQuests(showNotification)
+			if questClaimRunning or runtime.Stopped then
+				return
+			end
+
+			questClaimRunning = true
+
+			task.spawn(function()
+				local claims, claimError = runtime.QuestsAPI.ClaimAllAvailable(100)
+				questClaimRunning = false
+
+				if claims then
+					runtime.Logger.info("Claimed", #claims, "completed quest(s).")
+
+					if showNotification then
+						runtime.UI:Notify(
+							"Quest rewards",
+							"Claimed "
+								.. tostring(#claims)
+								.. " completed quest(s), including daily/event quests.",
+							5,
+							0
+						)
+					end
+				elseif showNotification then
+					runtime.UI:Notify(
+						"Quest rewards",
+						claimError == "no_completed_quests_available"
+								and "No completed unclaimed quests were found."
+							or ("Claim-all unavailable: " .. tostring(claimError)),
+						5,
+						0
+					)
+				end
+			end)
+		end
 
 		for _, mission in ipairs(missionList or {}) do
 			table.insert(missionLabels, mission.Label)
@@ -65,10 +103,21 @@ return function(ctx)
 		})
 
 		runtime.UI:CreateToggle(tab, "QuestAutoClaim", {
-			Name = "Claim completed quests automatically",
+			Name = "Claim every completed quest automatically",
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Quests.AutoClaim", value)
+
+				if value then
+					claimAllQuests(false)
+				end
+			end,
+		})
+
+		runtime.UI:CreateButton(tab, {
+			Name = "Claim all completed quests now",
+			Callback = function()
+				claimAllQuests(true)
 			end,
 		})
 
@@ -122,6 +171,31 @@ return function(ctx)
 				runtime.State:Set("Quests.SearchRange", value)
 			end,
 		})
+
+		local questUpdatedConnection, questUpdatedError =
+			runtime.QuestsAPI.ObserveUpdated(function()
+				if runtime.State:Get("Quests.AutoClaim", true) then
+					task.delay(0.35, claimAllQuests, false)
+				end
+			end)
+
+		if questUpdatedConnection then
+			runtime.Janitor:Add(questUpdatedConnection)
+		elseif questUpdatedError then
+			runtime.Logger.warn("Quest claim-all observer unavailable:", questUpdatedError)
+		end
+
+		task.defer(function()
+			task.wait(2)
+
+			while not runtime.Stopped do
+				if runtime.State:Get("Quests.AutoClaim", true) then
+					claimAllQuests(false)
+				end
+
+				task.wait(12)
+			end
+		end)
 
 		runtime.UI:CreateParagraph(
 			tab,

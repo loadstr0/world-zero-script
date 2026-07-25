@@ -1546,6 +1546,7 @@ return function()
 
 							local target = questTarget or farmTarget
 							local descriptor = questDescriptor or farmDescriptor
+							local questCombatRoute = nil
 							local dungeonCombatRoute = nil
 
 							if target and descriptor and skipStalledTarget(runtime, target, descriptor) then
@@ -1558,6 +1559,22 @@ return function()
 							end
 
 							if
+								questTarget
+								and questDescriptor
+								and runtime.QuestsAPI
+								and runtime.State:Get("Quests.RouteToArea", true)
+							then
+								local routeOk, resolvedRoute =
+									pcall(runtime.QuestsAPI.GetCombatRoute, questState, questDescriptor)
+
+								if routeOk then
+									questCombatRoute = resolvedRoute
+								end
+							end
+
+							if
+								not questCombatRoute
+								and
 								target
 								and descriptor
 								and dungeonState
@@ -1573,7 +1590,8 @@ return function()
 								end
 							end
 
-							local collectible = not dungeonCombatRoute
+							local combatRoute = questCombatRoute or dungeonCombatRoute
+							local collectible = not combatRoute
 									and not retreating
 									and not questHandled
 									and getCollectible(runtime, target ~= nil, questState)
@@ -1587,16 +1605,16 @@ return function()
 								and not retreating
 								and not questHandled
 							then
-								if dungeonCombatRoute then
+								if combatRoute then
 									routing, routeError = moveToPoint(
 										runtime,
-										dungeonCombatRoute.Position,
-										dungeonCombatRoute.StopDistance,
-										"DungeonInteriorRoute",
+										combatRoute.Position,
+										combatRoute.StopDistance,
+										questCombatRoute and "QuestInteriorRoute" or "DungeonInteriorRoute",
 										{
-											FlightGroundSafety = dungeonCombatRoute.FlightGroundSafety,
-											FlightCruiseHeight = dungeonCombatRoute.FlightCruiseHeight,
-											FlightNoclip = dungeonCombatRoute.FlightNoclip,
+											FlightGroundSafety = combatRoute.FlightGroundSafety,
+											FlightCruiseHeight = combatRoute.FlightCruiseHeight,
+											FlightNoclip = combatRoute.FlightNoclip,
 										}
 									)
 								elseif not target and dungeonState and dungeonState.Active then
@@ -1650,6 +1668,7 @@ return function()
 								Routing = routing == true,
 								RouteError = routeError,
 								DungeonCombatRoute = dungeonCombatRoute,
+								QuestCombatRoute = questCombatRoute,
 								CurrentWorldOrder = currentWorldOrder,
 								Navigator = runtime.Navigator.GetState(),
 							}

@@ -3,12 +3,14 @@ return function(ctx)
 
 	local GameContext = ctx:Require("GameContext")
 	local Profile = ctx:Require("Profile")
+	local QuestRoutes = ctx:Require("QuestRoutesAPI")
 	local Players = ctx.Services.Players
 	local ReplicatedStorage = ctx.Services.ReplicatedStorage
 	local cachedModule = nil
 	local cachedMainCandidates = nil
 	local cachedMainCandidatesWorld = nil
 	local cachedMainCandidatesAt = 0
+	local claimAllRunning = false
 	local DUNGEON_OBJECTIVES = {
 		DoDungeon = true,
 		DoDungeonWithDifficulty = true,
@@ -452,6 +454,89 @@ return function(ctx)
 		return true
 	end
 
+	function Quests.ListClaimable()
+		local active, activeError = getActiveInstances()
+
+		if not active then
+			return nil, activeError
+		end
+
+		local player = Players.LocalPlayer
+		local result = {}
+
+		for _, entry in ipairs(active) do
+			local data = Quests.GetData(entry.ID) or {}
+			local progress, alreadyClaimed = call("GetQuestProgress", player, entry.ID)
+			local required = tonumber(type(data.Objective) == "table" and data.Objective[2]) or 0
+			local ready = entry.ReadyToClaim
+				or call("QuestCompleted", player, entry.ID) == true
+				or (
+					required > 0
+					and tonumber(progress) ~= nil
+					and tonumber(progress) >= required
+				)
+
+			if ready and alreadyClaimed ~= true then
+				table.insert(result, {
+					ID = entry.ID,
+					Name = tostring(data.NameTag or data.Name or data.Title or ("Quest " .. entry.ID)),
+					Category = getCategory(data),
+					Progress = tonumber(progress) or 0,
+					Required = required,
+				})
+			end
+		end
+
+		table.sort(result, function(a, b)
+			if a.Category ~= b.Category then
+				return a.Category < b.Category
+			end
+
+			return a.ID < b.ID
+		end)
+
+		return result
+	end
+
+	function Quests.ClaimAllAvailable(maximum)
+		if claimAllRunning then
+			return nil, "quest_claim_all_in_progress"
+		end
+
+		claimAllRunning = true
+		local claimable, claimableError = Quests.ListClaimable()
+		local claims = {}
+		local lastError = claimableError
+		local limit = math.clamp(tonumber(maximum) or 50, 1, 100)
+
+		for index, entry in ipairs(claimable or {}) do
+			if index > limit then
+				break
+			end
+
+			local claimed, claimError = Quests.Claim(entry.ID)
+
+			if claimed then
+				table.insert(claims, entry)
+				task.wait(0.25)
+			else
+				lastError = claimError
+			end
+		end
+
+		claimAllRunning = false
+
+		if #claims == 0 then
+			return nil, lastError or "no_completed_quests_available"
+		end
+
+		return claims, lastError
+	end
+
+	function Quests.GetCombatRoute(questState, descriptor)
+		return QuestRoutes.GetCombatRoute(questState, descriptor)
+	end
+
 	function Quests.SetTracking(id)
 		local player = Players.LocalPlayer
 		local module, resolveError = resolve()
@@ -494,6 +579,7 @@ return function(ctx)
 			ActiveCount = type(active) == "table" and #active or 0,
 			MainCandidateCount = type(mainCandidates) == "table" and #mainCandidates or 0,
 			SupportsClaim = module and type(module.ClaimQuest) == "function" or false,
+			SupportsClaimAll = module and type(module.ClaimQuest) == "function" or false,
 			SupportsTracking = module and type(module.SetTrackingQuest) == "function" or false,
 		}
 	end

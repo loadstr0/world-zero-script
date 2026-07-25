@@ -120,6 +120,7 @@ return function(ctx)
 			Status = ctx:Require("Status"),
 			Walkspeed = ctx:Require("Walkspeed"),
 			MissionsAPI = ctx:Require("MissionsAPI"),
+			QuestRoutesAPI = ctx:Require("QuestRoutesAPI"),
 			QuestsAPI = ctx:Require("QuestsAPI"),
 			TeleportAPI = ctx:Require("TeleportAPI"),
 			MobsAPI = ctx:Require("MobsAPI"),
