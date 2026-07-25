@@ -35,8 +35,10 @@ return function(ctx)
 
 		runtime.State:Set("Missions.FinishAction", "Replay")
 		runtime.State:Set("Missions.AutoFinishEnabled", false)
+		runtime.State:Set("Missions.AutoRetryFailed", true)
 		runtime.State:Set("Missions.AutoClaimReward", true)
 		runtime.State:Set("Missions.FinishDelay", 4)
+		runtime.State:Set("Missions.FailedRetryDelay", 4)
 		runtime.State:Set("Quests.Enabled", false)
 		runtime.State:Set("Quests.AutoClaim", true)
 		runtime.State:Set("Quests.RouteToArea", true)
@@ -390,6 +392,25 @@ return function(ctx)
 		end
 
 		runtime.UI:CreateSection(tab, "Dungeon end screen")
+		runtime.UI:CreateToggle(tab, "MissionAutoRetryFailed", {
+			Name = "Retry failed missions and Towers automatically",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Missions.AutoRetryFailed", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "MissionFailedRetryDelay", {
+			Name = "Failed-run retry delay",
+			Range = { 1, 20 },
+			Increment = 1,
+			Suffix = "s",
+			CurrentValue = 4,
+			Callback = function(value)
+				runtime.State:Set("Missions.FailedRetryDelay", value)
+			end,
+		})
+
 		runtime.UI:CreateToggle(tab, "MissionAutoFinishEnabled", {
 			Name = "Automate dungeon reward and exit",
 			CurrentValue = false,
@@ -430,7 +451,7 @@ return function(ctx)
 		runtime.UI:CreateParagraph(
 			tab,
 			"Reward and replay behavior",
-			"The free reward uses the same GetMissionPrize request as the reward screen; inventory and eligibility are checked by the server. Replay only succeeds for the party leader. Other members are marked ready and follow the leader's choice."
+			"Failed-run retry is independent from successful completion automation and includes Celestial Tower deaths. The free reward uses the same GetMissionPrize request as the reward screen; inventory and eligibility are checked by the server. Replay only succeeds for the party leader. Other members are marked ready and follow the leader's choice."
 		)
 
 		local finishConnection, finishError = runtime.MissionsAPI.ObserveFinished(function(...)
@@ -438,6 +459,32 @@ return function(ctx)
 			local failed = arguments[3] == true
 
 			if failed then
+				if not runtime.State:Get("Missions.AutoRetryFailed", true) then
+					return
+				end
+
+				finishSequence = finishSequence + 1
+				local sequence = finishSequence
+
+				task.spawn(function()
+					task.wait(tonumber(runtime.State:Get("Missions.FailedRetryDelay", 4)) or 4)
+
+					if runtime.Stopped or sequence ~= finishSequence then
+						return
+					end
+
+					runtime.TeleportAPI.QueueBootstrap()
+					local ok, retryError = runtime.MissionsAPI.FinishChoice(true)
+
+					if not ok then
+						runtime.UI:Notify(
+							"Mission retry",
+							"Automatic retry failed: " .. tostring(retryError),
+							6,
+							0
+						)
+					end
+				end)
 				return
 			end
 

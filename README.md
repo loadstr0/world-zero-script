@@ -145,7 +145,7 @@ The verified `Client.Actions` source supports these initial Rayfield controls:
 - Exact catalog-driven responses for Darkness, freezes, Shock, Knockdown, Stunned, Poison, damage-over-time, vulnerability, healing, and Death Mark
 - Freeze Tag teammate rescue using the verified 15-stud thaw condition
 - Dynamic world, real hub, special destination, and currently active event travel from live `WorldData`
-- Mission selection, matchmaking, stage-aware traversal/checkpoint routing, Celestial Tower arena/portal progression, free-reward claiming, and replay/return automation
+- Mission selection, matchmaking, stage-aware traversal/checkpoint routing, Celestial Tower arena/portal progression, failed-run auto-retry, free-reward claiming, and replay/return automation
 - Main-quest-first automation with exact kill-mob targeting, map-wide fallback, cross-world travel, exact quest-dungeon launch, dungeon return, quest-area fallback routing, and reward claiming
 - Central `queue_on_teleport` continuation for world, hub, event, dungeon, and mission-finish travel
 - Coordinated dropped-item/currency collection with post-kill loot windows so collection does not steal movement from a living target by default
