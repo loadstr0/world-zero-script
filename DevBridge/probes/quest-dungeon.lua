@@ -7,9 +7,34 @@ assert(runtime, "World Zero runtime is not active")
 local currentWorldOrder, worldError = runtime.TeleportAPI.GetCurrentWorldOrder()
 local quest, questError = runtime.QuestsAPI.GetCurrent(currentWorldOrder)
 local currentMission, missionError = runtime.MissionsAPI.GetCurrent()
+local mainCandidates, mainCandidatesError = runtime.QuestsAPI.ListMainCandidates(currentWorldOrder)
 
 print("current_world_order", currentWorldOrder, worldError)
 print("current_mission", currentMission, missionError)
+print("main_candidates_error", mainCandidatesError)
+
+for index, candidate in ipairs(mainCandidates or {}) do
+	if index > 25 then
+		print("main_candidates_truncated", #mainCandidates - 25)
+		break
+	end
+
+	local data = candidate.Data or {}
+
+	print("main_candidate", {
+		Index = index,
+		ID = candidate.ID,
+		Name = data.NameTag or data.Name or data.Title,
+		Objective = data.Objective,
+		LinkedWorld = candidate.LinkedWorld,
+		Priority = candidate.Priority,
+		Progress = candidate.Progress,
+		Required = candidate.Required,
+		ReadyToClaim = candidate.ReadyToClaim,
+		Source = candidate.Source,
+	})
+end
+
 print("quest", quest)
 
 if not quest then
@@ -28,6 +53,7 @@ print("is_dungeon", quest.IsDungeonObjective)
 print("dungeon_id", quest.DungeonID)
 print("dungeon_difficulty", quest.DungeonDifficulty)
 print("linked_world", quest.LinkedWorld)
+print("selection_source", quest.SelectionSource)
 
 local selectedMission = nil
 local selectionError = nil

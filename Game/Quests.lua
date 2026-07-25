@@ -6,6 +6,9 @@ return function(ctx)
 	local Players = ctx.Services.Players
 	local ReplicatedStorage = ctx.Services.ReplicatedStorage
 	local cachedModule = nil
+	local cachedMainCandidates = nil
+	local cachedMainCandidatesWorld = nil
+	local cachedMainCandidatesAt = 0
 	local DUNGEON_OBJECTIVES = {
 		DoDungeon = true,
 		DoDungeonWithDifficulty = true,
@@ -172,26 +175,128 @@ return function(ctx)
 	end
 
 	local function getCategory(data)
-		if data.WorldQuest == true then
-			return "Main"
+		if data.FromEvent ~= nil then
+			return "Event"
 		elseif data.DailyQuest == true then
 			return "Daily"
 		elseif data.WeeklyQuest == true then
 			return "Weekly"
 		elseif data.GuildWeeklyQuest == true then
 			return "Guild"
-		elseif data.FromEvent ~= nil then
-			return "Event"
+		elseif data.WorldQuest == true then
+			return "Main"
 		end
 
 		return "Side"
 	end
 
+	local function isStoryQuest(data)
+		return type(data) == "table"
+			and data.WorldQuest == true
+			and data.FromEvent == nil
+			and data.DailyQuest ~= true
+			and data.WeeklyQuest ~= true
+			and data.GuildWeeklyQuest ~= true
+			and data.DailyGuildQuest ~= true
+	end
+
+	local function getMainCandidates(currentWorldOrder)
+		local cacheWorld = tonumber(currentWorldOrder)
+		local now = os.clock()
+
+		if
+			cachedMainCandidates
+			and cachedMainCandidatesWorld == cacheWorld
+			and now - cachedMainCandidatesAt < 0.75
+		then
+			return cachedMainCandidates
+		end
+
+		local questList, listError = call("GetQuestList")
+
+		if type(questList) ~= "table" then
+			return nil, listError or "quest_list_unavailable"
+		end
+
+		local player = Players.LocalPlayer
+
+		if not player then
+			return nil, "local_player_unavailable"
+		end
+
+		local candidates = {}
+
+		for rawID, data in pairs(questList) do
+			local id = tonumber(rawID)
+
+			if id and isStoryQuest(data) and data.Disabled ~= true and data.HideFromQuestList ~= true then
+				local progress, alreadyClaimed = call("GetQuestProgress", player, id)
+				local required = tonumber(type(data.Objective) == "table" and data.Objective[2]) or 0
+				local readyToClaim = call("QuestCompleted", player, id) == true
+
+				if not readyToClaim and required > 0 and tonumber(progress) and tonumber(progress) >= required then
+					readyToClaim = true
+				end
+
+				if alreadyClaimed ~= true then
+					table.insert(candidates, {
+						ID = id,
+						Data = data,
+						IsMain = true,
+						IsTracked = false,
+						IsCurrentWorld = tonumber(currentWorldOrder) ~= nil
+							and tonumber(data.LinkedWorld) == tonumber(currentWorldOrder),
+						Priority = tonumber(data.Priority) or math.huge,
+						Progress = tonumber(progress) or 0,
+						Required = required,
+						ReadyToClaim = readyToClaim,
+						AlreadyClaimed = false,
+						LinkedWorld = tonumber(data.LinkedWorld),
+						Source = "StoryCatalog",
+					})
+				end
+			end
+		end
+
+		table.sort(candidates, function(a, b)
+			if a.ReadyToClaim ~= b.ReadyToClaim then
+				return a.ReadyToClaim
+			end
+
+			local aWorld = a.LinkedWorld or math.huge
+			local bWorld = b.LinkedWorld or math.huge
+
+			if aWorld ~= bWorld then
+				return aWorld < bWorld
+			elseif a.Priority ~= b.Priority then
+				return a.Priority < b.Priority
+			end
+
+			return a.ID < b.ID
+		end)
+
+		cachedMainCandidates = candidates
+		cachedMainCandidatesWorld = cacheWorld
+		cachedMainCandidatesAt = now
+
+		return candidates
+	end
+
+	function Quests.ListMainCandidates(currentWorldOrder)
+		return getMainCandidates(currentWorldOrder)
+	end
+
 	function Quests.GetSelectedID(currentWorldOrder)
+		local mainCandidates, mainError = getMainCandidates(currentWorldOrder)
+
+		if mainCandidates and mainCandidates[1] then
+			return mainCandidates[1].ID, nil, mainCandidates[1]
+		end
+
 		local active, activeError = getActiveInstances()
 
 		if not active then
-			return nil, activeError
+			return nil, activeError or mainError
 		end
 
 		local profile = Profile.Get()
@@ -200,11 +305,12 @@ return function(ctx)
 
 		for _, entry in ipairs(active) do
 			entry.Data = Quests.GetData(entry.ID) or {}
-			entry.IsMain = entry.Data.WorldQuest == true
+			entry.IsMain = isStoryQuest(entry.Data)
 			entry.IsTracked = entry.ID == trackedID
 			entry.IsCurrentWorld = tonumber(currentWorldOrder) ~= nil
 				and tonumber(entry.Data.LinkedWorld) == tonumber(currentWorldOrder)
 			entry.Priority = tonumber(entry.Data.Priority) or 0
+			entry.Source = "ActiveProfile"
 		end
 
 		table.sort(active, function(a, b)
@@ -244,8 +350,17 @@ return function(ctx)
 		end
 
 		local player = Players.LocalPlayer
-		local progress, alreadyClaimed = call("GetQuestProgress", player, id)
-		local readyToClaim = call("QuestCompleted", player, id) == true
+		local progress = selection and selection.Progress
+		local alreadyClaimed = selection and selection.AlreadyClaimed
+		local readyToClaim = selection and selection.ReadyToClaim
+
+		if progress == nil or alreadyClaimed == nil then
+			progress, alreadyClaimed = call("GetQuestProgress", player, id)
+		end
+
+		if readyToClaim == nil then
+			readyToClaim = call("QuestCompleted", player, id) == true
+		end
 		local objective = type(data.Objective) == "table" and data.Objective or {}
 		local allowedMobNames = {}
 
@@ -293,13 +408,14 @@ return function(ctx)
 			Progress = tonumber(progress) or 0,
 			ReadyToClaim = readyToClaim,
 			AlreadyClaimed = alreadyClaimed == true,
-			IsMain = data.WorldQuest == true,
+			IsMain = isStoryQuest(data),
 			Category = getCategory(data),
 			LinkedWorld = tonumber(data.LinkedWorld),
 			IsTracked = selection and selection.IsTracked == true,
 			Location = location,
 			LocationError = locationError,
 			Reference = data.ref,
+			SelectionSource = selection and selection.Source or "Unknown",
 		}
 	end
 
@@ -325,6 +441,9 @@ return function(ctx)
 		if not ok then
 			return false, "quest_claim_failed:" .. tostring(claimError)
 		end
+
+		cachedMainCandidates = nil
+		cachedMainCandidatesAt = 0
 
 		return true
 	end
@@ -363,11 +482,13 @@ return function(ctx)
 	function Quests.Describe()
 		local module, resolveError = resolve()
 		local active = module and getActiveInstances() or nil
+		local mainCandidates = module and getMainCandidates() or nil
 
 		return {
 			Available = module ~= nil,
 			Error = resolveError,
 			ActiveCount = type(active) == "table" and #active or 0,
+			MainCandidateCount = type(mainCandidates) == "table" and #mainCandidates or 0,
 			SupportsClaim = module and type(module.ClaimQuest) == "function" or false,
 			SupportsTracking = module and type(module.SetTrackingQuest) == "function" or false,
 		}
