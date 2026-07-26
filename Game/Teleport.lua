@@ -39,6 +39,15 @@ return function(ctx)
 			return false, "queue_on_teleport_unavailable"
 		end
 
+		local currentJobId = tostring(game.JobId or "")
+
+		-- The queued script re-queues itself as soon as the destination starts.
+		-- Avoid adding a second copy later in the same server, since some
+		-- executors append queue entries instead of replacing them.
+		if currentJobId ~= "" and env.WorldZeroTeleportQueueJobId == currentJobId then
+			return true
+		end
+
 		local bootstrapBase = ctx.Base
 		local loadedCommit = env.WorldZeroLoadedCommit
 
@@ -68,24 +77,51 @@ return function(ctx)
 		end
 
 		local encodedResume = HttpService:JSONEncode({
-			Version = 2,
+			Version = 3,
 			QueuedAt = os.time(),
 			State = resumeState,
 		})
-		local source = "getgenv().WorldZeroTeleportResume = "
+		local body = "local env = getgenv()"
+			.. "\nenv.WorldZeroTeleportResume = "
 			.. string.format("%q", encodedResume)
+			.. "\nenv.WorldZeroBase = "
+			.. string.format("%q", bootstrapBase)
+			.. "\nenv.WorldZeroPinLatestCommit = false"
+			.. "\nlocal jobId = tostring(game.JobId or \"\")"
+			.. "\nlocal queuedSource = \"local body = \" .. string.format(\"%q\", body) .. \"\\n\" .. body"
+			.. "\nlocal queue = queue_on_teleport or (type(syn) == \"table\" and syn.queue_on_teleport)"
+			.. "\nif type(queue) == \"function\" and env.WorldZeroTeleportQueueJobId ~= jobId then"
+			.. "\n  local queued = pcall(queue, queuedSource)"
+			.. "\n  if queued then env.WorldZeroTeleportQueueJobId = jobId end"
+			.. "\nend"
+			.. "\nif env.WorldZeroTeleportBootJobId == jobId then return end"
+			.. "\nenv.WorldZeroTeleportBootJobId = jobId"
 			.. "\nif not game:IsLoaded() then game.Loaded:Wait() end"
 			.. "\nrepeat task.wait(0.1) until game:GetService(\"Players\").LocalPlayer"
-			.. "\ngetgenv().WorldZeroBase = "
-			.. string.format("%q", bootstrapBase)
-			.. "\ngetgenv().WorldZeroPinLatestCommit = false"
-			.. "\nloadstring(game:HttpGet("
+			.. "\nfor attempt = 1, 30 do"
+			.. "\n  local context = env.WorldZeroRuntime or env.WorldZeroContext"
+			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped then break end"
+			.. "\n  local url = "
 			.. string.format("%q", bootstrapUrl)
-			.. "))()"
+			.. " .. \"&attempt=\" .. tostring(attempt)"
+			.. "\n  local downloaded, source = pcall(game.HttpGet, game, url)"
+			.. "\n  if downloaded and type(source) == \"string\" then"
+			.. "\n    local chunk = loadstring(source)"
+			.. "\n    if chunk then pcall(chunk) end"
+			.. "\n  end"
+			.. "\n  context = env.WorldZeroRuntime or env.WorldZeroContext"
+			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped then break end"
+			.. "\n  task.wait(math.min(1 + attempt * 0.25, 4))"
+			.. "\nend"
+		local source = "local body = " .. string.format("%q", body) .. "\n" .. body
 		local ok, queueError = pcall(Executor.QueueOnTeleport, source)
 
 		if not ok then
 			return false, "queue_on_teleport_failed:" .. tostring(queueError)
+		end
+
+		if currentJobId ~= "" then
+			env.WorldZeroTeleportQueueJobId = currentJobId
 		end
 
 		return true
