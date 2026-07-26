@@ -11,7 +11,7 @@ return function(ctx)
 	local SAMPLE_INTERVAL = 1
 	local LOG_INTERVAL = 5
 	local AUTOMATION_RESTART_DELAY = 4
-	local TOWER_REPOSITION_DISTANCE = 1000
+	local TOWER_REPOSITION_DISTANCE = 350
 	local TOWER_REPOSITION_COOLDOWN = 10
 	local LOG_FOLDER = "WorldZero"
 	local LOG_FILE = LOG_FOLDER .. "/watchdog-latest.json"

@@ -2569,11 +2569,24 @@ return function()
 							local questNeedsGenericCombat = questUsesGenericCombat(questState)
 							local dungeonNeedsGenericCombat = dungeonState and dungeonState.Active == true
 							local unrestrictedCombat = questNeedsGenericCombat or dungeonNeedsGenericCombat
-							local dungeonOrigin = dungeonState
+							local towerHoldPosition = dungeonState
+								and dungeonState.IsCelestialTower
+								and dungeonState.Tower
+								and dungeonState.Tower.HoldPosition
+								or nil
+							local dungeonOrigin = towerHoldPosition
+
+							if
+								dungeonState
 								and dungeonState.Active
 								and runtime.State:Get("Dungeons.DefensePriority", true)
 								and dungeonState.PriorityOrigin
-								or nil
+							then
+								dungeonOrigin = dungeonState.PriorityOrigin
+							end
+
+							local dungeonCombatRange = typeof(towerHoldPosition) == "Vector3" and 350
+								or math.huge
 
 							if
 								not questHandled
@@ -2582,7 +2595,7 @@ return function()
 							then
 								farmTarget, farmDescriptor = Engine.GetTarget(
 									runtime,
-									unrestrictedCombat and math.huge or nil,
+									unrestrictedCombat and dungeonCombatRange or nil,
 									unrestrictedCombat,
 									dungeonOrigin
 								)
