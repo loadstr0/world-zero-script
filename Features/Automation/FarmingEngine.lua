@@ -2275,7 +2275,7 @@ return function()
 				and threat
 				and (
 					(tonumber(threat.AttackingCount) or 0) > 0
-					or (tonumber(threat.Count) or 0) >= 3
+					or (tonumber(threat.Count) or 0) > 0
 				)
 				and now - (tonumber(recovery.LastRelocatedAt) or 0) >= 0.9
 			then
