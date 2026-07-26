@@ -4,6 +4,12 @@ return function(ctx)
 	local GameContext = ctx:Require("GameContext")
 	local ReplicatedStorage = ctx.Services.ReplicatedStorage
 	local Workspace = ctx.Services.Workspace or game:GetService("Workspace")
+	local Players = ctx.Services.Players or game:GetService("Players")
+	local streamRequests = {}
+	local arenaStreamHints = {
+		["1"] = Vector3.new(405.7, 13.05, 716.55),
+		["2"] = Vector3.new(-11106.3, 13.05, 6729),
+	}
 
 	local function getPart(instance)
 		if not instance then
@@ -40,14 +46,40 @@ return function(ctx)
 		local arenas = missionObjects and missionObjects:FindFirstChild("Arena")
 
 		if not arenas then
-			return nil
+			return nil, nil
 		elseif isArenaEntryFloor(floor, startFloor) then
-			return arenas:FindFirstChild("BossArena")
+			return arenas:FindFirstChild("BossArena"), "BossArena"
 		elseif floor % 2 == 0 then
-			return arenas:FindFirstChild("2")
+			return arenas:FindFirstChild("2"), "2"
 		end
 
-		return arenas:FindFirstChild("1")
+		return arenas:FindFirstChild("1"), "1"
+	end
+
+	local function requestArenaStream(arenaName, spawn)
+		if spawn then
+			arenaStreamHints[arenaName] = spawn.Position
+			streamRequests[arenaName] = nil
+			return
+		end
+
+		local hint = arenaStreamHints[arenaName]
+		local player = Players.LocalPlayer
+		local now = os.clock()
+
+		if
+			typeof(hint) ~= "Vector3"
+			or not player
+			or type(player.RequestStreamAroundAsync) ~= "function"
+			or now - (tonumber(streamRequests[arenaName]) or -math.huge) < 5
+		then
+			return
+		end
+
+		streamRequests[arenaName] = now
+		task.spawn(function()
+			pcall(player.RequestStreamAroundAsync, player, hint, 5)
+		end)
 	end
 
 	local function getArenaEntry(bossGate)
@@ -113,8 +145,9 @@ return function(ctx)
 		local requiresArenaEntry = isArenaEntryFloor(floor, startFloor)
 		local objective = tostring(value("ObjectiveMessage") or "")
 		local lowerObjective = string.lower(objective)
-		local arena = getActiveArena(floor, startFloor)
+		local arena, arenaName = getActiveArena(floor, startFloor)
 		local spawn = getPart(arena and arena:FindFirstChild("Spawn"))
+		requestArenaStream(arenaName, spawn)
 		local bossGate = Workspace:FindFirstChild("Boss_Gate")
 		local entryPart, entryPosition, entryDistance = nil, nil, nil
 
@@ -147,7 +180,7 @@ return function(ctx)
 			RequiresArenaEntry = requiresArenaEntry,
 			Objective = objective,
 			Arena = arena,
-			ArenaName = arena and arena.Name or nil,
+			ArenaName = arenaName,
 			EntryTrigger = entryPart,
 			EntryPosition = entryPosition,
 			EntryDistance = entryDistance,
