@@ -5,6 +5,8 @@ return function(ctx)
 	local Energy = ctx:Require("Energy")
 	local GameContext = ctx:Require("GameContext")
 	local Status = ctx:Require("Status")
+	local RunService = ctx.Services.RunService or game:GetService("RunService")
+	local airborneAimSerial = 0
 
 	local SPEED_MULTIPLIERS = {
 		[0] = 1,
@@ -44,8 +46,11 @@ return function(ctx)
 		},
 		LeapStrikes = {
 			Slot = "Skill2",
+			Name = "Dash Strike",
 			Range = 14,
 			ConeAngle = 45,
+			AirbornePitchDegrees = -90,
+			ImpactDelay = 0.5,
 		},
 		CrossSlash = {
 			Slot = "Skill3",
@@ -140,6 +145,126 @@ return function(ctx)
 		end
 
 		return Actions.UseSkill(slot)
+	end
+
+	local function getTargetPart(target)
+		if typeof(target) ~= "Instance" then
+			return nil
+		end
+
+		if target:IsA("BasePart") then
+			return target
+		end
+
+		return target.PrimaryPart
+			or target:FindFirstChild("Collider")
+			or target:FindFirstChild("HumanoidRootPart")
+	end
+
+	local function isAirborne(humanoid)
+		return humanoid
+			and humanoid.FloorMaterial == Enum.Material.Air
+	end
+
+	function DualWielder.PrepareTargetedSkill(slot, target)
+		if slot ~= METADATA.LeapStrikes.Slot then
+			return false
+		end
+
+		local humanoid = GameContext.GetHumanoid()
+		local root = GameContext.GetRootPart()
+		local targetPart = getTargetPart(target)
+
+		if not root or not targetPart or not isAirborne(humanoid) then
+			return false
+		end
+
+		airborneAimSerial = airborneAimSerial + 1
+		local serial = airborneAimSerial
+
+		-- Actions.LeapStrikes installs its own horizontal AimAtNearestMob
+		-- connection before yielding. Defer by one scheduler turn so this
+		-- correction runs after that connection and keeps the hit cone pointed
+		-- straight down until Dash Strike samples HumanoidRootPart.LookVector.
+		task.defer(function()
+			task.wait()
+
+			if
+				serial ~= airborneAimSerial
+				or not root.Parent
+				or not targetPart.Parent
+				or Actions.IsBusy() ~= true
+			then
+				return
+			end
+
+			local originalAutoRotate = humanoid.AutoRotate
+			local deadline = os.clock() + METADATA.LeapStrikes.ImpactDelay + 0.12
+			local connection
+
+			humanoid.AutoRotate = false
+
+			local function applyDownwardPitch()
+				if
+					serial ~= airborneAimSerial
+					or os.clock() >= deadline
+					or not root.Parent
+					or not targetPart.Parent
+				then
+					if connection then
+						connection:Disconnect()
+						connection = nil
+					end
+
+					if humanoid.Parent then
+						humanoid.AutoRotate = originalAutoRotate
+					end
+
+					if root.Parent and targetPart.Parent then
+						local position = root.Position
+						local flatTarget = Vector3.new(
+							targetPart.Position.X,
+							position.Y,
+							targetPart.Position.Z
+						)
+
+						if (flatTarget - position).Magnitude > 0.001 then
+							root.CFrame = CFrame.lookAt(position, flatTarget)
+						end
+					end
+
+					return
+				end
+
+				local position = root.Position
+				local flatDirection = Vector3.new(
+					targetPart.Position.X - position.X,
+					0,
+					targetPart.Position.Z - position.Z
+				)
+
+				if flatDirection.Magnitude <= 0.001 then
+					local currentLook = root.CFrame.LookVector
+					flatDirection = Vector3.new(currentLook.X, 0, currentLook.Z)
+				end
+
+				if flatDirection.Magnitude > 0.001 then
+					root.CFrame = CFrame.lookAt(
+						position,
+						position + flatDirection.Unit
+					) * CFrame.Angles(
+						math.rad(METADATA.LeapStrikes.AirbornePitchDegrees),
+						0,
+						0
+					)
+				end
+			end
+
+			connection = RunService.RenderStepped:Connect(applyDownwardPitch)
+			applyDownwardPitch()
+		end)
+
+		return true
 	end
 
 	function DualWielder.UsePrimary()

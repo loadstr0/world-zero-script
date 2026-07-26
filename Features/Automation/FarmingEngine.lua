@@ -809,7 +809,7 @@ return function()
 		return runtime.Actions.IsOnCooldown(slot) ~= true
 	end
 
-	local function attemptSlot(runtime, adapter, slot, descriptor)
+	local function attemptSlot(runtime, adapter, slot, descriptor, target)
 		if not canAttemptSlot(runtime, adapter, slot, descriptor) then
 			return false
 		end
@@ -824,6 +824,10 @@ return function()
 
 		activeTasks[slot] = true
 		task.spawn(function()
+			if adapter and type(adapter.PrepareTargetedSkill) == "function" then
+				pcall(adapter.PrepareTargetedSkill, slot, target)
+			end
+
 			if adapter and type(adapter.Use) == "function" then
 				pcall(adapter.Use, slot)
 			elseif slot == "Primary" and adapter and type(adapter.UsePrimary) == "function" then
@@ -890,20 +894,21 @@ return function()
 		local mode = runtime.State:Get("Farming.RotationMode", "Full Rotation")
 
 		if mode == "Primary Only" then
-			return attemptSlot(runtime, adapter, "Primary", descriptor) or petAttempted
+			return attemptSlot(runtime, adapter, "Primary", descriptor, target) or petAttempted
 		elseif mode == "Selected Slot" then
 			return attemptSlot(
 				runtime,
 				adapter,
 				runtime.State:Get("Farming.AttackSlot", "Primary"),
-				descriptor
+				descriptor,
+				target
 			) or petAttempted
 		end
 
 		local rotation = buildRotation(runtime)
 
 		if #rotation == 0 then
-			return attemptSlot(runtime, adapter, "Primary", descriptor) or petAttempted
+			return attemptSlot(runtime, adapter, "Primary", descriptor, target) or petAttempted
 		end
 
 		local cursor = rotationCursors[runtime] or 1
@@ -912,7 +917,7 @@ return function()
 			local index = ((cursor + offset - 1) % #rotation) + 1
 			local slot = rotation[index]
 
-			if attemptSlot(runtime, adapter, slot, descriptor) then
+			if attemptSlot(runtime, adapter, slot, descriptor, target) then
 				rotationCursors[runtime] = (index % #rotation) + 1
 				return true
 			end
