@@ -782,6 +782,108 @@ return function()
 			return false
 		end
 
+		if runtime.ClassRegistry.GetCurrentClass() == "MageOfLight" then
+			local health = runtime.MageOfLight.GetHealthState()
+			local healthRatio = health and (tonumber(health.Ratio) or 1) or 1
+
+			if slot == "Skill1" then
+				if
+					not runtime.State:Get("Class.MageOfLight.AutoHealingCircle", true)
+					or healthRatio
+						> (
+							tonumber(
+								runtime.State:Get(
+									"Class.MageOfLight.HealingThreshold",
+									75
+								)
+							) or 75
+						) / 100
+				then
+					return false
+				end
+			elseif slot == "Skill2" then
+				if not runtime.State:Get("Class.MageOfLight.AutoInfuse", true) then
+					return false
+				end
+
+				local canInfuse = runtime.MageOfLight.CanInfuse(
+					tonumber(
+						runtime.State:Get(
+							"Class.MageOfLight.InfuseMinimumOrbs",
+							10
+						)
+					) or 10,
+					(
+						tonumber(
+							runtime.State:Get(
+								"Class.MageOfLight.InfuseHealthFloor",
+								50
+							)
+						) or 50
+					) / 100
+				)
+
+				if not canInfuse then
+					return false
+				end
+			elseif slot == "Skill3" then
+				local barrier = runtime.MageOfLight.GetBarrier()
+				local barrierThreshold =
+					(
+						tonumber(
+							runtime.State:Get(
+								"Class.MageOfLight.BarrierHealthThreshold",
+								90
+							)
+						) or 90
+					) / 100
+
+				if
+					not runtime.State:Get("Class.MageOfLight.AutoBarrier", true)
+					or barrier == nil
+					or barrier > 0
+					or healthRatio > barrierThreshold
+				then
+					return false
+				end
+			elseif slot == "Ultimate" then
+				if not runtime.State:Get("Class.MageOfLight.AutoGrace", true) then
+					return false
+				end
+
+				if runtime.State:Get("Class.MageOfLight.SaveGraceForEmergency", false) then
+					local emergencyThreshold =
+						(
+							tonumber(
+								runtime.State:Get(
+									"Class.MageOfLight.GraceEmergencyThreshold",
+									40
+								)
+							) or 40
+						) / 100
+
+					if healthRatio > emergencyThreshold then
+						return false
+					end
+				else
+					local minimumTargets =
+						tonumber(
+							runtime.State:Get(
+								"Class.MageOfLight.GraceMinimumTargets",
+								2
+							)
+						) or 2
+					local targetCount = runtime.CombatAPI.CountTargetsInRadius(
+						tonumber(runtime.State:Get("Combat.TargetRange", 45)) or 45
+					)
+
+					if descriptor and targetCount ~= nil and targetCount < minimumTargets then
+						return false
+					end
+				end
+			end
+		end
+
 		if slot == "Ultimate" and runtime.Energy.IsFull() ~= true then
 			return false
 		end
@@ -2080,6 +2182,76 @@ return function()
 		return true
 	end
 
+	local function useClassRecoverySkill(runtime, adapter, survival, statusState)
+		if
+			runtime.ClassRegistry.GetCurrentClass() ~= "MageOfLight"
+			or not adapter
+			or (statusState and statusState.SkillsBlocked)
+			or runtime.Actions.IsBusy() == true
+		then
+			return false
+		end
+
+		local healthRatio = tonumber(survival and survival.HealthRatio) or 1
+		local graceThreshold =
+			(
+				tonumber(
+					runtime.State:Get(
+						"Class.MageOfLight.GraceEmergencyThreshold",
+						40
+					)
+				) or 40
+			) / 100
+
+		if
+			healthRatio <= graceThreshold
+			and runtime.State:Get("Class.MageOfLight.AutoGrace", true)
+			and attemptSlot(runtime, adapter, "Ultimate", nil, nil)
+		then
+			return true
+		end
+
+		local healingThreshold =
+			(
+				tonumber(
+					runtime.State:Get(
+						"Class.MageOfLight.HealingThreshold",
+						75
+					)
+				) or 75
+			) / 100
+
+		if
+			healthRatio <= healingThreshold
+			and runtime.State:Get("Class.MageOfLight.AutoHealingCircle", true)
+			and attemptSlot(runtime, adapter, "Skill1", nil, nil)
+		then
+			return true
+		end
+
+		local barrier = runtime.MageOfLight.GetBarrier()
+		local barrierThreshold =
+			(
+				tonumber(
+					runtime.State:Get(
+						"Class.MageOfLight.BarrierHealthThreshold",
+						90
+					)
+				) or 90
+			) / 100
+
+		if
+			barrier ~= nil
+			and barrier <= 0
+			and healthRatio <= barrierThreshold
+			and runtime.State:Get("Class.MageOfLight.AutoBarrier", true)
+		then
+			return attemptSlot(runtime, adapter, "Skill3", nil, nil)
+		end
+
+		return false
+	end
+
 	local function getSafeRecoveryHeight(runtime, root, requestedHeight)
 		local height = math.max(0, tonumber(requestedHeight) or 0)
 		local workspace = runtime.Context.Services.Workspace
@@ -2121,6 +2293,7 @@ return function()
 		local threat = runtime.MobsAPI.GetThreatState(threatRadius)
 		local survival = Engine.GetSurvivalState(runtime)
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
+		local currentClass = runtime.ClassRegistry.GetCurrentClass()
 		local recoveringInAir = recoveryStates[runtime] ~= nil
 			and runtime.State:Get("Farming.AirRecovery", true)
 		local escapingHazard, holdingHazard =
@@ -2131,6 +2304,7 @@ return function()
 			return true, false
 		end
 
+		useClassRecoverySkill(runtime, adapter, survival, statusState)
 		dodgeThreat(runtime, adapter, threat, survival.ProtectionRatio, statusState)
 		local retreatThreshold = tonumber(runtime.State:Get("Farming.RetreatHealthThreshold", 35)) or 35
 
@@ -2247,6 +2421,14 @@ return function()
 				local distance = tonumber(runtime.State:Get("Farming.RetreatDistance", 35)) or 35
 				local inDungeon = dungeonState and dungeonState.Active == true
 				local useAirRecovery = runtime.State:Get("Farming.AirRecovery", true)
+				local lightAerialHold = currentClass == "MageOfLight"
+					and useAirRecovery
+					and threat
+					and (tonumber(threat.RangedCount) or 0) <= 0
+
+				if lightAerialHold then
+					distance = 0
+				end
 
 				local requestedHeight = useAirRecovery
 						and (tonumber(runtime.State:Get("Farming.AirRecoveryHeight", 45)) or 45)
@@ -2342,6 +2524,11 @@ return function()
 
 			if
 				runtime.State:Get("Farming.MobileAirRecovery", true)
+				and not (
+					currentClass == "MageOfLight"
+					and threat
+					and (tonumber(threat.RangedCount) or 0) <= 0
+				)
 				and threat
 				and (
 					(tonumber(threat.AttackingCount) or 0) > 0

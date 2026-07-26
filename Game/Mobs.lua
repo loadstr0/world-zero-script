@@ -645,6 +645,7 @@ return function(ctx)
 		local state = {
 			Count = 0,
 			BossCount = 0,
+			RangedCount = 0,
 			AttackingCount = 0,
 			Nearest = nil,
 			NearestDistance = math.huge,
@@ -677,6 +678,10 @@ return function(ctx)
 
 				if descriptor.IsBoss then
 					state.BossCount = state.BossCount + 1
+				end
+
+				if descriptor.IsRangedThreat then
+					state.RangedCount = state.RangedCount + 1
 				end
 
 				if type(descriptor.CurrentAttack) == "string" and descriptor.CurrentAttack ~= "" then
