@@ -378,6 +378,22 @@ return function()
 		return automationDecisions[runtime]
 	end
 
+	function Engine.GetRecentDamage(runtime)
+		local damage = recentDamage[runtime]
+
+		if not damage then
+			return nil
+		end
+
+		local attacker = damage.Attacker
+
+		return {
+			Age = math.max(0, os.clock() - (tonumber(damage.At) or os.clock())),
+			Amount = tonumber(damage.Amount) or 0,
+			Attacker = typeof(attacker) == "Instance" and attacker.Name or tostring(attacker or ""),
+		}
+	end
+
 	function Engine.IsEnabled(runtime)
 		return runtime.State:Get("Farming.Enabled", false)
 			or runtime.State:Get("Quests.Enabled", false)

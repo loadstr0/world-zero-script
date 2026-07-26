@@ -15,6 +15,7 @@ return function(ctx)
 	local TOWER_REPOSITION_COOLDOWN = 10
 	local LOG_FOLDER = "WorldZero"
 	local LOG_FILE = LOG_FOLDER .. "/watchdog-latest.json"
+	local DEATH_LOG_FILE = LOG_FOLDER .. "/death-latest.json"
 
 	local function vectorTable(value)
 		if typeof(value) ~= "Vector3" then
@@ -256,10 +257,23 @@ return function(ctx)
 			TowerArenaStreamed = tower and tower.Arena ~= nil or false,
 			TowerSpawnDistance = status.TowerSpawnDistance,
 			RouteError = automation and automation.RouteError or nil,
+			Target = automation
+				and automation.FarmTarget
+				and automation.FarmTarget.ModelName
+				or nil,
+			TargetHealth = automation
+				and automation.FarmTarget
+				and automation.FarmTarget.Health
+				and automation.FarmTarget.Health.Current
+				or nil,
+			Retreating = automation and automation.Retreating or false,
+			LastDamage = runtime.FarmingEngine.GetRecentDamage
+				and runtime.FarmingEngine.GetRecentDamage(runtime)
+				or nil,
 		}
 	end
 
-	local function writeSnapshot(snapshot)
+	local function writeSnapshot(snapshot, path)
 		if not Executor.Has("WriteFile") then
 			return false
 		end
@@ -274,7 +288,20 @@ return function(ctx)
 			return false
 		end
 
-		return pcall(Executor.WriteFile, LOG_FILE, encoded)
+		return pcall(Executor.WriteFile, path or LOG_FILE, encoded)
+	end
+
+	local function writeDeathSnapshot(runtime, status, reason)
+		local now = os.clock()
+
+		if now - (tonumber(status.LastDeathSnapshotAt) or 0) < 2 then
+			return
+		end
+
+		status.LastDeathSnapshotAt = now
+		local snapshot = buildSnapshot(runtime, status, getDungeonState(runtime))
+		snapshot.Event = reason
+		writeSnapshot(snapshot, DEATH_LOG_FILE)
 	end
 
 	function Watchdog.Start(runtime)
@@ -289,6 +316,32 @@ return function(ctx)
 		activeTokens[runtime] = token
 		statuses[runtime] = status
 		getgenv().WorldZeroWatchdogToken = token
+
+		local player = Players.LocalPlayer
+
+		if player then
+			status.CharacterRemovingConnection = player.CharacterRemoving:Connect(function()
+				writeDeathSnapshot(runtime, status, "CharacterRemoving")
+			end)
+
+			local function observeHumanoid(character)
+				if status.HumanoidDiedConnection then
+					status.HumanoidDiedConnection:Disconnect()
+					status.HumanoidDiedConnection = nil
+				end
+
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+				if humanoid then
+					status.HumanoidDiedConnection = humanoid.Died:Connect(function()
+						writeDeathSnapshot(runtime, status, "HumanoidDied")
+					end)
+				end
+			end
+
+			status.CharacterAddedConnection = player.CharacterAdded:Connect(observeHumanoid)
+			observeHumanoid(player.Character)
+		end
 
 		task.spawn(function()
 			local lastLogAt = 0
@@ -330,6 +383,21 @@ return function(ctx)
 
 		if token and getgenv().WorldZeroWatchdogToken == token then
 			getgenv().WorldZeroWatchdogToken = nil
+		end
+
+		local status = statuses[runtime]
+
+		for _, key in ipairs({
+			"CharacterRemovingConnection",
+			"CharacterAddedConnection",
+			"HumanoidDiedConnection",
+		}) do
+			local connection = status and status[key]
+
+			if connection then
+				pcall(connection.Disconnect, connection)
+				status[key] = nil
+			end
 		end
 
 		activeTokens[runtime] = nil
