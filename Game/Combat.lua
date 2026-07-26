@@ -1,5 +1,8 @@
 return function(ctx)
 	local CombatAPI = {}
+	local ACCEPTED_DIRECT_SKILLS = {
+		MageOfLight = true,
+	}
 
 	local GameContext = ctx:Require("GameContext")
 	local cachedModule = nil
@@ -85,6 +88,37 @@ return function(ctx)
 		return #targets
 	end
 
+	function CombatAPI.AttackWithAcceptedSkill(skillName, position, direction)
+		if ACCEPTED_DIRECT_SKILLS[skillName] ~= true then
+			return false, "direct_skill_not_verified:" .. tostring(skillName)
+		elseif typeof(position) ~= "Vector3" then
+			return false, "direct_skill_position_unavailable"
+		end
+
+		local module, resolveError = resolve()
+
+		if not module then
+			return false, resolveError
+		elseif type(module.AttackWithSkill) ~= "function" then
+			return false, "shared_combat_missing_attack_with_skill"
+		end
+
+		local ok, attackError = pcall(
+			module.AttackWithSkill,
+			module,
+			67,
+			skillName,
+			position,
+			direction
+		)
+
+		if not ok then
+			return false, "accepted_skill_attack_failed:" .. tostring(attackError)
+		end
+
+		return true
+	end
+
 	function CombatAPI.Describe()
 		local module, resolveError = resolve()
 
@@ -97,6 +131,8 @@ return function(ctx)
 			ServerRateLimitsSkills = true,
 			DirectAttackTargetFlagged = true,
 			InvalidDamageIdFlagged = true,
+			SupportsVerifiedDirectMageImpact =
+				module and type(module.AttackWithSkill) == "function" or false,
 		}
 	end
 

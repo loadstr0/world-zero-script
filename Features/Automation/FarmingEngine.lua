@@ -34,6 +34,7 @@ return function()
 	local dungeonChestStates = {}
 	local towerTransitionStates = {}
 	local towerEntryTouchStates = {}
+	local lastDirectAuraAttempts = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -901,14 +902,35 @@ return function()
 						tonumber(
 							runtime.State:Get(
 								"Class.MageOfLight.GraceMinimumTargets",
-								2
+								1
 							)
-						) or 2
-					local targetCount = runtime.CombatAPI.CountTargetsInRadius(
-						tonumber(runtime.State:Get("Combat.TargetRange", 45)) or 45
+						) or 1
+					local targetCount = tonumber(
+						descriptor and descriptor.ClusterCount
 					)
 
-					if descriptor and targetCount ~= nil and targetCount < minimumTargets then
+					if
+						targetCount == nil
+						and descriptor
+						and typeof(descriptor.Position) == "Vector3"
+					then
+						local matching = runtime.MobsAPI.GetMatching({
+							Range = tonumber(
+								runtime.State:Get(
+									"Combat.AuraClusterRadius",
+									24
+								)
+							) or 24,
+							OriginPosition = descriptor.Position,
+							IncludeOwned = false,
+						})
+
+						targetCount = type(matching) == "table"
+								and #matching
+							or 1
+					end
+
+					if descriptor and (targetCount or 1) < minimumTargets then
 						return false
 					end
 				end
@@ -1004,11 +1026,54 @@ return function()
 			)
 		end
 
+		local directAuraAttempted = false
+
+		if
+			runtime.ClassRegistry.GetCurrentClass() == "MageOfLight"
+			and runtime.State:Get("Combat.DirectMageAura", true)
+			and descriptor
+			and typeof(descriptor.Position) == "Vector3"
+			and distance
+				<= (
+					tonumber(
+						runtime.State:Get(
+							"Combat.DirectMageAuraRange",
+							90
+						)
+					) or 90
+				)
+		then
+			local now = os.clock()
+			local interval = math.max(
+				1.1,
+				tonumber(
+					runtime.State:Get(
+						"Combat.DirectMageAuraInterval",
+						1.1
+					)
+				) or 1.1
+			)
+
+			if
+				now - (tonumber(lastDirectAuraAttempts[runtime]) or 0)
+					>= interval
+			then
+				lastDirectAuraAttempts[runtime] = now
+				directAuraAttempted = true
+				task.spawn(function()
+					runtime.CombatAPI.AttackWithAcceptedSkill(
+						"MageOfLight",
+						descriptor.Position
+					)
+				end)
+			end
+		end
+
 		if
 			not runtime.State:Get("Farming.AutoAttack", true)
 			or not distance
 		then
-			return false
+			return directAuraAttempted
 		end
 
 		if
@@ -1026,7 +1091,7 @@ return function()
 		end
 
 		if distance > attackRange or runtime.Actions.IsBusy() == true then
-			return petAttempted
+			return directAuraAttempted or petAttempted
 		end
 
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
@@ -1046,7 +1111,9 @@ return function()
 		local mode = runtime.State:Get("Farming.RotationMode", "Full Rotation")
 
 		if mode == "Primary Only" then
-			return attemptSlot(runtime, adapter, "Primary", descriptor, target) or petAttempted
+				return attemptSlot(runtime, adapter, "Primary", descriptor, target)
+					or directAuraAttempted
+					or petAttempted
 		elseif mode == "Selected Slot" then
 			return attemptSlot(
 				runtime,
@@ -1054,13 +1121,15 @@ return function()
 				runtime.State:Get("Farming.AttackSlot", "Primary"),
 				descriptor,
 				target
-			) or petAttempted
+			) or directAuraAttempted or petAttempted
 		end
 
 		local rotation = buildRotation(runtime)
 
 		if #rotation == 0 then
-			return attemptSlot(runtime, adapter, "Primary", descriptor, target) or petAttempted
+			return attemptSlot(runtime, adapter, "Primary", descriptor, target)
+				or directAuraAttempted
+				or petAttempted
 		end
 
 		local cursor = rotationCursors[runtime] or 1
@@ -1075,7 +1144,7 @@ return function()
 			end
 		end
 
-		return petAttempted
+		return directAuraAttempted or petAttempted
 	end
 
 	function Engine.GetHealthRatio(runtime)
@@ -3185,6 +3254,7 @@ return function()
 			dungeonChestStates[runtime] = nil
 			towerTransitionStates[runtime] = nil
 			towerEntryTouchStates[runtime] = nil
+			lastDirectAuraAttempts[runtime] = nil
 			automationDecisions[runtime] = nil
 
 			if runtime.Stopped then

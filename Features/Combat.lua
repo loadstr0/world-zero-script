@@ -54,6 +54,9 @@ return function()
 		runtime.State:Set("Combat.AuraRetryInterval", 0.1)
 		runtime.State:Set("Combat.AuraRetargetDelay", 0.15)
 		runtime.State:Set("Combat.AuraFlightSpeed", 120)
+		runtime.State:Set("Combat.DirectMageAura", true)
+		runtime.State:Set("Combat.DirectMageAuraRange", 90)
+		runtime.State:Set("Combat.DirectMageAuraInterval", 1.1)
 		runtime.State:Set("Combat.BlatantMode", true)
 		runtime.State:Set("Combat.MobFunnel", true)
 		runtime.State:Set("Combat.FunnelMinimumTargets", 3)
@@ -222,10 +225,40 @@ return function()
 			end,
 		})
 
+		runtime.UI:CreateToggle(tab, "CombatDirectMageAura", {
+			Name = "Direct Mage damage pulse",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Combat.DirectMageAura", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatDirectMageAuraRange", {
+			Name = "Direct Mage pulse range",
+			Range = { 45, 90 },
+			Increment = 5,
+			Suffix = " studs",
+			CurrentValue = 90,
+			Callback = function(value)
+				runtime.State:Set("Combat.DirectMageAuraRange", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "CombatDirectMageAuraInterval", {
+			Name = "Direct Mage pulse spacing",
+			Range = { 1.1, 2.5 },
+			Increment = 0.1,
+			Suffix = "s",
+			CurrentValue = 1.1,
+			Callback = function(value)
+				runtime.State:Set("Combat.DirectMageAuraInterval", value)
+			end,
+		})
+
 		runtime.UI:CreateParagraph(
 			tab,
 			"Aura behavior",
-			"Finds clusters across the full map, flies to each one, and continuously uses normal class skills, AoE attacks, primary attacks, and pet abilities. It does not fabricate server damage at impossible distances."
+			"Finds clusters across the full map, flies to each one, and continuously uses class skills, primary attacks, pet abilities, and a verified direct Mage impact. The direct pulse uses the game's accepted token 67, stays within the tested 90-stud origin allowance, and respects the measured server interval; it never touches the explicitly trapped AttackTarget remote."
 		)
 
 		runtime.UI:CreateSection(tab, "Blatant Farming")

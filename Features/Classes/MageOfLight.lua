@@ -88,6 +88,8 @@ return function()
 
 					if targetCount == nil then
 						targetCount = target and 1 or 0
+					elseif target then
+						targetCount = math.max(1, targetCount)
 					end
 
 					local minimumTargets = runtime.State:Get("Combat.MinimumTargets", 1)
@@ -150,7 +152,7 @@ return function()
 		runtime.State:Set("Class.MageOfLight.AutoGrace", true)
 		runtime.State:Set("Class.MageOfLight.SaveGraceForEmergency", false)
 		runtime.State:Set("Class.MageOfLight.GraceEmergencyThreshold", 40)
-		runtime.State:Set("Class.MageOfLight.GraceMinimumTargets", 2)
+		runtime.State:Set("Class.MageOfLight.GraceMinimumTargets", 1)
 		runtime.State:Set("Class.MageOfLight.AttackInterval", 0.15)
 
 		runtime.UI:CreateSection(tab, "Mage of Light automation")
@@ -330,11 +332,11 @@ return function()
 			end,
 		})
 
-		runtime.UI:CreateSlider(tab, "MageOfLightGraceMinimumTargets", {
+		runtime.Controls.MageOfLightGraceMinimumTargets = runtime.UI:CreateSlider(tab, "MageOfLightGraceMinimumTargets", {
 			Name = "Minimum enemies for combat Grace",
 			Range = { 1, 10 },
 			Increment = 1,
-			CurrentValue = 2,
+			CurrentValue = 1,
 			Callback = function(value)
 				runtime.State:Set("Class.MageOfLight.GraceMinimumTargets", value)
 			end,

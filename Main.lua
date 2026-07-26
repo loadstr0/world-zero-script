@@ -23,7 +23,7 @@ return function(ctx)
 		GearEnabled = "Gear.Enabled",
 	}
 
-	local TELEPORT_STATE_VERSION = 3
+	local TELEPORT_STATE_VERSION = 4
 
 	local function watchTeleportState(runtime)
 		local refreshSerial = 0
@@ -76,6 +76,14 @@ return function(ctx)
 			state["Class.MageOfLight.AerialCombatHeight"] = 60
 			state["Class.MageOfLight.ServerSafeRange"] = 90
 			state["Class.MageOfLight.VerticalTargetBypass"] = true
+			payload.Version = TELEPORT_STATE_VERSION
+		end
+
+		if version < 4 then
+			state["Class.MageOfLight.GraceMinimumTargets"] = 1
+			state["Combat.DirectMageAura"] = true
+			state["Combat.DirectMageAuraRange"] = 90
+			state["Combat.DirectMageAuraInterval"] = 1.1
 			payload.Version = TELEPORT_STATE_VERSION
 		end
 
@@ -440,12 +448,15 @@ return function(ctx)
 			)
 			local aerialControl =
 				runtime.Controls.MageOfLightAerialCombatHeight
+			local graceMinimumControl =
+				runtime.Controls.MageOfLightGraceMinimumTargets
 
 			runtime.State:Set(
 				"Class.MageOfLight.AerialCombatHeight",
 				aerialHeight
 			)
 			runtime.State:Set("Class.MageOfLight.ServerSafeRange", 90)
+			runtime.State:Set("Class.MageOfLight.GraceMinimumTargets", 1)
 			runtime.Actions.SetInternalTargetOverride(
 				true,
 				"MageOfLight",
@@ -454,6 +465,13 @@ return function(ctx)
 
 			if aerialControl and type(aerialControl.Set) == "function" then
 				pcall(aerialControl.Set, aerialControl, aerialHeight)
+			end
+
+			if
+				graceMinimumControl
+				and type(graceMinimumControl.Set) == "function"
+			then
+				pcall(graceMinimumControl.Set, graceMinimumControl, 1)
 			end
 		end
 
