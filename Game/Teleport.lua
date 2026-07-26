@@ -51,17 +51,6 @@ return function(ctx)
 			or (type(loadedCommit) == "string" and loadedCommit)
 			or ""
 
-		-- The queued script re-queues itself as soon as the destination starts.
-		-- Avoid adding a second copy later in the same server, since some
-		-- executors append queue entries instead of replacing them.
-		if
-			currentJobId ~= ""
-			and env.WorldZeroTeleportQueueJobId == currentJobId
-			and tostring(env.WorldZeroTeleportQueueCommit or "") == desiredCommit
-		then
-			return true
-		end
-
 		local bootstrapBase = ctx.Base
 
 		if #desiredCommit >= 7 and string.match(desiredCommit, "^[%da-fA-F]+$") then
@@ -76,20 +65,38 @@ return function(ctx)
 			.. tostring(math.random(1000, 9999))
 		local resumeState = {}
 		local runtime = ctx.ActiveRuntime
+		local signatureEntries = {}
 
 		for key, value in pairs(runtime and runtime.State and runtime.State.Values or {}) do
 			local valueType = type(value)
 
 			if type(key) == "string" and (valueType == "boolean" or valueType == "number" or valueType == "string") then
 				resumeState[key] = value
+				table.insert(signatureEntries, HttpService:JSONEncode({ key, value }))
 			end
 		end
 
+		table.sort(signatureEntries)
+		local resumeSignature = table.concat(signatureEntries, "\n")
 		local encodedResume = HttpService:JSONEncode({
 			Version = 3,
 			QueuedAt = os.time(),
 			State = resumeState,
 		})
+
+		-- A control can change long after startup. Only keep the existing queue
+		-- when both its source generation and its complete saved state still
+		-- match; otherwise replace it so a server hop cannot resurrect stale
+		-- automation toggles.
+		if
+			currentJobId ~= ""
+			and env.WorldZeroTeleportQueueJobId == currentJobId
+			and tostring(env.WorldZeroTeleportQueueCommit or "") == desiredCommit
+			and tostring(env.WorldZeroTeleportQueueStateSignature or "") == resumeSignature
+		then
+			return true
+		end
+
 		local queueVersion = os.time() * 100000 + math.random(10000, 99999)
 		local queueCommit = desiredCommit
 		local body = "local env = getgenv()"
@@ -100,6 +107,8 @@ return function(ctx)
 			.. "\nenv.WorldZeroTeleportQueueVersion = candidateVersion"
 			.. "\nenv.WorldZeroTeleportQueueCommit = "
 			.. string.format("%q", queueCommit)
+			.. "\nenv.WorldZeroTeleportQueueStateSignature = "
+			.. string.format("%q", resumeSignature)
 			.. "\nenv.WorldZeroTeleportResume = "
 			.. string.format("%q", encodedResume)
 			.. "\nenv.WorldZeroBase = "
@@ -172,6 +181,7 @@ return function(ctx)
 		if currentJobId ~= "" then
 			env.WorldZeroTeleportQueueJobId = currentJobId
 			env.WorldZeroTeleportQueueCommit = queueCommit
+			env.WorldZeroTeleportQueueStateSignature = resumeSignature
 			env.WorldZeroTeleportQueueVersion = queueVersion
 			env.WorldZeroTeleportQueueToken = currentJobId .. ":" .. tostring(queueVersion)
 		end

@@ -25,6 +25,34 @@ return function(ctx)
 
 	local TELEPORT_STATE_VERSION = 2
 
+	local function watchTeleportState(runtime)
+		local refreshSerial = 0
+
+		for stateKey in pairs(runtime.State.Values) do
+			runtime.Janitor:Add(runtime.State:Subscribe(stateKey, function()
+				refreshSerial = refreshSerial + 1
+				local serial = refreshSerial
+
+				task.delay(0.2, function()
+					if
+						serial == refreshSerial
+						and not runtime.Stopped
+						and ctx.ActiveRuntime == runtime
+					then
+						local queued, queueError = runtime.TeleportAPI.QueueBootstrap()
+
+						if not queued then
+							runtime.Logger.warn(
+								"Could not refresh teleport state:",
+								queueError
+							)
+						end
+					end
+				end)
+			end))
+		end
+	end
+
 	local function migrateTeleportState(payload)
 		local version = tonumber(payload.Version) or 1
 		local state = payload.State
@@ -380,6 +408,7 @@ return function(ctx)
 			Logger.warn("Persistent teleport bootstrap unavailable:", queueError)
 		end
 
+		watchTeleportState(runtime)
 		releaseBootSafety(runtime)
 		runtime.Watchdog.Start(runtime)
 		ui:Notify("World Zero", "Modular interface loaded.", 4, "circle-check")
