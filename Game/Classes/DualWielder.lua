@@ -206,11 +206,37 @@ return function(ctx)
 
 		airborneAimSerial = airborneAimSerial + 1
 		local serial = airborneAimSerial
+		local actionsModule = Actions.GetModule()
+		local originalAimAtNearestMob = type(actionsModule) == "table"
+				and actionsModule.AimAtNearestMob
+			or nil
+		local suppressedAimAtNearestMob = function()
+			return true
+		end
+		local aimSuppressed = false
 
-		-- Actions.LeapStrikes installs its own horizontal AimAtNearestMob
-		-- connection before yielding. Defer by one scheduler turn so this
-		-- correction runs after that connection and keeps the hit cone pointed
-		-- straight down until Dash Strike samples HumanoidRootPart.LookVector.
+		if type(originalAimAtNearestMob) == "function" then
+			aimSuppressed = pcall(function()
+				actionsModule.AimAtNearestMob = suppressedAimAtNearestMob
+			end)
+		end
+
+		local function restoreInternalAim()
+			if
+				aimSuppressed
+				and type(actionsModule) == "table"
+				and actionsModule.AimAtNearestMob == suppressedAimAtNearestMob
+			then
+				actionsModule.AimAtNearestMob = originalAimAtNearestMob
+			end
+
+			aimSuppressed = false
+		end
+
+		-- Dash Strike normally installs a horizontal AimAtNearestMob connection
+		-- before yielding. Its method is suppressed only for this cast, while
+		-- the deferred correction starts after UseSkill has marked the action
+		-- busy and holds the server-sampled hit cone straight down.
 		task.defer(function()
 			task.wait()
 
@@ -220,6 +246,7 @@ return function(ctx)
 				or not targetPart.Parent
 				or Actions.IsBusy() ~= true
 			then
+				restoreInternalAim()
 				return
 			end
 
@@ -248,6 +275,8 @@ return function(ctx)
 						humanoid.AutoRotate = originalAutoRotate
 						humanoid.PlatformStand = originalPlatformStand
 					end
+
+					restoreInternalAim()
 
 					if root.Parent and targetPart.Parent then
 						local position = root.Position
