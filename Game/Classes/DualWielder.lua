@@ -199,10 +199,12 @@ return function(ctx)
 			end
 
 			local originalAutoRotate = humanoid.AutoRotate
+			local originalPlatformStand = humanoid.PlatformStand
 			local deadline = os.clock() + METADATA.LeapStrikes.ImpactDelay + 0.12
 			local connections = {}
 
 			humanoid.AutoRotate = false
+			humanoid.PlatformStand = true
 
 			local function applyDownwardPitch()
 				if
@@ -219,6 +221,7 @@ return function(ctx)
 
 					if humanoid.Parent then
 						humanoid.AutoRotate = originalAutoRotate
+						humanoid.PlatformStand = originalPlatformStand
 					end
 
 					if root.Parent and targetPart.Parent then
@@ -258,6 +261,7 @@ return function(ctx)
 						0,
 						0
 					)
+					root.AssemblyAngularVelocity = Vector3.zero
 				end
 			end
 
