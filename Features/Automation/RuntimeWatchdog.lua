@@ -218,14 +218,10 @@ return function(ctx)
 			end
 		end
 
-		local subject = camera.CameraSubject
-		local subjectAttached = subject == humanoid
-			or (
-				typeof(subject) == "Instance"
-				and subject:IsDescendantOf(character)
-			)
-
-		if camera.CameraType ~= Enum.CameraType.Custom or not subjectAttached then
+		if
+			camera.CameraType ~= Enum.CameraType.Custom
+			or camera.CameraSubject ~= humanoid
+		then
 			local repaired = pcall(function()
 				camera.CameraType = Enum.CameraType.Custom
 				camera.CameraSubject = humanoid
