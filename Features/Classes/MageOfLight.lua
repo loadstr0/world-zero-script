@@ -136,6 +136,8 @@ return function()
 	function MageOfLightFeature.Register(runtime, tab)
 		runtime.State:Set("Class.MageOfLight.AutoAura", false)
 		runtime.State:Set("Class.MageOfLight.AutoUnsheath", true)
+		runtime.State:Set("Class.MageOfLight.AerialCombat", true)
+		runtime.State:Set("Class.MageOfLight.AerialCombatHeight", 28)
 		runtime.State:Set("Class.MageOfLight.AutoHealingCircle", true)
 		runtime.State:Set("Class.MageOfLight.HealingThreshold", 75)
 		runtime.State:Set("Class.MageOfLight.AutoBarrier", true)
@@ -180,6 +182,32 @@ return function()
 				runtime.State:Set("Class.MageOfLight.AutoUnsheath", value)
 			end,
 		})
+
+		runtime.UI:CreateSection(tab, "Aerial stance")
+		runtime.UI:CreateToggle(tab, "MageOfLightAerialCombat", {
+			Name = "Maintain high aerial combat position",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Class.MageOfLight.AerialCombat", value)
+			end,
+		})
+
+		runtime.UI:CreateSlider(tab, "MageOfLightAerialCombatHeight", {
+			Name = "Aerial combat height",
+			Range = { 12, 38 },
+			Increment = 1,
+			Suffix = " studs",
+			CurrentValue = 28,
+			Callback = function(value)
+				runtime.State:Set("Class.MageOfLight.AerialCombatHeight", value)
+			end,
+		})
+
+		runtime.UI:CreateParagraph(
+			tab,
+			"Air recovery",
+			"Mage of Light keeps its ranged combat orbit high after healing. It rests above attacks that cannot reach the current three-dimensional distance, but resumes evasive flight for reachable projectiles, floor hazards, or confirmed incoming damage."
+		)
 
 		runtime.UI:CreateSection(tab, "Healing and Barrier")
 		runtime.UI:CreateToggle(tab, "MageOfLightAutoHealingCircle", {

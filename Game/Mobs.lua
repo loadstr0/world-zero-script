@@ -646,6 +646,7 @@ return function(ctx)
 			Count = 0,
 			BossCount = 0,
 			RangedCount = 0,
+			ReachableRangedCount = 0,
 			AttackingCount = 0,
 			Nearest = nil,
 			NearestDistance = math.huge,
@@ -682,6 +683,17 @@ return function(ctx)
 
 				if descriptor.IsRangedThreat then
 					state.RangedCount = state.RangedCount + 1
+
+					if
+						(tonumber(descriptor.Distance) or math.huge)
+						<= math.max(
+							8,
+							(tonumber(descriptor.RangedThreatScore) or 0) + 4
+						)
+					then
+						state.ReachableRangedCount =
+							state.ReachableRangedCount + 1
+					end
 				end
 
 				if type(descriptor.CurrentAttack) == "string" and descriptor.CurrentAttack ~= "" then

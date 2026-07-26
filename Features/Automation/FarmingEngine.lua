@@ -615,6 +615,7 @@ return function()
 		local root = runtime.Game.GetRootPart()
 		local heightOffset = tonumber(runtime.State:Get("Farming.TargetHeightOffset", 0)) or 0
 		local finalMovementOverrides = {}
+		local currentClass = runtime.ClassRegistry.GetCurrentClass()
 
 		for key, value in pairs(movementOverrides or {}) do
 			finalMovementOverrides[key] = value
@@ -630,6 +631,23 @@ return function()
 		then
 			local orbitRadius = math.max(3, tonumber(runtime.State:Get("Combat.OrbitRadius", 8)) or 8)
 			local orbitHeight = math.max(2, tonumber(runtime.State:Get("Combat.OrbitHeight", 6)) or 6)
+
+			if
+				currentClass == "MageOfLight"
+				and runtime.State:Get("Class.MageOfLight.AerialCombat", true)
+			then
+				orbitRadius = math.min(orbitRadius, 6)
+				orbitHeight = math.max(
+					orbitHeight,
+					tonumber(
+						runtime.State:Get(
+							"Class.MageOfLight.AerialCombatHeight",
+							28
+						)
+					) or 28
+				)
+			end
+
 			local attackRange = tonumber(runtime.State:Get("Farming.AttackRange", 45)) or 45
 			local maximumReach = attackRange
 			local ok, metadata = adapter and type(adapter.Describe) == "function" and pcall(adapter.Describe)
@@ -2424,7 +2442,7 @@ return function()
 				local lightAerialHold = currentClass == "MageOfLight"
 					and useAirRecovery
 					and threat
-					and (tonumber(threat.RangedCount) or 0) <= 0
+					and (tonumber(threat.ReachableRangedCount) or 0) <= 0
 
 				if lightAerialHold then
 					distance = 0
@@ -2527,7 +2545,7 @@ return function()
 				and not (
 					currentClass == "MageOfLight"
 					and threat
-					and (tonumber(threat.RangedCount) or 0) <= 0
+					and (tonumber(threat.ReachableRangedCount) or 0) <= 0
 				)
 				and threat
 				and (
