@@ -128,7 +128,9 @@ return function(ctx)
 			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped"
 			.. " and ("
 			.. string.format("%q", queueCommit)
-			.. " == \"\" or tostring(env.WorldZeroLoadedCommit or \"\") == "
+			.. " == \"\" or string.sub(tostring(env.WorldZeroLoadedCommit or \"\"), 1, #"
+			.. string.format("%q", queueCommit)
+			.. ") == "
 			.. string.format("%q", queueCommit)
 			.. ") then break end"
 			.. "\n  local url = "
@@ -143,7 +145,9 @@ return function(ctx)
 			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped"
 			.. " and ("
 			.. string.format("%q", queueCommit)
-			.. " == \"\" or tostring(env.WorldZeroLoadedCommit or \"\") == "
+			.. " == \"\" or string.sub(tostring(env.WorldZeroLoadedCommit or \"\"), 1, #"
+			.. string.format("%q", queueCommit)
+			.. ") == "
 			.. string.format("%q", queueCommit)
 			.. ") then break end"
 			.. "\n  task.wait(math.min(1 + attempt * 0.25, 4))"
