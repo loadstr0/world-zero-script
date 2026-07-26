@@ -690,7 +690,11 @@ return function()
 			canKite = false
 			finalMovementOverrides.MovementMode = "Smooth Flight"
 			finalMovementOverrides.FlightGroundSafety = true
-			finalMovementOverrides.FlightCruiseHeight = orbitHeight
+			-- The target already includes the aerial offset. A separate cruise
+			-- ascent adds that height a second time, causing a visible rise and
+			-- fall after every tower portal.
+			finalMovementOverrides.FlightCruiseHeight = 0
+			finalMovementOverrides.FlightRouteThreshold = math.huge
 			finalMovementOverrides.FlightNoclip = true
 			finalMovementOverrides.TargetMoveThreshold = 1
 		elseif heightOffset ~= 0 then
@@ -1363,7 +1367,7 @@ return function()
 		local now = os.clock()
 		local batchKey = table.concat({
 			tostring(dungeonState.MissionID or "mission"),
-			tostring(dungeonState.TowerFloor or dungeonState.ProgressionName or "run"),
+			tostring(dungeonState.TowerFloor or "run"),
 		}, ":")
 
 		if chestState.BatchKey ~= batchKey then
@@ -1376,19 +1380,10 @@ return function()
 			chestState.ArrivedAt = nil
 		end
 
-		if not chestState.PassChecked then
-			chestState.PassChecked = true
-			chestState.HasExtraChestPass = false
-
-			pcall(function()
-				chestState.HasExtraChestPass = game:GetService("MarketplaceService"):UserOwnsGamePassAsync(
-					game:GetService("Players").LocalPlayer.UserId,
-					8136250
-				) == true
-			end)
-		end
-
-		local maximumChests = chestState.HasExtraChestPass and 3 or 2
+		-- This account has the normal two-choice reward allowance. Keep the
+		-- automation hard-capped at two so a changing completion/progression
+		-- label can never reset the counter and route to the paid third chest.
+		local maximumChests = 2
 
 		if (tonumber(chestState.OpenedCount) or 0) >= maximumChests then
 			return false, "reward_chest_limit_reached"

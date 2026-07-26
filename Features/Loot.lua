@@ -20,6 +20,7 @@ return function(ctx)
 		runtime.State:Set("Loot.CollectDuringCombat", false)
 		runtime.State:Set("Loot.AfterKillSweep", true)
 		runtime.State:Set("Loot.AfterKillSweepDuration", 2.5)
+		runtime.State:Set("Loot.ExtendedPetPickup", true)
 		runtime.State:Set("Loot.SellingArmed", false)
 		runtime.State:Set("Loot.SmartSellDominatedGear", true)
 		runtime.State:Set("Loot.SmartSellKeepPerCategory", 2)
@@ -34,6 +35,12 @@ return function(ctx)
 		runtime.State:Set("Loot.AutoSellInterval", 5)
 		runtime.State:Set("Loot.AutoSellModifiedDominated", true)
 		runtime.State:Set("Loot.AutoCloseRewardReveal", true)
+
+		local petPickupOk, petPickupError = runtime.DropsAPI.SetExtendedPetPickup(true)
+
+		if not petPickupOk then
+			runtime.Logger.warn("Extended pet coin pickup unavailable:", petPickupError)
+		end
 
 		local lootReceivedController = nil
 
@@ -80,6 +87,24 @@ return function(ctx)
 		end)
 
 		runtime.UI:CreateSection(tab, "Drop collection")
+		runtime.UI:CreateToggle(tab, "LootExtendedPetPickup", {
+			Name = "Pet collects coins at any distance",
+			CurrentValue = true,
+			Callback = function(value)
+				runtime.State:Set("Loot.ExtendedPetPickup", value)
+				local ok, pickupError = runtime.DropsAPI.SetExtendedPetPickup(value)
+
+				if not ok then
+					runtime.UI:Notify(
+						"Pet coin collection",
+						"Could not update the pet pickup range: " .. tostring(pickupError),
+						5,
+						0
+					)
+				end
+			end,
+		})
+
 		runtime.Controls.LootDropsEnabled = runtime.UI:CreateToggle(tab, "LootDropsEnabled", {
 			Name = "Collect dropped items and currency",
 			CurrentValue = false,
@@ -158,7 +183,7 @@ return function(ctx)
 		runtime.UI:CreateParagraph(
 			tab,
 			"Verified collection behavior",
-			"The game creates pickup parts in workspace.Coins and collects them at about four studs. Spawned reward chests open through the game's own proximity check at about ten studs. This feature only walks into those verified ranges; it does not forge reward requests."
+			"The game normally lets the pet search only 50 studs for coins. The unlimited pet option only extends that existing search and lets the pet perform the normal four-stud pickup; the player can keep fighting. Dropped equipment still respects inventory space."
 		)
 
 		runtime.UI:CreateParagraph(

@@ -42,6 +42,7 @@ Built-in probes:
 - `celestial-export` exports only mission 39 and `Shared.Towers` controller sources for local diagnosis.
 - `option-health` audits every major integration and automation engine in one result.
 - `pet-perks` identifies whether the equipped item is a combat pet or an egg, reports its active skill, and lists the live pet/perk modules.
+- `coin-pickup` reports the pet pickup configuration and every live drop's distance, which exposes coins left outside the game's normal 50-stud pet search.
 
 Useful options:
 
