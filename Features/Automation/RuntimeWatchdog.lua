@@ -301,7 +301,7 @@ return function(ctx)
 		status.LastDeathSnapshotAt = now
 		local snapshot = buildSnapshot(runtime, status, getDungeonState(runtime))
 		snapshot.Event = reason
-		snapshot.BeforeRemoval = status.LastSnapshot
+		snapshot.BeforeRemoval = status.LastAliveSnapshot or status.LastSnapshot
 		writeSnapshot(snapshot, DEATH_LOG_FILE)
 	end
 
@@ -366,6 +366,13 @@ return function(ctx)
 				end
 
 				status.LastSnapshot = buildSnapshot(runtime, status, dungeon)
+
+				if
+					(tonumber(status.LastSnapshot.Health) or 0) > 0
+					and status.LastSnapshot.DungeonPhase ~= "Rewards"
+				then
+					status.LastAliveSnapshot = status.LastSnapshot
+				end
 
 				if now - lastLogAt >= LOG_INTERVAL then
 					lastLogAt = now
