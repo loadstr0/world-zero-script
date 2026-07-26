@@ -6,6 +6,7 @@ return function(ctx)
 	local GameContext = ctx:Require("GameContext")
 	local Status = ctx:Require("Status")
 	local RunService = ctx.Services.RunService or game:GetService("RunService")
+	local Workspace = ctx.Services.Workspace or game:GetService("Workspace")
 	local airborneAimSerial = 0
 
 	local SPEED_MULTIPLIERS = {
@@ -161,9 +162,33 @@ return function(ctx)
 			or target:FindFirstChild("HumanoidRootPart")
 	end
 
-	local function isAirborne(humanoid)
-		return humanoid
-			and humanoid.FloorMaterial == Enum.Material.Air
+	local function isAirborne(humanoid, root)
+		if not humanoid or not root then
+			return false
+		end
+
+		if humanoid.FloorMaterial == Enum.Material.Air then
+			return true
+		end
+
+		local character = GameContext.GetCharacter()
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = character and { character } or {}
+		params.IgnoreWater = false
+
+		local raycastOk, ground = pcall(
+			Workspace.Raycast,
+			Workspace,
+			root.Position,
+			Vector3.new(0, -5, 0),
+			params
+		)
+
+		-- CFrame flight can leave FloorMaterial stale for several frames. A
+		-- root with no supporting surface inside normal standing clearance is
+		-- airborne regardless of that cached Humanoid property.
+		return raycastOk and ground == nil
 	end
 
 	function DualWielder.PrepareTargetedSkill(slot, target)
@@ -175,7 +200,7 @@ return function(ctx)
 		local root = GameContext.GetRootPart()
 		local targetPart = getTargetPart(target)
 
-		if not root or not targetPart or not isAirborne(humanoid) then
+		if not root or not targetPart or not isAirborne(humanoid, root) then
 			return false
 		end
 
