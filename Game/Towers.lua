@@ -41,23 +41,48 @@ return function(ctx)
 		return arenas:FindFirstChild("1")
 	end
 
-	local function nearestPart(container)
-		local root = GameContext.GetRootPart()
-		local selected = nil
-		local selectedDistance = math.huge
+	local function getArenaEntry(arena, bossGate, spawn)
+		local bossSpawn = getPart(
+			arena
+				and (
+					arena:FindFirstChild("BossSpawn1")
+						or arena:FindFirstChild("BossSpawn2")
+				)
+		)
 
-		for _, instance in ipairs(container and container:GetDescendants() or {}) do
-			if instance:IsA("BasePart") and instance.CanTouch then
-				local distance = root and (root.Position - instance.Position).Magnitude or 0
-
-				if not selected or distance < selectedDistance then
-					selected = instance
-					selectedDistance = distance
-				end
-			end
+		if bossSpawn then
+			return bossSpawn, bossSpawn.Position
 		end
 
-		return selected, selected and selectedDistance or nil
+		local gateVisual = getPart(
+			bossGate
+				and (
+					bossGate:FindFirstChild("Aurora_Big", true)
+						or bossGate:FindFirstChild("Aurora", true)
+				)
+		)
+		local root = GameContext.GetRootPart()
+		local origin = spawn or root
+
+		if not gateVisual or not origin then
+			return gateVisual, gateVisual and gateVisual.Position or nil
+		end
+
+		-- The Boss_Gate.Interactions.Bounds parts are large rotated collision
+		-- walls, not an arena destination. Continue through the visible gate so
+		-- the server materializes the pending wave, after which mob-first
+		-- targeting takes over.
+		local delta = gateVisual.Position - origin.Position
+		local horizontal = Vector3.new(delta.X, 0, delta.Z)
+
+		if horizontal.Magnitude <= 0.01 then
+			return gateVisual, gateVisual.Position
+		end
+
+		local entryPosition = gateVisual.Position
+			+ horizontal.Unit * 28
+			+ Vector3.new(0, 4, 0)
+		return gateVisual, entryPosition
 	end
 
 	local function portalReady(arena, interaction)
@@ -87,8 +112,12 @@ return function(ctx)
 		local arena = getActiveArena(floor)
 		local spawn = getPart(arena and arena:FindFirstChild("Spawn"))
 		local bossGate = Workspace:FindFirstChild("Boss_Gate")
-		local interactions = bossGate and bossGate:FindFirstChild("Interactions")
-		local entryPart, entryDistance = nearestPart(interactions)
+		local entryPart, entryPosition = getArenaEntry(arena, bossGate, spawn)
+		local root = GameContext.GetRootPart()
+		local entryDistance = root
+				and entryPosition
+				and (root.Position - entryPosition).Magnitude
+			or nil
 		local lobbyTeleport = Workspace:FindFirstChild("LobbyTeleport")
 		local portal = getPart(lobbyTeleport and lobbyTeleport:FindFirstChild("Interaction"))
 		local isPortalReady = portalReady(arena, portal)
@@ -116,7 +145,7 @@ return function(ctx)
 			Arena = arena,
 			ArenaName = arena and arena.Name or nil,
 			EntryTrigger = entryPart,
-			EntryPosition = entryPart and entryPart.Position or nil,
+			EntryPosition = entryPosition,
 			EntryDistance = entryDistance,
 			Portal = portal,
 			PortalPosition = portal and portal.Position or nil,
