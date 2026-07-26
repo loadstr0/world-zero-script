@@ -353,22 +353,34 @@ return function(ctx)
 			"Mission start colliders, traversal triggers, checkpoints, wave gaps, protected objects, mob waves, mission completion, rewards, and return travel are handled as separate dungeon phases. Celestial Tower arena gates and next-floor portals are read from the live floor controller."
 		)
 
+		local lastCutsceneSkip = 0
+		local function skipActiveCutscene()
+			if
+				not runtime.State:Get("Dungeons.AutoSkipCutscenes", true)
+				or not runtime.MissionsAPI.IsCutsceneActive()
+				or os.clock() - lastCutsceneSkip < 0.5
+			then
+				return
+			end
+
+			lastCutsceneSkip = os.clock()
+			local skipped, skipError = runtime.MissionsAPI.SkipCutscene()
+
+			if not skipped then
+				runtime.Logger.warn(
+					"Automatic cutscene skip failed",
+					skipError
+				)
+				return
+			end
+
+			task.wait(0.1)
+			runtime.Actions.ResumeMovement()
+		end
+
 		local cutsceneConnection, cutsceneError =
 			runtime.MissionsAPI.ObserveCutscene(function()
-				if not runtime.State:Get("Dungeons.AutoSkipCutscenes", true) then
-					return
-				end
-
-				task.defer(function()
-					local skipped, skipError = runtime.MissionsAPI.SkipCutscene()
-
-					if not skipped then
-						runtime.Logger.warn(
-							"Automatic cutscene skip failed",
-							skipError
-						)
-					end
-				end)
+				task.defer(skipActiveCutscene)
 			end)
 
 		if cutsceneConnection then
@@ -381,10 +393,9 @@ return function(ctx)
 		end
 
 		task.defer(function()
-			task.wait(1)
-
-			if not runtime.Stopped then
-				runtime.MissionsAPI.RepairCamera()
+			while not runtime.Stopped do
+				skipActiveCutscene()
+				task.wait(0.5)
 			end
 		end)
 

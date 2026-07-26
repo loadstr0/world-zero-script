@@ -344,6 +344,12 @@ return function(ctx)
 
 		ui:LoadConfiguration()
 		local resumedAfterTeleport = restoreTeleportState(runtime, Logger)
+		local queuedBootstrap, queueError = runtime.TeleportAPI.QueueBootstrap()
+
+		if not queuedBootstrap then
+			Logger.warn("Persistent teleport bootstrap unavailable:", queueError)
+		end
+
 		releaseBootSafety(runtime)
 		ui:Notify("World Zero", "Modular interface loaded.", 4, "circle-check")
 		if resumedAfterTeleport then

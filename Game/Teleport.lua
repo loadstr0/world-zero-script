@@ -74,6 +74,11 @@ return function(ctx)
 		})
 		local source = "getgenv().WorldZeroTeleportResume = "
 			.. string.format("%q", encodedResume)
+			.. "\nif not game:IsLoaded() then game.Loaded:Wait() end"
+			.. "\nrepeat task.wait(0.1) until game:GetService(\"Players\").LocalPlayer"
+			.. "\ngetgenv().WorldZeroBase = "
+			.. string.format("%q", bootstrapBase)
+			.. "\ngetgenv().WorldZeroPinLatestCommit = false"
 			.. "\nloadstring(game:HttpGet("
 			.. string.format("%q", bootstrapUrl)
 			.. "))()"

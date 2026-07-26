@@ -133,6 +133,35 @@ return function(ctx)
 		return call("IsBusy")
 	end
 
+	function Actions.ResumeMovement()
+		local module, resolveError = resolve()
+
+		if not module then
+			return false, resolveError
+		end
+
+		local called = false
+
+		for _, methodName in ipairs({
+			"ResumeCharacterMovement",
+			"UnlockMovement",
+		}) do
+			local method = module[methodName]
+
+			if type(method) == "function" then
+				local ok = pcall(method)
+
+				if not ok then
+					ok = pcall(method, module)
+				end
+
+				called = called or ok
+			end
+		end
+
+		return called, called and nil or "client_movement_resume_failed"
+	end
+
 	function Actions.IsMounted()
 		return call("IsMounted")
 	end
@@ -178,6 +207,9 @@ return function(ctx)
 			HasTargeting = type(module.GetNearestTarget) == "function",
 			HasCooldowns = type(module.GetRemainingCooldown) == "function",
 			HasMovement = type(module.Sprint) == "function",
+			CanResumeMovement =
+				type(module.ResumeCharacterMovement) == "function"
+				or type(module.UnlockMovement) == "function",
 		}
 	end
 

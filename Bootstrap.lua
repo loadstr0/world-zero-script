@@ -2,6 +2,59 @@
 -- Public entry point for loadstr0/world-zero-script.
 
 local env = getgenv()
+local bootstrapToken = {}
+env.WorldZeroBootstrapToken = bootstrapToken
+
+-- Collapse concurrent queue/reload executions before either one can create a
+-- window. Teleports can deliver more than one queued bootstrap on some
+-- executors.
+task.wait(0.15)
+
+if env.WorldZeroBootstrapToken ~= bootstrapToken then
+	return
+end
+
+local function destroyStaleRayfields()
+	local roots = {
+		game:GetService("CoreGui"),
+		game:GetService("Players").LocalPlayer
+			and game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui"),
+	}
+	local huiOk, hui = pcall(function()
+		return type(gethui) == "function" and gethui() or nil
+	end)
+
+	if huiOk and hui then
+		table.insert(roots, hui)
+	end
+
+	local seen = {}
+	local stale = {}
+
+	for _, root in ipairs(roots) do
+		if root and not seen[root] then
+			seen[root] = true
+
+			for _, descendant in ipairs(root:GetDescendants()) do
+				if
+					descendant:IsA("ScreenGui")
+					and (
+						descendant.Name == "Rayfield"
+						or descendant.Name == "Rayfield-Old"
+					)
+				then
+					stale[descendant] = true
+				end
+			end
+		end
+	end
+
+	for screen in pairs(stale) do
+		pcall(screen.Destroy, screen)
+	end
+end
+
+destroyStaleRayfields()
 -- Tower enemies can retain targets beyond 125 studs, so the initialization hold
 -- must sit well outside ordinary aggro and projectile ranges.
 local BOOT_SAFETY_HEIGHT = 2500
@@ -204,13 +257,24 @@ local sourceOk, source = pcall(game.HttpGet, game, loaderUrl)
 
 if not sourceOk then
 	abortBootSafety()
+	if env.WorldZeroBootstrapToken == bootstrapToken then
+		env.WorldZeroBootstrapToken = nil
+	end
 	error("[WorldZeroBootstrap] Loader download failed: " .. tostring(source), 0)
+end
+
+if env.WorldZeroBootstrapToken ~= bootstrapToken then
+	abortBootSafety()
+	return
 end
 
 local loader, compileError = loadstring(source)
 
 if not loader then
 	abortBootSafety()
+	if env.WorldZeroBootstrapToken == bootstrapToken then
+		env.WorldZeroBootstrapToken = nil
+	end
 	error("[WorldZeroBootstrap] Loader compilation failed: " .. tostring(compileError), 0)
 end
 
@@ -218,5 +282,12 @@ local loaded, loaderError = pcall(loader)
 
 if not loaded then
 	abortBootSafety()
+	if env.WorldZeroBootstrapToken == bootstrapToken then
+		env.WorldZeroBootstrapToken = nil
+	end
 	error(loaderError, 0)
+end
+
+if env.WorldZeroBootstrapToken == bootstrapToken then
+	env.WorldZeroBootstrapToken = nil
 end

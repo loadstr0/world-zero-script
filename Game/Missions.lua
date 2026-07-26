@@ -510,8 +510,77 @@ return function(ctx)
 		return event.OnClientEvent:Connect(callback)
 	end
 
+	local function cutsceneUiVisible()
+		local player = getPlayer()
+		local playerGui = player and player:FindFirstChildOfClass("PlayerGui")
+		local screen = playerGui and playerGui:FindFirstChild("CutsceneUI")
+
+		if not screen or (screen:IsA("ScreenGui") and not screen.Enabled) then
+			return false
+		end
+
+		for _, descendant in ipairs(screen:GetDescendants()) do
+			if
+				(
+					descendant:IsA("TextButton")
+					or descendant:IsA("TextLabel")
+				)
+				and descendant.Visible
+				and string.find(
+					string.lower(descendant.Text or ""),
+					"skip",
+					1,
+					true
+				)
+			then
+				return true
+			end
+		end
+
+		return false
+	end
+
+	function Missions.IsCutsceneActive()
+		local camera = resolveCamera()
+
+		if camera and type(camera.IsCutscene) == "function" then
+			local ok, active = pcall(camera.IsCutscene, camera)
+
+			if not ok then
+				ok, active = pcall(camera.IsCutscene)
+			end
+
+			if ok and active == true then
+				return true
+			end
+		end
+
+		return cutsceneUiVisible()
+	end
+
+	local function pressCutsceneSkipKey()
+		if type(keypress) == "function" and type(keyrelease) == "function" then
+			local ok, inputError = pcall(function()
+				keypress(0x47)
+				task.wait(0.08)
+				keyrelease(0x47)
+			end)
+			return ok, inputError
+		end
+
+		local ok, inputError = pcall(function()
+			local virtualInput = game:GetService("VirtualInputManager")
+			virtualInput:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+			task.wait(0.08)
+			virtualInput:SendKeyEvent(false, Enum.KeyCode.G, false, game)
+		end)
+		return ok, inputError
+	end
+
 	function Missions.SkipCutscene()
 		local camera, cameraError = resolveCamera()
+		local visiblePrompt = cutsceneUiVisible()
+		local skippedCamera = false
 
 		if
 			camera
@@ -530,8 +599,8 @@ return function(ctx)
 						return false, "camera_cutscene_skip_failed:" .. tostring(skipError)
 					end
 
-					Missions.RepairCamera()
-					return true
+					skippedCamera = true
+					break
 				end
 
 				task.wait(0.05)
@@ -540,7 +609,16 @@ return function(ctx)
 
 		local skipped, skipError = callOptional("SkippedCutscene")
 
-		if skipped == nil and skipError then
+		if visiblePrompt then
+			local inputOk, inputError = pressCutsceneSkipKey()
+
+			if not inputOk and not skippedCamera and skipped == nil then
+				return false,
+					"cutscene_key_skip_failed:" .. tostring(inputError)
+			end
+		end
+
+		if not skippedCamera and skipped == nil and skipError and not visiblePrompt then
 			return false, cameraError or skipError
 		end
 

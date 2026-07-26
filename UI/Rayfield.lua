@@ -13,15 +13,42 @@ return function(ctx)
 
 		pcall(function()
 			local coreGui = game:GetService("CoreGui")
-			local robloxGui = coreGui:FindFirstChild("RobloxGui")
+			local roots = {
+				coreGui,
+				game:GetService("Players").LocalPlayer
+					and game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui"),
+			}
+			local huiOk, hui = pcall(function()
+				return type(gethui) == "function" and gethui() or nil
+			end)
 
-			for _, child in ipairs(robloxGui and robloxGui:GetChildren() or {}) do
-				if
-					child:IsA("ScreenGui")
-					and (child.Name == "Rayfield" or child.Name == "Rayfield-Old")
-				then
-					child:Destroy()
+			if huiOk and hui then
+				table.insert(roots, hui)
+			end
+
+			local seen = {}
+			local stale = {}
+
+			for _, root in ipairs(roots) do
+				if root and not seen[root] then
+					seen[root] = true
+
+					for _, descendant in ipairs(root:GetDescendants()) do
+						if
+							descendant:IsA("ScreenGui")
+								and (
+									descendant.Name == "Rayfield"
+									or descendant.Name == "Rayfield-Old"
+								)
+						then
+							stale[descendant] = true
+						end
+					end
 				end
+			end
+
+			for screen in pairs(stale) do
+				screen:Destroy()
 			end
 		end)
 	end
