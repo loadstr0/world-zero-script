@@ -152,11 +152,28 @@ return function(ctx)
 					and tonumber(safety.InitialTowerFloor)
 						== tonumber(safety.CurrentTowerFloor)
 				then
-					-- The server-spawned position captured before the boot hold
-					-- is authoritative. A floor number alone cannot distinguish
-					-- the streamed Arena 1/2 room from BossArena.
-					returnPosition = nil
-					returnMode = "original_tower_spawn"
+					local towerSpawn = dungeonState.HoldPosition
+					local originalPosition = safety.OriginalCFrame
+						and safety.OriginalCFrame.Position
+						or nil
+
+					if
+						typeof(towerSpawn) == "Vector3"
+						and (
+							typeof(originalPosition) ~= "Vector3"
+							or (originalPosition - towerSpawn).Magnitude > 350
+						)
+					then
+						-- A freshly joined tower can expose floor 50 while the
+						-- character is still in Studio_Spawn_Room or a stale
+						-- streamed room. The active arena's replicated Spawn is
+						-- stronger evidence than that temporary boot position.
+						returnPosition = towerSpawn
+						returnMode = "authoritative_tower_spawn"
+					else
+						returnPosition = nil
+						returnMode = "original_tower_spawn"
+					end
 				elseif dungeonState.IsCelestialTower then
 					returnPosition = dungeonState.HoldPosition
 						or dungeonState.ProgressionPosition
@@ -269,6 +286,7 @@ return function(ctx)
 			FarmingEngine = ctx:Require("FarmingEngine"),
 			GearEngine = ctx:Require("GearEngine"),
 			InventoryEngine = ctx:Require("InventoryEngine"),
+			Watchdog = ctx:Require("RuntimeWatchdog"),
 			Skills = ctx:Require("Skills"),
 			Assassin = ctx:Require("Assassin"),
 			Archer = ctx:Require("Archer"),
@@ -363,6 +381,7 @@ return function(ctx)
 		end
 
 		releaseBootSafety(runtime)
+		runtime.Watchdog.Start(runtime)
 		ui:Notify("World Zero", "Modular interface loaded.", 4, "circle-check")
 		if resumedAfterTeleport then
 			ui:Notify("Automation resumed", "Farming state was restored after teleport.", 5, 0)
@@ -386,6 +405,7 @@ return function(ctx)
 		pcall(runtime.FarmingEngine.ClearSpeedBoost, runtime)
 		pcall(runtime.GearEngine.Stop, runtime)
 		pcall(runtime.InventoryEngine.Stop, runtime)
+		pcall(runtime.Watchdog.Stop, runtime)
 
 		if runtime.AutomationTargetProvider then
 			pcall(runtime.Actions.ClearTargetProvider, runtime.AutomationTargetProvider)

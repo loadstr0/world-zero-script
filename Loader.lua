@@ -92,6 +92,7 @@ local MODULES = {
 	{ Key = "FarmingEngine", Path = "Features/Automation/FarmingEngine" },
 	{ Key = "GearEngine", Path = "Features/Automation/GearEngine" },
 	{ Key = "InventoryEngine", Path = "Features/Automation/InventoryEngine" },
+	{ Key = "RuntimeWatchdog", Path = "Features/Automation/RuntimeWatchdog" },
 	{ Key = "Farming", Path = "Features/Farming" },
 	{ Key = "Gear", Path = "Features/Gear" },
 	{ Key = "Combat", Path = "Features/Combat" },

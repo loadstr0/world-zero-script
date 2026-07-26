@@ -17,6 +17,12 @@ if runtime then
 	print("gear_enabled", runtime.State:Get("Gear.Enabled", false))
 	print("navigator", runtime.Navigator.GetState())
 	print("automation", runtime.FarmingEngine.GetStatus(runtime))
+	print(
+		"watchdog",
+		runtime.Watchdog
+			and runtime.Watchdog.GetStatus(runtime)
+			or nil
+	)
 	print("dungeon", runtime.DungeonsAPI and runtime.DungeonsAPI.Describe() or nil)
 	print("teleport_resume", runtime.TeleportResume)
 end

@@ -5,6 +5,47 @@ return function(ctx)
 	local Logger = ctx:Require("Logger")
 	local Executor = ctx:Require("Executor")
 
+	local function findRayfieldScreens()
+		local screens = {}
+		local roots = {
+			game:GetService("CoreGui"),
+			game:GetService("Players").LocalPlayer
+				and game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui"),
+		}
+		local huiOk, hui = pcall(function()
+			return type(gethui) == "function" and gethui() or nil
+		end)
+
+		if huiOk and hui then
+			table.insert(roots, hui)
+		end
+
+		local seenRoots = {}
+		local seenScreens = {}
+
+		for _, root in ipairs(roots) do
+			if root and not seenRoots[root] then
+				seenRoots[root] = true
+
+				for _, descendant in ipairs(root:GetDescendants()) do
+					if
+						descendant:IsA("ScreenGui")
+						and (
+							descendant.Name == "Rayfield"
+							or descendant.Name == "Rayfield-Old"
+						)
+						and not seenScreens[descendant]
+					then
+						seenScreens[descendant] = true
+						table.insert(screens, descendant)
+					end
+				end
+			end
+		end
+
+		return screens
+	end
+
 	local function destroyStaleRayfieldWindows(config)
 		if Executor.Has("SetThreadIdentity") then
 			local runtimeConfig = config.Runtime or {}
@@ -107,14 +148,41 @@ return function(ctx)
 			},
 			KeySystem = false,
 		})
+		local screens = findRayfieldScreens()
+		local screenGui = nil
+
+		for index = #screens, 1, -1 do
+			if screens[index].Name == "Rayfield" then
+				screenGui = screens[index]
+				break
+			end
+		end
 
 		return setmetatable({
 			Library = Rayfield,
 			Window = Window,
+			ScreenGui = screenGui,
 			Config = config,
 			Tabs = {},
 			IdentityWarningShown = false,
 		}, RayfieldUI)
+	end
+
+	function RayfieldUI:GetRootGui()
+		if self.ScreenGui and self.ScreenGui.Parent then
+			return self.ScreenGui
+		end
+
+		local screens = findRayfieldScreens()
+
+		for index = #screens, 1, -1 do
+			if screens[index].Name == "Rayfield" then
+				self.ScreenGui = screens[index]
+				return self.ScreenGui
+			end
+		end
+
+		return nil
 	end
 
 	function RayfieldUI:CreateTab(key, title, icon)
