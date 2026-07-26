@@ -40,16 +40,20 @@ return function(ctx)
 		end
 
 		local currentJobId = tostring(game.JobId or "")
+		local loadedCommit = env.WorldZeroLoadedCommit
 
 		-- The queued script re-queues itself as soon as the destination starts.
 		-- Avoid adding a second copy later in the same server, since some
 		-- executors append queue entries instead of replacing them.
-		if currentJobId ~= "" and env.WorldZeroTeleportQueueJobId == currentJobId then
+		if
+			currentJobId ~= ""
+			and env.WorldZeroTeleportQueueJobId == currentJobId
+			and tostring(env.WorldZeroTeleportQueueCommit or "") == tostring(loadedCommit or "")
+		then
 			return true
 		end
 
 		local bootstrapBase = ctx.Base
-		local loadedCommit = env.WorldZeroLoadedCommit
 
 		if
 			type(loadedCommit) == "string"
@@ -81,7 +85,16 @@ return function(ctx)
 			QueuedAt = os.time(),
 			State = resumeState,
 		})
+		local queueVersion = os.time() * 100000 + math.random(10000, 99999)
+		local queueCommit = tostring(loadedCommit or "")
 		local body = "local env = getgenv()"
+			.. "\nlocal candidateVersion = "
+			.. tostring(queueVersion)
+			.. "\nlocal currentVersion = tonumber(env.WorldZeroTeleportQueueVersion) or 0"
+			.. "\nif currentVersion > candidateVersion then return end"
+			.. "\nenv.WorldZeroTeleportQueueVersion = candidateVersion"
+			.. "\nenv.WorldZeroTeleportQueueCommit = "
+			.. string.format("%q", queueCommit)
 			.. "\nenv.WorldZeroTeleportResume = "
 			.. string.format("%q", encodedResume)
 			.. "\nenv.WorldZeroBase = "
@@ -90,17 +103,29 @@ return function(ctx)
 			.. "\nlocal jobId = tostring(game.JobId or \"\")"
 			.. "\nlocal queuedSource = \"local body = \" .. string.format(\"%q\", body) .. \"\\n\" .. body"
 			.. "\nlocal queue = queue_on_teleport or (type(syn) == \"table\" and syn.queue_on_teleport)"
-			.. "\nif type(queue) == \"function\" and env.WorldZeroTeleportQueueJobId ~= jobId then"
+			.. "\nlocal queueToken = jobId .. \":\" .. tostring(candidateVersion)"
+			.. "\nif type(queue) == \"function\" and env.WorldZeroTeleportQueueToken ~= queueToken then"
 			.. "\n  local queued = pcall(queue, queuedSource)"
-			.. "\n  if queued then env.WorldZeroTeleportQueueJobId = jobId end"
+			.. "\n  if queued then"
+			.. "\n    env.WorldZeroTeleportQueueToken = queueToken"
+			.. "\n    env.WorldZeroTeleportQueueJobId = jobId"
+			.. "\n  end"
 			.. "\nend"
-			.. "\nif env.WorldZeroTeleportBootJobId == jobId then return end"
+			.. "\nlocal bootToken = jobId .. \":\" .. tostring(candidateVersion)"
+			.. "\nif env.WorldZeroTeleportBootToken == bootToken then return end"
+			.. "\nif (tonumber(env.WorldZeroTeleportBootVersion) or 0) > candidateVersion then return end"
+			.. "\nenv.WorldZeroTeleportBootVersion = candidateVersion"
+			.. "\nenv.WorldZeroTeleportBootToken = bootToken"
 			.. "\nenv.WorldZeroTeleportBootJobId = jobId"
 			.. "\nif not game:IsLoaded() then game.Loaded:Wait() end"
 			.. "\nrepeat task.wait(0.1) until game:GetService(\"Players\").LocalPlayer"
 			.. "\nfor attempt = 1, 30 do"
+			.. "\n  if (tonumber(env.WorldZeroTeleportQueueVersion) or 0) > candidateVersion then return end"
 			.. "\n  local context = env.WorldZeroRuntime or env.WorldZeroContext"
-			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped then break end"
+			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped"
+			.. " and tostring(env.WorldZeroLoadedCommit or \"\") == "
+			.. string.format("%q", queueCommit)
+			.. " then break end"
 			.. "\n  local url = "
 			.. string.format("%q", bootstrapUrl)
 			.. " .. \"&attempt=\" .. tostring(attempt)"
@@ -110,7 +135,10 @@ return function(ctx)
 			.. "\n    if chunk then pcall(chunk) end"
 			.. "\n  end"
 			.. "\n  context = env.WorldZeroRuntime or env.WorldZeroContext"
-			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped then break end"
+			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped"
+			.. " and tostring(env.WorldZeroLoadedCommit or \"\") == "
+			.. string.format("%q", queueCommit)
+			.. " then break end"
 			.. "\n  task.wait(math.min(1 + attempt * 0.25, 4))"
 			.. "\nend"
 		local source = "local body = " .. string.format("%q", body) .. "\n" .. body
@@ -122,6 +150,9 @@ return function(ctx)
 
 		if currentJobId ~= "" then
 			env.WorldZeroTeleportQueueJobId = currentJobId
+			env.WorldZeroTeleportQueueCommit = queueCommit
+			env.WorldZeroTeleportQueueVersion = queueVersion
+			env.WorldZeroTeleportQueueToken = currentJobId .. ":" .. tostring(queueVersion)
 		end
 
 		return true
