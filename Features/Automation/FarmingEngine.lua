@@ -1535,6 +1535,22 @@ return function()
 		end
 
 		if now < (tonumber(state.HoldUntil) or 0) then
+			local survival = Engine.GetSurvivalState(runtime) or {}
+			local healthRatio = math.min(
+				tonumber(survival.HealthRatio) or 1,
+				tonumber(survival.ProtectionRatio) or 1
+			)
+			local retreatThreshold =
+				(tonumber(runtime.State:Get("Farming.RetreatHealthThreshold", 35)) or 35) / 100
+
+			-- A floor can change while the previous recovery is still active.
+			-- Do not freeze a critically low character for the normal visual
+			-- settle window while the next wave is already able to attack.
+			if recoveryStates[runtime] or healthRatio <= retreatThreshold then
+				state.HoldUntil = 0
+				return false
+			end
+
 			local root = runtime.Game.GetRootPart()
 
 			if root then
@@ -2078,6 +2094,22 @@ return function()
 		end
 
 		local recovery = recoveryStates[runtime]
+		local currentTowerFloor = dungeonState
+			and dungeonState.IsCelestialTower
+			and tonumber(dungeonState.TowerFloor)
+			or nil
+
+		if
+			recovery
+			and recovery.TowerFloor
+			and currentTowerFloor
+			and recovery.TowerFloor ~= currentTowerFloor
+		then
+			-- Never fly toward a recovery point in the previous arena after a
+			-- tower portal moves the character thousands of studs away.
+			recoveryStates[runtime] = nil
+			recovery = nil
+		end
 		local resumePercent = math.max(
 			retreatThreshold,
 			tonumber(runtime.State:Get("Farming.RecoveryResumeThreshold", 60)) or 60
@@ -2151,8 +2183,30 @@ return function()
 					RetreatThreshold = retreatThreshold,
 					ResumeThreshold = resumePercent,
 					TimedBoss = timedBoss == true,
+					TowerFloor = currentTowerFloor,
 				}
 				recoveryStates[runtime] = recovery
+			end
+
+			if
+				dungeonState
+				and dungeonState.Phase == "TowerAdvance"
+				and typeof(dungeonState.HoldPosition) == "Vector3"
+				and not recovery.PortalHold
+			then
+				-- Heal at the arena spawn, far from the next-floor portal.
+				-- Otherwise the recovery flight can brush the interaction and
+				-- carry critical health directly into a fresh wave.
+				local holdHeight = runtime.State:Get("Farming.AirRecovery", true)
+						and math.min(
+							35,
+							tonumber(runtime.State:Get("Farming.AirRecoveryHeight", 45)) or 45
+						)
+					or 0
+
+				recovery.Position = dungeonState.HoldPosition + Vector3.new(0, holdHeight, 0)
+				recovery.PortalHold = true
+				runtime.Navigator.Stop()
 			end
 
 			local damage = recentDamage[runtime]
