@@ -41,6 +41,9 @@ return function(ctx)
 
 		local currentJobId = tostring(game.JobId or "")
 		local loadedCommit = env.WorldZeroLoadedCommit
+		local desiredCommit = type(loadedCommit) == "string" and loadedCommit
+			or string.match(tostring(ctx.Base or ""), "/world%-zero%-script/([%da-fA-F]+)/")
+			or ""
 
 		-- The queued script re-queues itself as soon as the destination starts.
 		-- Avoid adding a second copy later in the same server, since some
@@ -48,7 +51,7 @@ return function(ctx)
 		if
 			currentJobId ~= ""
 			and env.WorldZeroTeleportQueueJobId == currentJobId
-			and tostring(env.WorldZeroTeleportQueueCommit or "") == tostring(loadedCommit or "")
+			and tostring(env.WorldZeroTeleportQueueCommit or "") == desiredCommit
 		then
 			return true
 		end
@@ -86,7 +89,7 @@ return function(ctx)
 			State = resumeState,
 		})
 		local queueVersion = os.time() * 100000 + math.random(10000, 99999)
-		local queueCommit = tostring(loadedCommit or "")
+		local queueCommit = desiredCommit
 		local body = "local env = getgenv()"
 			.. "\nlocal candidateVersion = "
 			.. tostring(queueVersion)
@@ -123,9 +126,11 @@ return function(ctx)
 			.. "\n  if (tonumber(env.WorldZeroTeleportQueueVersion) or 0) > candidateVersion then return end"
 			.. "\n  local context = env.WorldZeroRuntime or env.WorldZeroContext"
 			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped"
-			.. " and tostring(env.WorldZeroLoadedCommit or \"\") == "
+			.. " and ("
 			.. string.format("%q", queueCommit)
-			.. " then break end"
+			.. " == \"\" or tostring(env.WorldZeroLoadedCommit or \"\") == "
+			.. string.format("%q", queueCommit)
+			.. ") then break end"
 			.. "\n  local url = "
 			.. string.format("%q", bootstrapUrl)
 			.. " .. \"&attempt=\" .. tostring(attempt)"
@@ -136,9 +141,11 @@ return function(ctx)
 			.. "\n  end"
 			.. "\n  context = env.WorldZeroRuntime or env.WorldZeroContext"
 			.. "\n  if context and context.ActiveRuntime and not context.ActiveRuntime.Stopped"
-			.. " and tostring(env.WorldZeroLoadedCommit or \"\") == "
+			.. " and ("
 			.. string.format("%q", queueCommit)
-			.. " then break end"
+			.. " == \"\" or tostring(env.WorldZeroLoadedCommit or \"\") == "
+			.. string.format("%q", queueCommit)
+			.. ") then break end"
 			.. "\n  task.wait(math.min(1 + attempt * 0.25, 4))"
 			.. "\nend"
 		local source = "local body = " .. string.format("%q", body) .. "\n" .. body
