@@ -200,7 +200,7 @@ return function(ctx)
 
 			local originalAutoRotate = humanoid.AutoRotate
 			local deadline = os.clock() + METADATA.LeapStrikes.ImpactDelay + 0.12
-			local connection
+			local connections = {}
 
 			humanoid.AutoRotate = false
 
@@ -211,10 +211,11 @@ return function(ctx)
 					or not root.Parent
 					or not targetPart.Parent
 				then
-					if connection then
+					for _, connection in ipairs(connections) do
 						connection:Disconnect()
-						connection = nil
 					end
+
+					table.clear(connections)
 
 					if humanoid.Parent then
 						humanoid.AutoRotate = originalAutoRotate
@@ -260,7 +261,18 @@ return function(ctx)
 				end
 			end
 
-			connection = RunService.RenderStepped:Connect(applyDownwardPitch)
+			-- The skill's delayed server-hit callback resumes after Heartbeat,
+			-- while its visual aim can also write during rendering. Cover both
+			-- phases so the sampled LookVector is downward at the authoritative
+			-- hit moment as well as on screen.
+			table.insert(
+				connections,
+				RunService.Heartbeat:Connect(applyDownwardPitch)
+			)
+			table.insert(
+				connections,
+				RunService.RenderStepped:Connect(applyDownwardPitch)
+			)
 			applyDownwardPitch()
 		end)
 
