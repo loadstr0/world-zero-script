@@ -41,8 +41,14 @@ return function(ctx)
 
 		local currentJobId = tostring(game.JobId or "")
 		local loadedCommit = env.WorldZeroLoadedCommit
-		local desiredCommit = type(loadedCommit) == "string" and loadedCommit
-			or string.match(tostring(ctx.Base or ""), "/world%-zero%-script/([%da-fA-F]+)/")
+		local baseCommit =
+			string.match(tostring(ctx.Base or ""), "/world%-zero%-script/([%da-fA-F]+)/")
+		-- ctx.Base identifies the immutable source that produced this runtime.
+		-- The asynchronous update check can change WorldZeroLoadedCommit after
+		-- startup, so preferring that label could queue a different generation
+		-- than the modules that are actually running.
+		local desiredCommit = baseCommit
+			or (type(loadedCommit) == "string" and loadedCommit)
 			or ""
 
 		-- The queued script re-queues itself as soon as the destination starts.
@@ -58,13 +64,9 @@ return function(ctx)
 
 		local bootstrapBase = ctx.Base
 
-		if
-			type(loadedCommit) == "string"
-			and #loadedCommit >= 7
-			and string.match(loadedCommit, "^[%da-fA-F]+$")
-		then
+		if #desiredCommit >= 7 and string.match(desiredCommit, "^[%da-fA-F]+$") then
 			bootstrapBase = "https://raw.githubusercontent.com/loadstr0/world-zero-script/"
-				.. loadedCommit
+				.. desiredCommit
 				.. "/"
 		end
 
