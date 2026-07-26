@@ -57,8 +57,14 @@ return function(ctx)
 	end
 
 	local function getPropertyValue(properties, name)
-		local value = properties and properties:FindFirstChild(name)
-		return value and value.Value or nil
+		if typeof(properties) == "Instance" then
+			local value = properties:FindFirstChild(name)
+			return value and value.Value or nil
+		elseif type(properties) == "table" then
+			return properties[name]
+		end
+
+		return nil
 	end
 
 	local RANGED_NAME_HINTS = {
@@ -69,6 +75,7 @@ return function(ctx)
 		"mage",
 		"ranger",
 		"shooter",
+		"slingshot",
 		"sniper",
 		"turret",
 	}
@@ -211,11 +218,70 @@ return function(ctx)
 		return false
 	end
 
+	local function getDirectHealth(mob)
+		local properties = mob and mob:FindFirstChild("HealthProperties")
+		local currentValue = properties and properties:FindFirstChild("Health")
+		local maximumValue = properties and properties:FindFirstChild("MaxHealth")
+		local barrierValue = properties and properties:FindFirstChild("BarrierHealth")
+		local current = currentValue and tonumber(currentValue.Value)
+		local maximum = maximumValue and tonumber(maximumValue.Value)
+		local barrier = barrierValue and tonumber(barrierValue.Value) or 0
+
+		if not current or not maximum or maximum <= 0 then
+			return nil
+		end
+
+		return {
+			Current = current,
+			Maximum = maximum,
+			Ratio = math.clamp(current / maximum, 0, 1),
+			Barrier = math.max(barrier, 0),
+			ProtectionRatio = math.clamp(
+				(current + math.max(barrier, 0)) / maximum,
+				0,
+				1
+			),
+			Alive = current > 0,
+		}
+	end
+
+	local function getWorkspaceMobs()
+		local folder = workspace:FindFirstChild("Mobs")
+		return folder and folder:GetChildren() or {}
+	end
+
 	function Mobs.GetAll()
 		local all, allError = call("GetAllMobs")
 
 		if type(all) ~= "table" then
-			return nil, allError or "shared_mobs_invalid_list"
+			all = {}
+		end
+
+		-- Executors can require Shared.Mobs after a wave's MobCreated events
+		-- have already fired. Its private client registry is then empty even
+		-- though the replicated models, properties, colliders, and health are
+		-- fully available in Workspace.Mobs. Merge both sources so late loader
+		-- startup never makes an active wave invisible to automation.
+		local seen = {}
+
+		for _, mob in pairs(all) do
+			seen[mob] = true
+		end
+
+		for _, mob in ipairs(getWorkspaceMobs()) do
+			if
+				not seen[mob]
+				and mob:IsA("Model")
+				and mob:FindFirstChild("MobProperties")
+				and getTargetPart(mob)
+			then
+				seen[mob] = true
+				table.insert(all, mob)
+			end
+		end
+
+		if #all == 0 and allError then
+			return all, allError
 		end
 
 		return all
@@ -230,10 +296,22 @@ return function(ctx)
 			return nil, "mob_unavailable"
 		end
 
+		local properties = mob:FindFirstChild("MobProperties")
+		local mobType = getPropertyValue(properties, "MobType")
+			or getPropertyValue(properties, "Type")
+			or mob.Name
 		local data, dataError = call("GetMobData", mob)
 
 		if type(data) ~= "table" then
-			return nil, dataError or "mob_data_unavailable"
+			data = call("GetMobDataByName", mobType)
+		end
+
+		if type(data) ~= "table" then
+			data = {
+				Type = mobType,
+				Name = mob.Name,
+				Level = getPropertyValue(properties, "Level"),
+			}
 		end
 
 		local part = getTargetPart(mob)
@@ -245,26 +323,43 @@ return function(ctx)
 		local health, healthError = Health.GetState(mob)
 
 		if not health then
-			return nil, healthError
+			health = getDirectHealth(mob)
+		end
+
+		if not health then
+			return nil, healthError or "mob_health_unavailable"
 		end
 
 		local owner = call("GetOwner", mob)
 		local bossTag = call("GetBossTag", mob)
 		local elite = call("IsElite", mob)
 		local hidden = call("IsHidden", mob)
-		local properties = data.Properties or mob:FindFirstChild("MobProperties")
+		properties = data.Properties or properties
 		local position = part.Position
 		local distance = origin and (position - origin).Magnitude or nil
 		local isRangedThreat, rangedThreatScore = getRangedThreat(data, mob)
+
+		if owner == nil then
+			owner = getPropertyValue(properties, "Owner")
+		end
+
+		if bossTag == nil then
+			bossTag = getPropertyValue(properties, "BossTag")
+				or data.BossTag
+		end
 
 		if elite == nil then
 			elite = getPropertyValue(properties, "Elite") == true
 		end
 
+		if hidden == nil then
+			hidden = getPropertyValue(properties, "Hidden") == true
+		end
+
 		return {
 			Model = mob,
 			ModelName = mob.Name,
-			Type = data.Type or getPropertyValue(properties, "MobType") or mob.Name,
+			Type = data.Type or mobType,
 			NameTag = data.NameTag or data.Name or mob.Name,
 			Level = tonumber(data.Level or getPropertyValue(properties, "Level")) or 0,
 			BossTag = bossTag,
@@ -535,6 +630,7 @@ return function(ctx)
 	function Mobs.GetThreatState(radius)
 		local root = GameContext.GetRootPart()
 		local character = GameContext.GetCharacter()
+		local player = GameContext.GetLocalPlayer()
 
 		if not root or not character then
 			return nil, "character_unavailable"
@@ -564,7 +660,11 @@ return function(ctx)
 				Mobs.IsValidTarget(descriptor, {
 					Range = tonumber(radius) or 30,
 					IncludeOwned = false,
-				}) and descriptor.CurrentTarget == character
+				})
+				and (
+					descriptor.CurrentTarget == character
+					or descriptor.CurrentTarget == player
+				)
 			then
 				state.Count = state.Count + 1
 
