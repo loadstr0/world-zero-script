@@ -655,16 +655,23 @@ return function(ctx)
 
 		for _, mob in pairs(all) do
 			local descriptor = getDescriptorSafely(mob, root.Position)
+			local targetsLocalPlayer = descriptor
+				and (
+					descriptor.CurrentTarget == character
+					or descriptor.CurrentTarget == player
+				)
+			local targetUnavailable = descriptor and descriptor.CurrentTarget == nil
 
 			if
 				Mobs.IsValidTarget(descriptor, {
 					Range = tonumber(radius) or 30,
 					IncludeOwned = false,
 				})
-				and (
-					descriptor.CurrentTarget == character
-					or descriptor.CurrentTarget == player
-				)
+				-- Several dungeon mobs replicate CurrentAttack but leave Target
+				-- nil on the client. In a solo run those are still real threats;
+				-- excluding them disabled proactive dodges and made retreat
+				-- direction fall back to an arbitrary point.
+				and (targetsLocalPlayer or targetUnavailable)
 			then
 				state.Count = state.Count + 1
 

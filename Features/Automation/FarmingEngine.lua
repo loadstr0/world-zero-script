@@ -2007,7 +2007,16 @@ return function()
 	end
 
 	local function handleDefense(runtime, statusState, dungeonState)
-		local threat = runtime.MobsAPI.GetThreatState(tonumber(runtime.State:Get("Farming.ThreatRadius", 25)) or 25)
+		local threatRadius = tonumber(runtime.State:Get("Farming.ThreatRadius", 25)) or 25
+
+		-- Blatant dungeon movement can engage ranged enemies before their
+		-- client-side Target field is populated. Scan the full UI-supported
+		-- radius so casts are recognized before the first hit lands.
+		if dungeonState and dungeonState.Active then
+			threatRadius = math.max(threatRadius, 60)
+		end
+
+		local threat = runtime.MobsAPI.GetThreatState(threatRadius)
 		local survival = Engine.GetSurvivalState(runtime)
 		local adapter = runtime.ClassRegistry.GetCurrentAdapter()
 		local recoveringInAir = recoveryStates[runtime] ~= nil
@@ -2036,9 +2045,13 @@ return function()
 				math.max(retreatThreshold, tonumber(runtime.State:Get("Farming.DebuffSafetyThreshold", 45)) or 45)
 		end
 
+		local previousDecision = automationDecisions[runtime]
+		local previousTarget = previousDecision and previousDecision.FarmTarget
+		local hasBossThreat = (threat and (tonumber(threat.BossCount) or 0) > 0)
+			or (type(previousTarget) == "table" and previousTarget.IsBoss == true)
 		local timedBoss = runtime.State:Get("Farming.BossTimerSurvival", true)
 			and threat
-			and (tonumber(threat.BossCount) or 0) > 0
+			and hasBossThreat
 			and dungeonState
 			and dungeonState.Active
 			and tonumber(dungeonState.RemainingTime) ~= nil
