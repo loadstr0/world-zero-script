@@ -147,10 +147,20 @@ return function(ctx)
 			end
 
 			if typeof(returnPosition) ~= "Vector3" then
-				if dungeonState.IsCelestialTower then
-					returnPosition = dungeonState.StartPosition
+				if
+					dungeonState.IsCelestialTower
+					and tonumber(safety.InitialTowerFloor)
+						== tonumber(safety.CurrentTowerFloor)
+				then
+					-- The server-spawned position captured before the boot hold
+					-- is authoritative. A floor number alone cannot distinguish
+					-- the streamed Arena 1/2 room from BossArena.
+					returnPosition = nil
+					returnMode = "original_tower_spawn"
+				elseif dungeonState.IsCelestialTower then
+					returnPosition = dungeonState.HoldPosition
 						or dungeonState.ProgressionPosition
-						or dungeonState.HoldPosition
+						or dungeonState.StartPosition
 				else
 					returnPosition = dungeonState.ProgressionPosition
 						or dungeonState.StartPosition
@@ -159,7 +169,9 @@ return function(ctx)
 				end
 			end
 
-			if typeof(returnPosition) == "Vector3" then
+			if returnMode == "original_tower_spawn" then
+				returnCFrame = safety.OriginalCFrame
+			elseif typeof(returnPosition) == "Vector3" then
 				local rotation = safety.OriginalCFrame and safety.OriginalCFrame.Rotation or CFrame.identity
 				returnCFrame = CFrame.new(returnPosition + Vector3.new(0, 18, 0)) * rotation
 				if returnMode ~= "live_mob_target" then

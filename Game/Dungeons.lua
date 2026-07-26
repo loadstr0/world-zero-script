@@ -329,6 +329,7 @@ return function(ctx)
 			TowerFloor = towerState.Floor,
 			TowerObjective = towerState.Objective,
 			IsCelestialTower = towerState.IsCelestialTower == true,
+			RequiresArenaEntry = towerState.RequiresArenaEntry == true,
 			Objective = objectiveState.Objective,
 			ObjectiveMechanic = objectiveState.Mechanic,
 			ObjectiveTarget = objectiveTarget,

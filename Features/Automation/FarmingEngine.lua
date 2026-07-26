@@ -1648,6 +1648,7 @@ return function()
 		elseif
 			dungeonState.Phase == "TowerWaiting"
 			and dungeonState.IsCelestialTower
+			and dungeonState.RequiresArenaEntry
 			and runtime.State:Get("Dungeons.AutoTowerProgression", true)
 			and dungeonState.StartPosition
 		then
