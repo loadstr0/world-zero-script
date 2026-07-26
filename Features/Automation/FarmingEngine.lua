@@ -2270,6 +2270,66 @@ return function()
 				runtime.Navigator.Stop()
 			end
 
+			if
+				runtime.State:Get("Farming.MobileAirRecovery", true)
+				and threat
+				and (
+					(tonumber(threat.AttackingCount) or 0) > 0
+					or (tonumber(threat.Count) or 0) >= 3
+				)
+				and now - (tonumber(recovery.LastRelocatedAt) or 0) >= 0.9
+			then
+				-- Boss adds can keep applying small hits without producing a
+				-- fresh replicated hit event every frame. Keep the recovery
+				-- path moving laterally instead of reaching one point and
+				-- descending into a predictable hover.
+				local nearestPosition = threat.Nearest
+					and threat.Nearest.Position
+					or (root.Position - root.CFrame.LookVector * 10)
+				local away = root.Position - nearestPosition
+				local flatAway = Vector3.new(away.X, 0, away.Z)
+				local direction = flatAway.Magnitude > 0.01
+						and flatAway.Unit
+					or Vector3.new(0, 0, 1)
+				local side = Vector3.new(-direction.Z, 0, direction.X)
+				local sideSign = ((tonumber(recovery.Relocations) or 0) % 2 == 0) and 1 or -1
+				local evasiveDirection = (direction + side * 0.9 * sideSign).Unit
+				local relocationDistance = math.max(
+					25,
+					math.min(
+						40,
+						tonumber(runtime.State:Get("Farming.RecoveryRelocationDistance", 45)) or 45
+					)
+				)
+				local targetPosition = root.Position + evasiveDirection * relocationDistance
+				local holdPosition = dungeonState and dungeonState.HoldPosition
+
+				if typeof(holdPosition) == "Vector3" then
+					local fromHold = targetPosition - holdPosition
+					local flatFromHold = Vector3.new(fromHold.X, 0, fromHold.Z)
+					local arenaRadius = 140
+
+					if flatFromHold.Magnitude > arenaRadius then
+						local bounded = flatFromHold.Unit * arenaRadius
+						targetPosition = Vector3.new(
+							holdPosition.X + bounded.X,
+							targetPosition.Y,
+							holdPosition.Z + bounded.Z
+						)
+					end
+				end
+
+				recovery.Position = Vector3.new(
+					targetPosition.X,
+					math.max(root.Position.Y, recovery.Position.Y),
+					targetPosition.Z
+				)
+				recovery.LastRelocatedAt = now
+				recovery.Relocations = (tonumber(recovery.Relocations) or 0) + 1
+				recovery.ProactiveEvasion = true
+				runtime.Navigator.Stop()
+			end
+
 			local retreatOptions = getNavigationOptions(runtime)
 			retreatOptions.Owner = "EmergencyRecovery"
 			retreatOptions.StopDistance = 2
