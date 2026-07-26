@@ -33,6 +33,7 @@ return function()
 	local learnedAttackTimings = {}
 	local dungeonChestStates = {}
 	local towerTransitionStates = {}
+	local towerEntryTouchStates = {}
 
 	local SPEED_MULTIPLIER_KEY = "WORLDZERO_AUTOMATION"
 
@@ -1655,8 +1656,34 @@ return function()
 			local entryPosition = hasHoldPosition
 					and (dungeonState.HoldPosition + Vector3.new(0, 3, 0))
 				or dungeonState.StartPosition
+			local fireTouch = runtime.Executor.FireTouchInterest
+			local trigger = dungeonState.StartTrigger
+			local character = runtime.Game.GetCharacter()
+			local touchPart = character
+				and (
+					character:FindFirstChild("Collider")
+					or character:FindFirstChild("HumanoidRootPart")
+					or character.PrimaryPart
+				)
+			local now = os.clock()
 
-			return moveToPoint(runtime, entryPosition, hasHoldPosition and 2 or 0, "TowerEntry", {
+			if
+				type(fireTouch) == "function"
+				and typeof(trigger) == "Instance"
+				and trigger:IsA("BasePart")
+				and typeof(touchPart) == "Instance"
+				and touchPart:IsA("BasePart")
+				and now - (tonumber(towerEntryTouchStates[runtime]) or -math.huge) >= 0.75
+			then
+				towerEntryTouchStates[runtime] = now
+				task.spawn(function()
+					pcall(fireTouch, touchPart, trigger, 0)
+					task.wait(0.1)
+					pcall(fireTouch, touchPart, trigger, 1)
+				end)
+			end
+
+			return moveToPoint(runtime, entryPosition, 0, "TowerEntry", {
 				MovementMode = "Smooth Flight",
 				FlightGroundSafety = false,
 				FlightCruiseHeight = 0,
@@ -2864,6 +2891,7 @@ return function()
 			funnelStates[runtime] = nil
 			dungeonChestStates[runtime] = nil
 			towerTransitionStates[runtime] = nil
+			towerEntryTouchStates[runtime] = nil
 			automationDecisions[runtime] = nil
 
 			if runtime.Stopped then

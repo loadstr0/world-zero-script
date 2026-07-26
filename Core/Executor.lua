@@ -64,6 +64,7 @@ return function()
 	Executor.GetLoadedModules = firstFunction(getloadedmodules)
 	Executor.GetScriptEnvironment = firstFunction(getsenv)
 	Executor.GetGarbageCollection = firstFunction(getgc)
+	Executor.FireTouchInterest = firstFunction(firetouchinterest)
 
 	local initialThreadIdentity = nil
 
@@ -112,6 +113,7 @@ return function()
 			GetLoadedModules = Executor.Has("GetLoadedModules"),
 			GetScriptEnvironment = Executor.Has("GetScriptEnvironment"),
 			GetGarbageCollection = Executor.Has("GetGarbageCollection"),
+			FireTouchInterest = Executor.Has("FireTouchInterest"),
 			ThreadIdentityControl = Executor.Has("SetThreadIdentity"),
 		}
 	end
