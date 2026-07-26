@@ -5,6 +5,8 @@ return function()
 	local movementWarnings = {}
 	local rotationCursors = {}
 	local lastSlotAttempts = {}
+	local activeSlotTasks = {}
+	local activePetTasks = {}
 	local lastDodgeAttempts = {}
 	local dodgeAttackStates = {}
 	local lastDodgedDamage = {}
@@ -760,6 +762,12 @@ return function()
 	end
 
 	local function canAttemptSlot(runtime, adapter, slot, descriptor)
+		local activeTasks = activeSlotTasks[runtime]
+
+		if activeTasks and activeTasks[slot] then
+			return false
+		end
+
 		if slot == "Ultimate" and not runtime.State:Get("Farming.UseUltimate", true) then
 			return false
 		end
@@ -806,14 +814,29 @@ return function()
 		end
 
 		lastSlotAttempts[runtime][slot] = os.clock()
+		local activeTasks = activeSlotTasks[runtime]
 
-		if adapter and type(adapter.Use) == "function" then
-			pcall(adapter.Use, slot)
-		elseif slot == "Primary" and adapter and type(adapter.UsePrimary) == "function" then
-			pcall(adapter.UsePrimary)
-		else
-			pcall(runtime.Actions.UseSkill, slot)
+		if not activeTasks then
+			activeTasks = {}
+			activeSlotTasks[runtime] = activeTasks
 		end
+
+		activeTasks[slot] = true
+		task.spawn(function()
+			if adapter and type(adapter.Use) == "function" then
+				pcall(adapter.Use, slot)
+			elseif slot == "Primary" and adapter and type(adapter.UsePrimary) == "function" then
+				pcall(adapter.UsePrimary)
+			else
+				pcall(runtime.Actions.UseSkill, slot)
+			end
+
+			local currentTasks = activeSlotTasks[runtime]
+
+			if currentTasks then
+				currentTasks[slot] = nil
+			end
+		end)
 
 		return true
 	end
@@ -835,9 +858,14 @@ return function()
 			runtime.State:Get("Farming.AutoPetAbility", true)
 			and runtime.PetsAPI
 			and distance <= petAttackRange
+			and not activePetTasks[runtime]
 		then
-			local ok, used = pcall(runtime.PetsAPI.UseSkill, target)
-			petAttempted = ok and used == true
+			activePetTasks[runtime] = true
+			petAttempted = true
+			task.spawn(function()
+				pcall(runtime.PetsAPI.UseSkill, target)
+				activePetTasks[runtime] = nil
+			end)
 		end
 
 		if distance > attackRange or runtime.Actions.IsBusy() == true then
@@ -2805,6 +2833,8 @@ return function()
 			movementWarnings[runtime] = nil
 			rotationCursors[runtime] = nil
 			lastSlotAttempts[runtime] = nil
+			activeSlotTasks[runtime] = nil
+			activePetTasks[runtime] = nil
 			lastDodgeAttempts[runtime] = nil
 			dodgeAttackStates[runtime] = nil
 			lastDodgedDamage[runtime] = nil
