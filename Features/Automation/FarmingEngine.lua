@@ -1644,13 +1644,23 @@ return function()
 		elseif
 			dungeonState.Phase == "TowerEnter"
 			and runtime.State:Get("Dungeons.AutoTowerProgression", true)
-			and dungeonState.StartPosition
+			and (dungeonState.HoldPosition or dungeonState.StartPosition)
 		then
-			return moveToPoint(runtime, dungeonState.StartPosition, 3, "TowerEntry", {
+			-- The gate API exposes the closest point on the trigger surface.
+			-- Stopping a few studs short of that point can leave the character
+			-- hovering outside the volume forever (observed on floor 70).
+			-- Prefer crossing into the authoritative arena spawn; when it has
+			-- not streamed yet, touch the gate surface with no stop margin.
+			local hasHoldPosition = typeof(dungeonState.HoldPosition) == "Vector3"
+			local entryPosition = hasHoldPosition
+					and (dungeonState.HoldPosition + Vector3.new(0, 3, 0))
+				or dungeonState.StartPosition
+
+			return moveToPoint(runtime, entryPosition, hasHoldPosition and 2 or 0, "TowerEntry", {
 				MovementMode = "Smooth Flight",
 				FlightGroundSafety = false,
 				FlightCruiseHeight = 0,
-				FlightNoclip = false,
+				FlightNoclip = true,
 				FlightRouteThreshold = math.huge,
 				ZeroVelocity = true,
 			})
