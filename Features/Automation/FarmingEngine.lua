@@ -1365,6 +1365,17 @@ return function()
 			return false
 		end
 
+		if
+			runtime.ClassRegistry.GetCurrentClass() == "MageOfLight"
+			and runtime.State:Get("Class.MageOfLight.AerialCombat", true)
+		then
+			-- A ground-level aggro sweep defeats the class's ranged aerial
+			-- advantage and briefly leaves the navigator idle between points.
+			-- The normal map-wide target sweep already reaches every wave.
+			funnelStates[runtime] = nil
+			return false, "mage_aerial_combat_bypasses_funnel"
+		end
+
 		local root = runtime.Game.GetRootPart()
 
 		if not root then
@@ -1738,6 +1749,32 @@ return function()
 	end
 
 	local function routeDungeon(runtime, dungeonState)
+		local function holdCurrentAerialPosition(owner)
+			local root = runtime.Game.GetRootPart()
+
+			if not root then
+				return false, "character_root_unavailable"
+			end
+
+			return moveToPoint(runtime, root.Position, 0, owner, {
+				MovementMode = "Smooth Flight",
+				ZeroVelocity = true,
+				FlightGroundSafety = true,
+				FlightCruiseHeight = tonumber(
+					runtime.State:Get(
+						"Class.MageOfLight.AerialCombatHeight",
+						28
+					)
+				) or 28,
+				FlightNoclip = true,
+				TargetMoveThreshold = 2,
+			})
+		end
+
+		local mageAerialCombat =
+			runtime.ClassRegistry.GetCurrentClass() == "MageOfLight"
+			and runtime.State:Get("Class.MageOfLight.AerialCombat", true)
+
 		local function moveDungeonPoint(position, stopDistance, owner)
 			local root = runtime.Game.GetRootPart()
 			local overrides = root
@@ -1887,16 +1924,30 @@ return function()
 			})
 		elseif
 			dungeonState.Phase == "TowerWaiting"
+			and not mageAerialCombat
 			and runtime.State:Get("Dungeons.HoldDefense", true)
 			and dungeonState.HoldPosition
 		then
 			return moveDungeonPoint(dungeonState.HoldPosition, 8, "TowerWaiting")
 		elseif
 			dungeonState.Phase == "BetweenWaves"
+			and not mageAerialCombat
 			and runtime.State:Get("Dungeons.HoldDefense", true)
 			and dungeonState.HoldPosition
 		then
 			return moveDungeonPoint(dungeonState.HoldPosition, 10, "DungeonDefense")
+		elseif
+			mageAerialCombat
+			and (
+				dungeonState.Phase == "Combat"
+				or dungeonState.Phase == "TowerWaiting"
+				or dungeonState.Phase == "BetweenWaves"
+			)
+		then
+			-- Keep the last safe orbit pinned while the next target is
+			-- replicating. Calling Navigator.Stop here allows gravity to undo
+			-- the aerial stance between waves.
+			return holdCurrentAerialPosition("MageAerialHold")
 		elseif dungeonState.Phase == "BetweenWaves" then
 			runtime.Navigator.Stop()
 			return true, "dungeon_waiting_for_wave"
