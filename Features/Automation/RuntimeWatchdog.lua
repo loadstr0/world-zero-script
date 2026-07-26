@@ -301,6 +301,7 @@ return function(ctx)
 		status.LastDeathSnapshotAt = now
 		local snapshot = buildSnapshot(runtime, status, getDungeonState(runtime))
 		snapshot.Event = reason
+		snapshot.BeforeRemoval = status.LastSnapshot
 		writeSnapshot(snapshot, DEATH_LOG_FILE)
 	end
 
