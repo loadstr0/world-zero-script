@@ -3,14 +3,19 @@ return function(ctx)
 
 	local Logger = ctx:Require("Logger")
 	local GameContext = ctx:Require("GameContext")
+	local Executor = ctx:Require("Executor")
 	local cachedModule = nil
 	local targetProvider = nil
 	local internalTargetOverrideEnabled = false
 	local internalTargetOverrideClass = nil
+	local internalTargetOverrideRange = nil
 	local internalTargetOverrideWrapper = nil
 	local originalInternalGetNearestTarget = nil
+	local hookedInternalGetNearestTarget = nil
+	local internalTargetOverrideUsesExecutorHook = false
 	local forcedInternalTarget = nil
 	local forcedInternalTargetUntil = 0
+	local cachedCombatModule = nil
 
 	local function resolve()
 		if type(cachedModule) == "table" then
@@ -111,10 +116,44 @@ return function(ctx)
 		return (targetPart.Position - sourcePart.Position).Magnitude <= numericRadius
 	end
 
+	local function resolveCombat()
+		if type(cachedCombatModule) == "table" then
+			return cachedCombatModule
+		end
+
+		local moduleScript = GameContext.FindReplicated("Shared.Combat")
+
+		if not moduleScript or not moduleScript:IsA("ModuleScript") then
+			return nil, "shared_combat_not_found"
+		end
+
+		local ok, result = pcall(require, moduleScript)
+
+		if not ok or type(result) ~= "table" then
+			return nil, "shared_combat_require_failed:" .. tostring(result)
+		end
+
+		cachedCombatModule = result
+		return result
+	end
+
 	local function restoreInternalTargetOverride()
 		local module = cachedModule
 
-		if
+		if internalTargetOverrideUsesExecutorHook and hookedInternalGetNearestTarget then
+			if Executor.Has("RestoreFunction") then
+				pcall(Executor.RestoreFunction, hookedInternalGetNearestTarget)
+			elseif
+				Executor.Has("HookFunction")
+				and type(originalInternalGetNearestTarget) == "function"
+			then
+				pcall(
+					Executor.HookFunction,
+					hookedInternalGetNearestTarget,
+					originalInternalGetNearestTarget
+				)
+			end
+		elseif
 			type(module) == "table"
 			and internalTargetOverrideWrapper
 			and module.GetNearestTarget == internalTargetOverrideWrapper
@@ -125,6 +164,8 @@ return function(ctx)
 
 		internalTargetOverrideWrapper = nil
 		originalInternalGetNearestTarget = nil
+		hookedInternalGetNearestTarget = nil
+		internalTargetOverrideUsesExecutorHook = false
 	end
 
 	local function installInternalTargetOverride()
@@ -141,7 +182,10 @@ return function(ctx)
 
 		if
 			internalTargetOverrideWrapper
-			and module.GetNearestTarget == internalTargetOverrideWrapper
+			and (
+				internalTargetOverrideUsesExecutorHook
+				or module.GetNearestTarget == internalTargetOverrideWrapper
+			)
 		then
 			return true
 		end
@@ -154,20 +198,24 @@ return function(ctx)
 			return false, "client_actions_missing_method:GetNearestTarget"
 		end
 
-		originalInternalGetNearestTarget = original
-		internalTargetOverrideWrapper = function(self, radius, character)
+		local fallbackOriginal = original
+		local replacement = function(self, radius, character)
 			local classAllowed = internalTargetOverrideClass == nil
 				or getEquippedClass() == internalTargetOverrideClass
 
 			if classAllowed then
 				local target = nil
+				local allowedRadius = math.max(
+					tonumber(radius) or 0,
+					tonumber(internalTargetOverrideRange) or 0
+				)
 
 				if
 					forcedInternalTarget
 					and os.clock() <= forcedInternalTargetUntil
 					and targetFitsRequestedRange(
 						forcedInternalTarget,
-						radius,
+						allowedRadius,
 						character
 					)
 				then
@@ -182,22 +230,55 @@ return function(ctx)
 				end
 
 				if type(targetProvider) ~= "function" then
-					return original(self, radius, character)
+					return fallbackOriginal(self, radius, character)
 				end
 
 				local ok
 				ok, target = pcall(targetProvider, radius, character)
 
-				if ok and targetFitsRequestedRange(target, radius, character) then
+				if
+					ok
+					and targetFitsRequestedRange(
+						target,
+						allowedRadius,
+						character
+					)
+				then
 					return target
 				elseif not ok then
 					Logger.warn("Internal target provider failed:", target)
 				end
 			end
 
-			return original(self, radius, character)
+			return fallbackOriginal(self, radius, character)
 		end
-		module.GetNearestTarget = internalTargetOverrideWrapper
+
+		if Executor.Has("HookFunction") and Executor.Has("RestoreFunction") then
+			local callback = replacement
+
+			if Executor.Has("NewCClosure") then
+				local wrappedOk, wrapped = pcall(Executor.NewCClosure, replacement)
+
+				if wrappedOk and type(wrapped) == "function" then
+					callback = wrapped
+				end
+			end
+
+			local hookOk, old = pcall(Executor.HookFunction, original, callback)
+
+			if hookOk and type(old) == "function" then
+				fallbackOriginal = old
+				originalInternalGetNearestTarget = old
+				hookedInternalGetNearestTarget = original
+				internalTargetOverrideWrapper = callback
+				internalTargetOverrideUsesExecutorHook = true
+				return true
+			end
+		end
+
+		originalInternalGetNearestTarget = original
+		internalTargetOverrideWrapper = replacement
+		module.GetNearestTarget = replacement
 
 		return true
 	end
@@ -293,10 +374,13 @@ return function(ctx)
 		return true
 	end
 
-	function Actions.SetInternalTargetOverride(enabled, className)
+	function Actions.SetInternalTargetOverride(enabled, className, rangeOverride)
 		internalTargetOverrideEnabled = enabled == true
 		internalTargetOverrideClass = internalTargetOverrideEnabled
 				and (className or internalTargetOverrideClass)
+			or nil
+		internalTargetOverrideRange = internalTargetOverrideEnabled
+				and (tonumber(rangeOverride) or internalTargetOverrideRange)
 			or nil
 
 		if internalTargetOverrideEnabled then
@@ -307,6 +391,57 @@ return function(ctx)
 		forcedInternalTarget = nil
 		forcedInternalTargetUntil = 0
 		return true
+	end
+
+	function Actions.UseSkillWithLineOfSightBypass(skillSlot)
+		local combat, combatError = resolveCombat()
+
+		if not combat then
+			return nil, combatError
+		end
+
+		local canSee = combat.CanSeeWithRay
+
+		if type(canSee) ~= "function" then
+			return Actions.UseSkill(skillSlot)
+		end
+
+		local hookTarget = nil
+		local usedExecutorHook = false
+		local replacement = function()
+			return true
+		end
+
+		if Executor.Has("HookFunction") and Executor.Has("RestoreFunction") then
+			if Executor.Has("NewCClosure") then
+				local wrappedOk, wrapped = pcall(Executor.NewCClosure, replacement)
+
+				if wrappedOk and type(wrapped) == "function" then
+					replacement = wrapped
+				end
+			end
+
+			local hookOk = pcall(Executor.HookFunction, canSee, replacement)
+
+			if hookOk then
+				hookTarget = canSee
+				usedExecutorHook = true
+			end
+		end
+
+		if not usedExecutorHook then
+			combat.CanSeeWithRay = replacement
+		end
+
+		local results = table.pack(Actions.UseSkill(skillSlot))
+
+		if usedExecutorHook then
+			pcall(Executor.RestoreFunction, hookTarget)
+		elseif combat.CanSeeWithRay == replacement then
+			combat.CanSeeWithRay = canSee
+		end
+
+		return table.unpack(results, 1, results.n)
 	end
 
 	function Actions.GetRemainingCooldown(skillSlot)
@@ -396,8 +531,14 @@ return function(ctx)
 			HasCooldowns = type(module.GetRemainingCooldown) == "function",
 			HasMovement = type(module.Sprint) == "function",
 			InternalTargetOverride = internalTargetOverrideWrapper ~= nil
-				and module.GetNearestTarget == internalTargetOverrideWrapper,
+				and (
+					internalTargetOverrideUsesExecutorHook
+					or module.GetNearestTarget == internalTargetOverrideWrapper
+				),
 			InternalTargetOverrideClass = internalTargetOverrideClass,
+			InternalTargetOverrideRange = internalTargetOverrideRange,
+			InternalTargetOverrideUsesExecutorHook =
+				internalTargetOverrideUsesExecutorHook,
 			CanResumeMovement =
 				type(module.ResumeCharacterMovement) == "function"
 				or type(module.UnlockMovement) == "function",

@@ -642,9 +642,9 @@ return function()
 					tonumber(
 						runtime.State:Get(
 							"Class.MageOfLight.AerialCombatHeight",
-							28
+							60
 						)
-					) or 28
+					) or 60
 				)
 			end
 
@@ -652,7 +652,20 @@ return function()
 			local maximumReach = attackRange
 			local ok, metadata = adapter and type(adapter.Describe) == "function" and pcall(adapter.Describe)
 
-			if ok and type(metadata) == "table" and type(metadata.Primary) == "table" then
+			if
+				currentClass == "MageOfLight"
+				and runtime.State:Get("Class.MageOfLight.VerticalTargetBypass", true)
+			then
+				maximumReach = math.max(
+					maximumReach,
+					tonumber(
+						runtime.State:Get(
+							"Class.MageOfLight.ServerSafeRange",
+							90
+						)
+					) or 90
+				)
+			elseif ok and type(metadata) == "table" and type(metadata.Primary) == "table" then
 				maximumReach = math.min(maximumReach, tonumber(metadata.Primary.Range) or maximumReach)
 			end
 
@@ -975,6 +988,21 @@ return function()
 		local attackRange = tonumber(runtime.State:Get("Farming.AttackRange", 45)) or 45
 		local petAttackRange = tonumber(runtime.State:Get("Farming.PetAttackRange", 100)) or 100
 		local petAttempted = false
+
+		if
+			runtime.ClassRegistry.GetCurrentClass() == "MageOfLight"
+			and runtime.State:Get("Class.MageOfLight.VerticalTargetBypass", true)
+		then
+			attackRange = math.max(
+				attackRange,
+				tonumber(
+					runtime.State:Get(
+						"Class.MageOfLight.ServerSafeRange",
+						90
+					)
+				) or 90
+			)
+		end
 
 		if
 			not runtime.State:Get("Farming.AutoAttack", true)
@@ -1767,9 +1795,9 @@ return function()
 				FlightCruiseHeight = tonumber(
 					runtime.State:Get(
 						"Class.MageOfLight.AerialCombatHeight",
-						28
+						60
 					)
-				) or 28,
+				) or 60,
 				FlightNoclip = true,
 				TargetMoveThreshold = 2,
 			})

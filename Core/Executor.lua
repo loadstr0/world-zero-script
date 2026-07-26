@@ -65,6 +65,11 @@ return function()
 	Executor.GetScriptEnvironment = firstFunction(getsenv)
 	Executor.GetGarbageCollection = firstFunction(getgc)
 	Executor.FireTouchInterest = firstFunction(firetouchinterest)
+	Executor.HookFunction = firstFunction(hookfunction)
+	Executor.RestoreFunction = firstFunction(restorefunction)
+	Executor.IsFunctionHooked = firstFunction(isfunctionhooked)
+	Executor.NewCClosure = firstFunction(newcclosure)
+	Executor.SetHiddenProperty = firstFunction(sethiddenproperty)
 
 	local initialThreadIdentity = nil
 
@@ -114,6 +119,10 @@ return function()
 			GetScriptEnvironment = Executor.Has("GetScriptEnvironment"),
 			GetGarbageCollection = Executor.Has("GetGarbageCollection"),
 			FireTouchInterest = Executor.Has("FireTouchInterest"),
+			HookFunction = Executor.Has("HookFunction"),
+			RestoreFunction = Executor.Has("RestoreFunction"),
+			NewCClosure = Executor.Has("NewCClosure"),
+			SetHiddenProperty = Executor.Has("SetHiddenProperty"),
 			ThreadIdentityControl = Executor.Has("SetThreadIdentity"),
 		}
 	end

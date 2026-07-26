@@ -23,7 +23,7 @@ return function(ctx)
 		GearEnabled = "Gear.Enabled",
 	}
 
-	local TELEPORT_STATE_VERSION = 2
+	local TELEPORT_STATE_VERSION = 3
 
 	local function watchTeleportState(runtime)
 		local refreshSerial = 0
@@ -69,6 +69,13 @@ return function(ctx)
 			state["Farming.BossRetreatHealthThreshold"] = 25
 			state["Farming.BossUrgentTimeThreshold"] = 45
 			state["Farming.BossRecoveryResumeThreshold"] = 45
+			payload.Version = TELEPORT_STATE_VERSION
+		end
+
+		if version < 3 then
+			state["Class.MageOfLight.AerialCombatHeight"] = 60
+			state["Class.MageOfLight.ServerSafeRange"] = 90
+			state["Class.MageOfLight.VerticalTargetBypass"] = true
 			payload.Version = TELEPORT_STATE_VERSION
 		end
 
@@ -218,7 +225,23 @@ return function(ctx)
 				returnCFrame = safety.OriginalCFrame
 			elseif typeof(returnPosition) == "Vector3" then
 				local rotation = safety.OriginalCFrame and safety.OriginalCFrame.Rotation or CFrame.identity
-				returnCFrame = CFrame.new(returnPosition + Vector3.new(0, 18, 0)) * rotation
+				local releaseHeight = 18
+
+				if
+					runtime.ClassRegistry.GetCurrentClass() == "MageOfLight"
+					and runtime.State:Get("Class.MageOfLight.AerialCombat", true)
+				then
+					releaseHeight = tonumber(
+						runtime.State:Get(
+							"Class.MageOfLight.AerialCombatHeight",
+							60
+						)
+					) or 60
+				end
+
+				returnCFrame =
+					CFrame.new(returnPosition + Vector3.new(0, releaseHeight, 0))
+					* rotation
 				if returnMode ~= "live_mob_target" then
 					returnMode = dungeonState.IsCelestialTower
 							and "current_tower_entry"
@@ -401,6 +424,39 @@ return function(ctx)
 		end
 
 		ui:LoadConfiguration()
+
+		if
+			runtime.ClassRegistry.GetCurrentClass() == "MageOfLight"
+			and runtime.State:Get("Class.MageOfLight.VerticalTargetBypass", true)
+		then
+			local aerialHeight = math.max(
+				60,
+				tonumber(
+					runtime.State:Get(
+						"Class.MageOfLight.AerialCombatHeight",
+						60
+					)
+				) or 60
+			)
+			local aerialControl =
+				runtime.Controls.MageOfLightAerialCombatHeight
+
+			runtime.State:Set(
+				"Class.MageOfLight.AerialCombatHeight",
+				aerialHeight
+			)
+			runtime.State:Set("Class.MageOfLight.ServerSafeRange", 90)
+			runtime.Actions.SetInternalTargetOverride(
+				true,
+				"MageOfLight",
+				90
+			)
+
+			if aerialControl and type(aerialControl.Set) == "function" then
+				pcall(aerialControl.Set, aerialControl, aerialHeight)
+			end
+		end
+
 		local resumedAfterTeleport = restoreTeleportState(runtime, Logger)
 		local queuedBootstrap, queueError = runtime.TeleportAPI.QueueBootstrap()
 

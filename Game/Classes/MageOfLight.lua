@@ -15,6 +15,7 @@ return function(ctx)
 			Name = "Light Seeker",
 			Range = 45,
 			RequiresLineOfSight = true,
+			ClientLineOfSightBypass = true,
 			ExplosionRadius = 15,
 			MaximumOrbs = 10,
 		},
@@ -175,6 +176,13 @@ return function(ctx)
 
 		if not canUse then
 			return nil, reason
+		end
+
+		if
+			slot == METADATA.Primary.Slot
+			and METADATA.Primary.ClientLineOfSightBypass
+		then
+			return Actions.UseSkillWithLineOfSightBypass(slot)
 		end
 
 		return Actions.UseSkill(slot)

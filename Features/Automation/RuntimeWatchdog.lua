@@ -196,6 +196,49 @@ return function(ctx)
 		end
 	end
 
+	local function repairCamera(runtime, status)
+		local player = Players.LocalPlayer
+		local character = player and player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local camera = workspace.CurrentCamera
+
+		if
+			not humanoid
+			or humanoid.Health <= 0
+			or not camera
+		then
+			return
+		end
+
+		if runtime.MissionsAPI then
+			local activeOk, active = pcall(runtime.MissionsAPI.IsCutsceneActive)
+
+			if activeOk and active == true then
+				return
+			end
+		end
+
+		local subject = camera.CameraSubject
+		local subjectAttached = subject == humanoid
+			or (
+				typeof(subject) == "Instance"
+				and subject:IsDescendantOf(character)
+			)
+
+		if camera.CameraType ~= Enum.CameraType.Custom or not subjectAttached then
+			local repaired = pcall(function()
+				camera.CameraType = Enum.CameraType.Custom
+				camera.CameraSubject = humanoid
+			end)
+
+			if repaired then
+				status.LastRecovery = "camera_reattached"
+				status.CameraRepairCount = (status.CameraRepairCount or 0) + 1
+				status.RecoveryCount = (status.RecoveryCount or 0) + 1
+			end
+		end
+	end
+
 	local function restartAutomation(runtime, status, now)
 		if not runtime.FarmingEngine.IsEnabled(runtime) then
 			status.AutomationMissingSince = nil
@@ -357,6 +400,7 @@ return function(ctx)
 
 				keepSingleRayfield(runtime, status)
 				skipCutscene(runtime, status, now)
+				repairCamera(runtime, status)
 				restartAutomation(runtime, status, now)
 
 				if dungeon and dungeon.IsCelestialTower then
@@ -426,6 +470,7 @@ return function(ctx)
 			LastRecovery = status.LastRecovery,
 			RayfieldCount = status.RayfieldCount,
 			DuplicateRayfieldsRemoved = status.DuplicateRayfieldsRemoved or 0,
+			CameraRepairCount = status.CameraRepairCount or 0,
 			TowerSpawnDistance = status.TowerSpawnDistance,
 			LastSnapshot = status.LastSnapshot,
 		}

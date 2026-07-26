@@ -137,8 +137,9 @@ return function()
 		runtime.State:Set("Class.MageOfLight.AutoAura", false)
 		runtime.State:Set("Class.MageOfLight.AutoUnsheath", true)
 		runtime.State:Set("Class.MageOfLight.AerialCombat", true)
-		runtime.State:Set("Class.MageOfLight.AerialCombatHeight", 28)
+		runtime.State:Set("Class.MageOfLight.AerialCombatHeight", 60)
 		runtime.State:Set("Class.MageOfLight.VerticalTargetBypass", true)
+		runtime.State:Set("Class.MageOfLight.ServerSafeRange", 90)
 		runtime.State:Set("Class.MageOfLight.AutoHealingCircle", true)
 		runtime.State:Set("Class.MageOfLight.HealingThreshold", 75)
 		runtime.State:Set("Class.MageOfLight.AutoBarrier", true)
@@ -193,18 +194,22 @@ return function()
 			end,
 		})
 
-		runtime.UI:CreateSlider(tab, "MageOfLightAerialCombatHeight", {
+		runtime.Controls.MageOfLightAerialCombatHeight = runtime.UI:CreateSlider(tab, "MageOfLightAerialCombatHeight", {
 			Name = "Aerial combat height",
-			Range = { 12, 38 },
+			Range = { 20, 80 },
 			Increment = 1,
 			Suffix = " studs",
-			CurrentValue = 28,
+			CurrentValue = 60,
 			Callback = function(value)
 				runtime.State:Set("Class.MageOfLight.AerialCombatHeight", value)
 			end,
 		})
 
-		runtime.Actions.SetInternalTargetOverride(true, "MageOfLight")
+		runtime.Actions.SetInternalTargetOverride(
+			true,
+			"MageOfLight",
+			runtime.State:Get("Class.MageOfLight.ServerSafeRange", 90)
+		)
 		runtime.Janitor:Add(function()
 			runtime.Actions.SetInternalTargetOverride(false)
 		end)
@@ -214,14 +219,18 @@ return function()
 			CurrentValue = true,
 			Callback = function(value)
 				runtime.State:Set("Class.MageOfLight.VerticalTargetBypass", value)
-				runtime.Actions.SetInternalTargetOverride(value, "MageOfLight")
+				runtime.Actions.SetInternalTargetOverride(
+					value,
+					"MageOfLight",
+					runtime.State:Get("Class.MageOfLight.ServerSafeRange", 90)
+				)
 			end,
 		})
 
 		runtime.UI:CreateParagraph(
 			tab,
 			"Air recovery",
-			"Mage of Light keeps its ranged combat orbit high after healing. Its normal 45-stud selector is only 30 studs tall, so the target override feeds the selected mob into Light Seeker without changing the normal server attack. It rests above attacks that cannot reach the current three-dimensional distance, but resumes evasive flight for reachable projectiles, floor hazards, or confirmed incoming damage."
+			"Mage of Light keeps a 60-stud combat orbit by default. Its client selector stops at 45 studs and is only 30 studs tall, while the server accepts the normal Light Seeker impact from the tested 60-stud position. The reversible executor hook feeds the exact automation target into that normal attack and briefly bypasses only Light Seeker's client-side visibility check."
 		)
 
 		runtime.UI:CreateSection(tab, "Healing and Barrier")
