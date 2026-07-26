@@ -9,6 +9,8 @@ return function(ctx)
 	local internalTargetOverrideClass = nil
 	local internalTargetOverrideWrapper = nil
 	local originalInternalGetNearestTarget = nil
+	local forcedInternalTarget = nil
+	local forcedInternalTargetUntil = 0
 
 	local function resolve()
 		if type(cachedModule) == "table" then
@@ -126,10 +128,7 @@ return function(ctx)
 	end
 
 	local function installInternalTargetOverride()
-		if
-			not internalTargetOverrideEnabled
-			or type(targetProvider) ~= "function"
-		then
+		if not internalTargetOverrideEnabled then
 			restoreInternalTargetOverride()
 			return false, "internal_target_override_inactive"
 		end
@@ -160,8 +159,34 @@ return function(ctx)
 			local classAllowed = internalTargetOverrideClass == nil
 				or getEquippedClass() == internalTargetOverrideClass
 
-			if classAllowed and type(targetProvider) == "function" then
-				local ok, target = pcall(targetProvider, radius, character)
+			if classAllowed then
+				local target = nil
+
+				if
+					forcedInternalTarget
+					and os.clock() <= forcedInternalTargetUntil
+					and targetFitsRequestedRange(
+						forcedInternalTarget,
+						radius,
+						character
+					)
+				then
+					target = forcedInternalTarget
+				elseif os.clock() > forcedInternalTargetUntil then
+					forcedInternalTarget = nil
+					forcedInternalTargetUntil = 0
+				end
+
+				if target then
+					return target
+				end
+
+				if type(targetProvider) ~= "function" then
+					return original(self, radius, character)
+				end
+
+				local ok
+				ok, target = pcall(targetProvider, radius, character)
 
 				if ok and targetFitsRequestedRange(target, radius, character) then
 					return target
@@ -246,6 +271,28 @@ return function(ctx)
 		return false, "target_provider_changed"
 	end
 
+	function Actions.SetInternalTarget(target, duration)
+		if target == nil then
+			forcedInternalTarget = nil
+			forcedInternalTargetUntil = 0
+			return true
+		end
+
+		if typeof(target) ~= "Instance" then
+			return false, "internal_target_must_be_instance"
+		end
+
+		forcedInternalTarget = target
+		forcedInternalTargetUntil = os.clock()
+			+ math.max(0.25, tonumber(duration) or 2)
+
+		if internalTargetOverrideEnabled then
+			installInternalTargetOverride()
+		end
+
+		return true
+	end
+
 	function Actions.SetInternalTargetOverride(enabled, className)
 		internalTargetOverrideEnabled = enabled == true
 		internalTargetOverrideClass = internalTargetOverrideEnabled
@@ -257,6 +304,8 @@ return function(ctx)
 		end
 
 		restoreInternalTargetOverride()
+		forcedInternalTarget = nil
+		forcedInternalTargetUntil = 0
 		return true
 	end
 

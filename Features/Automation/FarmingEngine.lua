@@ -944,6 +944,10 @@ return function()
 
 		activeTasks[slot] = true
 		task.spawn(function()
+			if target then
+				pcall(runtime.Actions.SetInternalTarget, target, 2)
+			end
+
 			if adapter and type(adapter.PrepareTargetedSkill) == "function" then
 				pcall(adapter.PrepareTargetedSkill, slot, target)
 			end
