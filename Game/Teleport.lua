@@ -153,6 +153,14 @@ return function(ctx)
 			.. "\n  task.wait(math.min(1 + attempt * 0.25, 4))"
 			.. "\nend"
 		local source = "local body = " .. string.format("%q", body) .. "\n" .. body
+
+		-- Remove stale self-requeuing payloads from older releases before
+		-- installing the single elected generation. Executors that append
+		-- queue entries would otherwise launch several loaders after a hop.
+		if type(Executor.ClearTeleportQueue) == "function" then
+			pcall(Executor.ClearTeleportQueue)
+		end
+
 		local ok, queueError = pcall(Executor.QueueOnTeleport, source)
 
 		if not ok then

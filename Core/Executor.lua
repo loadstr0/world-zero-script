@@ -50,6 +50,15 @@ return function()
 		queue_on_teleport,
 		synLibrary.queue_on_teleport
 	)
+	Executor.ClearTeleportQueue = firstFunction(
+		clear_teleport_queue,
+		clear_tp_queue,
+		clearqueueonteleport,
+		clearteleportqueue,
+		cleartpqueue,
+		synLibrary.clear_teleport_queue,
+		synLibrary.clearteleportqueue
+	)
 
 	Executor.GetScripts = firstFunction(getscripts)
 	Executor.GetLoadedModules = firstFunction(getloadedmodules)
@@ -98,6 +107,7 @@ return function()
 			WriteFile = Executor.Has("WriteFile"),
 			ListFiles = Executor.Has("ListFiles"),
 			QueueOnTeleport = Executor.Has("QueueOnTeleport"),
+			ClearTeleportQueue = Executor.Has("ClearTeleportQueue"),
 			GetScripts = Executor.Has("GetScripts"),
 			GetLoadedModules = Executor.Has("GetLoadedModules"),
 			GetScriptEnvironment = Executor.Has("GetScriptEnvironment"),
